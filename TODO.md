@@ -86,7 +86,7 @@ All in `public/derive.js`, pure and loaded by both the webapp and `test/derive.t
 
 ## Phase 3: webapp port
 
-- [x] Shell: top bar, Show filter, tabs (Boats, Vectors, TCF, Geo), polling with timeout and backoff, prefs in localStorage.
+- [x] Shell: top bar, Show filter, tabs (Boats, TCF, Vectors, Geo), polling with timeout and backoff, prefs in localStorage.
 - [x] Boats tab: basic list, nemesis toggle, SOG/COG, range, age.
 - [x] Boats tab: sort by Near, Waypoint, VMG, A-Z (us included); strip charts (newest left, x by time, age taper, shared window height per column, value over latest dot). Sign: + = they are doing better than us in every frame (wiki §8).
 - [x] Vectors tab (brief 3.7), auto-fit, selected boat's dashed true velocity shafts, taps hit-tested in code.

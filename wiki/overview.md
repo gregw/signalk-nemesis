@@ -151,7 +151,7 @@ The waypoint must come from a single `waypoint()` seam. The prototype has `waypo
 Plain JS with no framework, built for phones and tablets first.
 
 - **Common bars:** Us selector; Mode (Absolute or Relative) and Up as dropdowns; a Time button that opens a popup with race time (slider on its own line, with ‹ Play ›), Period (0 to 240 min) and Stale after; and a Show filter with the fleet count.
-- **Tabs, in this order:** Boats, Vectors, TCF, Geo. The app opens on Boats.
+- **Tabs, in this order:** Boats, TCF, Vectors, Geo (TCF moved second, decided 2026-10-15). The app opens on Boats.
 - **Boats tab:**
   - Sort by Near, Waypoint (DTG), VMG (fastest toward Up first) or A-Z.
   - Each row has a boat icon (tap to toggle nemesis, highlighted when a nemesis), the name over SOG/COG, and two strip charts: VMG toward Up, and lead toward Up.

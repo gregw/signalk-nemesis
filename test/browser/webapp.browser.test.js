@@ -61,6 +61,10 @@ async function assertLayout(page) {
     assert.ok(m.scrollW <= m.vw, `no horizontal page scroll (${m.scrollW} > ${m.vw})`);
     assert.ok(m.docH <= m.vh + 1, `page itself does not scroll vertically (${m.docH} > ${m.vh})`);
     assert.equal(m.tabs.length, 4);
+    assert.deepEqual(
+        await page.$$eval('#tabbar button', (bs) => bs.map((b) => b.dataset.tab)),
+        ['boats', 'tcf', 'vectors', 'geo']
+    );
     for (const t of m.tabs) {
         assert.ok(t.l >= 0 && t.r <= m.vw, 'tab inside viewport');
         assert.ok(t.h >= 30, `tab tall enough to tap (${t.h}px)`);
