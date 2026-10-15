@@ -11,7 +11,8 @@ Phases follow `wiki/overview.md` section 7. `[x]` = in the skeleton with tests.
 - [x] Playwright + headless Chromium (`npm run test:browser`; first time on a machine: `npx playwright install chromium`). Stand-in server: `node test/sim/dev-server.js [port] [hoursIn]`.
 - [ ] Browser tests in CI or a pre-commit script, so they actually get run.
 - [x] Ran in signalk-server 2.30.0 on Node 22.22.2 (scratch config dir, plugin symlinked into its `node_modules`). Plugin starts, webapp at `/signalk-nemesis/`, API at `/plugins/signalk-nemesis/`, 47 boats ingested from the simulated race, webapp checked in Chromium against it.
-- [ ] README with install, config and API summary. `getOpenApi()` for the REST endpoints.
+- [x] README: deploying to a local server as a dev test (scratch server or existing config dir, by symlink), feeding the simulated race, config and interfaces. Recipe checked on 2.30.0 from an empty config dir.
+- [ ] `getOpenApi()` / openapi.json for the REST endpoints; release notes; install from npm once published.
 
 ## Verify against the server (TODO(verify) in code)
 
