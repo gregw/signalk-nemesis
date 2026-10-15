@@ -299,7 +299,7 @@
             o += `<text x="${W - 4}" y="${H - 5}" text-anchor="end" font-family="${FONT}" font-size="8" fill="#8090a0">${ATTR[ND.prefs.base]}</text>`;
         $('mapoverlay').innerHTML = o;
         $('mapLine').innerHTML =
-            `<b>Geographic</b> &middot; ${view.frame} up` +
+            `<b>Geographic</b> &middot; ${DRAW.esc(view.upName)} up` +
             (view.up == null && view.frame !== 'north' ? ' (unknown: north up)' : '') +
             ` &middot; ${view.mode === 'rel' ? 'fit all' : 'z' + zoom.toFixed(1)}`;
     }

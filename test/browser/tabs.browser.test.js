@@ -22,7 +22,26 @@ let srv;
 test.before(async () => {
     browser = await chromium.launch();
     // One boat entered in advance under another name (AIS name Ambition).
-    srv = await startDevServer({hoursIn: 6, config: {boats: [{mmsi: '500018921', name: 'Nemo'}]}});
+    // Named waypoints: "Mark A" exists, "Gone" is configured but not in the resources.
+    srv = await startDevServer({
+        hoursIn: 6,
+        config: {
+            boats: [{mmsi: '500018921', name: 'Nemo'}],
+            waypointNames: ['Mark A', 'Gone', 'Cape Byron Lighthouse Northern Approach']
+        },
+        resources: {
+            waypoints: {
+                m1: {
+                    name: 'Mark A',
+                    feature: {type: 'Feature', geometry: {type: 'Point', coordinates: [153.2, -32.6]}}
+                },
+                m2: {
+                    name: 'Cape Byron Lighthouse Northern Approach',
+                    feature: {type: 'Feature', geometry: {type: 'Point', coordinates: [153.64, -28.6]}}
+                }
+            }
+        }
+    });
 });
 test.after(async () => {
     await browser?.close();
@@ -317,6 +336,46 @@ test('configured boat: its configured name everywhere, the AIS name in the popup
     await tab(page, 'tcf');
     assert.equal((await page.locator('#tcflist .brow[data-id="500018921"] .bn').textContent()).trim(), 'Nemo');
     await shot(page, 'phone-configured');
+    assert.deepEqual(errors, []);
+    await ctx.close();
+});
+
+test('Up: a named waypoint picked by hand; one no longer found stays picked and shows no waypoint', async () => {
+    const {ctx, page, errors} = await open(PHONE);
+    const opts = await page.$$eval('#upSel option', (os) => os.map((o) => [o.value, o.textContent]));
+    assert.deepEqual(
+        opts.slice(-2).map((o) => o[0]),
+        ['wpt:Mark A', 'wpt:Cape Byron Lighthouse Northern Approach'],
+        'only those found are offered, in configured order'
+    );
+    await page.selectOption('#upSel', 'wpt:Cape Byron Lighthouse Northern Approach');
+    await noPageScroll(page);
+    const up = await page.locator('#upSel').boundingBox();
+    assert.ok(up.x + up.width <= 390 - 16, `long name: Up control inside the bar (right edge ${up.x + up.width})`);
+    await page.selectOption('#upSel', 'wpt:Mark A');
+    await tab(page, 'vectors');
+    assert.match(await page.locator('#modeLine').textContent(), /Absolute · Mark A up$/);
+    await tab(page, 'boats');
+    assert.doesNotMatch(await page.locator('#bhead').textContent(), /no waypoint/);
+    assert.ok((await page.locator('#blist .spk .dot').count()) > 5, 'charts toward Mark A');
+    await tab(page, 'geo');
+    assert.ok(
+        (await page.locator('#mapoverlay text, #mapcontent text', {hasText: 'Mark A'}).count()) > 0,
+        'Mark A on the map'
+    );
+    await shot(page, 'phone-up-mark');
+
+    // Picked on another visit, then removed from the server's waypoints.
+    await page.evaluate(() => {
+        const p = JSON.parse(localStorage.getItem('nd_prefs') || '{}');
+        localStorage.setItem('nd_prefs', JSON.stringify({...p, up: 'wpt:Gone', tab: 'boats'}));
+    });
+    await page.reload();
+    await page.locator('#conn', {hasText: 'live'}).waitFor();
+    await page.waitForTimeout(POLL * 2);
+    assert.equal(await page.locator('#upSel').inputValue(), 'wpt:Gone');
+    assert.equal(await page.locator('#upSel option:checked').textContent(), 'WPT Gone (not found)');
+    assert.match(await page.locator('#bhead').textContent(), /no waypoint/);
     assert.deepEqual(errors, []);
     await ctx.close();
 });

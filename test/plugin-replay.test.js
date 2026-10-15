@@ -171,14 +171,16 @@ test('tracks: window ending at toT, incremental sinceT, own track thinned', asyn
     plugin.stop();
 });
 
-test('config: history in hours, waypoint name defaults to nemesis', () => {
+test('config: history in hours, waypoint names default to [nemesis]', () => {
     const {withDefaults} = require('../index');
     const d = withDefaults({});
     assert.equal(d.historyHours, 120);
     assert.equal(d.recentHours, 6);
-    assert.equal(d.waypointName, 'nemesis');
+    assert.deepEqual(d.waypointNames, ['nemesis']);
     assert.equal(d.waypoint, undefined, 'no fixed waypoint');
-    assert.equal(withDefaults({waypointName: ''}).waypointName, '', 'empty: no fallback');
+    assert.deepEqual(withDefaults({waypointNames: []}).waypointNames, [], 'empty: no fallback');
+    assert.deepEqual(withDefaults({waypointNames: [' A ', '', 'A', 'B', 3]}).waypointNames, ['A', 'B']);
+    assert.deepEqual(withDefaults({waypointName: 'Old'}).waypointNames, ['Old'], 'old single name still works');
     assert.equal(withDefaults({historyHours: 2, recentHours: 6}).recentHours, 2, 'recent capped at history');
 });
 

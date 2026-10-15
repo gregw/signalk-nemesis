@@ -21,6 +21,7 @@ async function replayTo(hoursIn, opts = {}) {
     const sim = simulate(data, {receiverName: 'Kanreki', seed: 11, shiftMs});
     const dataDir = opts.dataDir || fs.mkdtempSync(path.join(os.tmpdir(), 'nemesis-'));
     const app = fakeApp({dataDir});
+    if (opts.resources) Object.assign(app.resources, opts.resources); // e.g. named waypoints
     const plugin = createPlugin(app);
     plugin.registerWithRouter(app.pluginRouter);
     plugin.signalKApiRoutes(app.apiRouter);

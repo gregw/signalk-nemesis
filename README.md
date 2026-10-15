@@ -158,7 +158,7 @@ The first browser run on a machine needs `npm install` in the checkout and
 | `maxRaceHours`             | Ignore a start time older than this                                             | 96             |
 | `waypointOrder`            | Next waypoint: `course,nmea` (Course API first) or `nmea,course`                | `course,nmea`  |
 | `nmeaWaypointStaleSeconds` | Ignore an NMEA next point not updated for this long                             | 30             |
-| `waypointName`             | Fallback waypoint, by name in the waypoint resources; empty for none           | `nemesis`      |
+| `waypointNames`            | Named waypoints (resources): each found can be picked as Up; first found is the fallback | `[nemesis]` |
 
 Boats entered in advance (`boats`) are made nemeses with their TCF when they are added, and
 their TCF is set again when it is changed in the configuration. What was applied is

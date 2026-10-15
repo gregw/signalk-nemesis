@@ -14,7 +14,6 @@
     const $ = (id) => document.getElementById(id);
     const FONT = 'ui-monospace, Menlo, Consolas, monospace';
     const OWN_STEP_MS = 120e3; // our own track is dense; one hull per 2 min is plenty
-    const UP_NAME = {waypoint: 'waypoint', course: 'course', north: 'north', wind: 'wind'};
     let hits = []; // [{id, t, x, y, newest}] in svg coordinates
     let size = {w: 400, h: 400};
 
@@ -59,7 +58,7 @@
         el.setAttribute('viewBox', `0 0 ${BW} ${BH}`);
         hits = [];
         const ref =
-            UP_NAME[view.frame] + ' up' + (view.up == null && view.frame !== 'north' ? ' (unknown: north up)' : '');
+            DRAW.esc(view.upName) + ' up' + (view.up == null && view.frame !== 'north' ? ' (unknown: north up)' : '');
         $('modeLine').innerHTML = `<b>${view.mode === 'rel' ? 'Relative to us' : 'Absolute'}</b> &middot; ${ref}`;
         if (!view.snap) {
             el.innerHTML = '';

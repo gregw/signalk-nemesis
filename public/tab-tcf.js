@@ -100,7 +100,7 @@
 
         const caveat = view.frame === 'waypoint' ? '' : ' (Should is toward the waypoint: compare with Up = Waypoint)';
         $('tcfNote').innerHTML =
-            ` &middot; vs us, toward ${view.frame}${caveat}${reason ? ` &middot; <span class="err">Should: ${reason}</span>` : ''}`;
+            ` &middot; vs us, toward ${DRAW.esc(view.upName)}${caveat}${reason ? ` &middot; <span class="err">Should: ${reason}</span>` : ''}`;
         $('tcfhead').innerHTML =
             `<span class="sp" style="width:10px"></span><span class="th-name"><b>Boat</b></span>` +
             `<span class="th-tcf"><b>TCF</b></span>` +

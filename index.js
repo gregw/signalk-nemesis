@@ -138,13 +138,15 @@ const schema = {
             default: 30,
             minimum: 1
         },
-        waypointName: {
-            type: 'string',
-            title: 'Fallback waypoint name, looked up in the waypoint resources (e.g. one made in Freeboard-SK)',
+        waypointNames: {
+            type: 'array',
+            title: 'Named waypoints, looked up in the waypoint resources (e.g. made in Freeboard-SK)',
             description:
-                'Used when neither the Course API nor NMEA has a next point. Empty: no fallback, and ' +
-                'without a waypoint the waypoint based values (Up = Waypoint, VMC, TCF Should) are not shown.',
-            default: 'nemesis'
+                'Each one found can be picked as Up in the webapp. The first one found is also the ' +
+                'fallback when neither the Course API nor NMEA has a next point; with none, the waypoint ' +
+                'based values (Up = Waypoint, VMC, TCF Should) are not shown.',
+            default: ['nemesis'],
+            items: {type: 'string', title: 'Name'}
         }
     }
 };
@@ -372,6 +374,7 @@ module.exports = function (app) {
                     waypoint,
                     start: s.startTime.get(),
                     names: s.cfg.names,
+                    namedWaypoints: s.waypoints.namedList(),
                     tcfVmgMs: s.cfg.tcfVmgSeconds * 1000,
                     staleMs: s.cfg.staleSeconds * 1000,
                     now: s.clock()
@@ -430,9 +433,22 @@ function withDefaults(options) {
         tcfVmgSeconds: d('tcfVmgSeconds'),
         waypointOrder: o.waypointOrder === 'nmea,course' ? 'nmea,course' : 'course,nmea',
         nmeaWaypointStaleSeconds: d('nmeaWaypointStaleSeconds'),
-        waypointName: typeof o.waypointName === 'string' ? o.waypointName : schema.properties.waypointName.default,
+        waypointNames: waypointNames(o),
         ...configuredBoats(o.boats)
     };
+}
+
+/** Named waypoints, trimmed, empties and repeats dropped. An old single waypointName still works. */
+function waypointNames(o) {
+    let list = schema.properties.waypointNames.default;
+    if (Array.isArray(o.waypointNames)) list = o.waypointNames;
+    else if (typeof o.waypointName === 'string') list = [o.waypointName];
+    const out = [];
+    for (const n of list) {
+        const t = typeof n === 'string' ? n.trim() : '';
+        if (t && !out.includes(t)) out.push(t);
+    }
+    return out;
 }
 
 /**

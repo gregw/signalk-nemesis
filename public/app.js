@@ -131,6 +131,7 @@ const ND = (() => {
             const snap = await fetchJson(API + '/snapshot');
             M.snap = applyPending(snap);
             M.fetchedAt = Date.now();
+            syncUpOptions();
             await fetchTracks();
             lastOkAt = Date.now();
             failures = 0;
@@ -285,10 +286,10 @@ const ND = (() => {
         const now = nowT();
         const live = M.viewT == null;
         const st = staleMs();
-        const wp = s ? s.waypoint : null;
-        const ctx = {frame: prefs.up, wp, us: M.us, staleMs: st, usGapMs: US_GAP_MS};
+        const {frame, wp, upName} = upChoice(s);
+        const ctx = {frame, wp, us: M.us, staleMs: st, usGapMs: US_GAP_MS};
         const usNow = live && s && s.own ? s.own : DERIVE.stateAt(M.us, now, st);
-        const up = DERIVE.upDir(prefs.up, usNow, wp);
+        const up = DERIVE.upDir(frame, usNow, wp);
         const all = [];
         all.push({
             id: OWN_ID,
@@ -335,8 +336,9 @@ const ND = (() => {
             tcfVmgMs: tcfVmgMs(),
             periodMs: periodMs(),
             mode: prefs.mode,
-            frame: prefs.up,
+            frame,
             wp,
+            upName,
             ctx,
             usNow,
             // Up direction now (rad true); null when unknown (no waypoint, no own COG): north up.
@@ -347,6 +349,46 @@ const ND = (() => {
             sel,
             usAt: (t) => DERIVE.stateAt(M.us, t, US_GAP_MS)
         };
+    }
+
+    /*
+     * Up: a frame (waypoint = the plugin's automatic waypoint, course, north), or a named
+     * waypoint picked by hand ('wpt:<name>', per screen), which is the Waypoint frame
+     * toward that mark. A picked mark that has gone from the server gives no waypoint
+     * (shown as such) rather than silently falling back to another mark.
+     */
+    const WPT = 'wpt:';
+    function upChoice(s) {
+        if (prefs.up.startsWith(WPT)) {
+            const name = prefs.up.slice(WPT.length);
+            const wp = (s && (s.namedWaypoints || []).find((w) => w.name === name)) || null;
+            return {frame: 'waypoint', wp, upName: name};
+        }
+        return {frame: prefs.up, wp: s ? s.waypoint : null, upName: prefs.up};
+    }
+
+    // Up options: the fixed ones, then each named waypoint the server found, then a
+    // picked one no longer found (so the choice is visible, not silently changed).
+    let upOptsKey = null;
+    function syncUpOptions() {
+        const el = $('upSel');
+        const names = ((M.snap && M.snap.namedWaypoints) || []).map((w) => w.name);
+        const picked = prefs.up.startsWith(WPT) ? prefs.up.slice(WPT.length) : null;
+        const missing = picked != null && !names.includes(picked) ? picked : null;
+        const key = JSON.stringify([names, missing]);
+        if (key === upOptsKey) return;
+        upOptsKey = key;
+        for (const o of [...el.querySelectorAll('option[data-wpt]')]) o.remove();
+        const add = (name, label) => {
+            const o = document.createElement('option');
+            o.value = WPT + name;
+            o.textContent = label;
+            o.dataset.wpt = '1';
+            el.appendChild(o);
+        };
+        for (const n of names) add(n, 'WPT ' + n);
+        if (missing != null) add(missing, `WPT ${missing} (not found)`);
+        el.value = prefs.up;
     }
 
     // A series cut at time t (history views don't show what came after).
@@ -650,6 +692,7 @@ const ND = (() => {
             if (t && t.dataset.tab !== prefs.tab) setTab(t.dataset.tab);
         });
         bindSelect('modeSel', 'mode', () => tabs.geo && tabs.geo.modeChanged && tabs.geo.modeChanged());
+        syncUpOptions(); // a stored named-waypoint choice survives until the server answers
         bindSelect('upSel', 'up');
         bindSelect('showSel', 'show');
         bindSelect('sortSel', 'sort');

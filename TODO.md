@@ -65,7 +65,7 @@ Implemented in `lib/waypoint.js` and checked on a real 2.30.0 server (NMEA RMB, 
 - [x] Course API via `app.getCourse()` (polled every 2 s), with the active route's points loaded from the route resource.
 - [x] Raw NMEA next point (RMB/BWC/129284 paths), ignoring the Course API's own `courseApi` copies, expiring after `nmeaWaypointStaleSeconds` (default 30).
 - [x] Bearing and distance only: projected from our position at that time (true bearing only).
-- [x] Precedence configurable: `waypointOrder` `course,nmea` (default) or `nmea,course`. Then `waypointName` (resources API, polled every 30 s, default `nemesis`). No fixed lat/lon fallback (removed 2026-10-16): with no waypoint the waypoint based values are not shown.
+- [x] Precedence configurable: `waypointOrder` `course,nmea` (default) or `nmea,course`. Then the first found of `waypointNames` (resources API, polled every 30 s, default `[nemesis]`). Every one found is also offered in the webapp's Up selector as "WPT <name>", picked by hand per screen (decided 2026-10-16 over automatic selection by VMG and distance, which flips and picks the wrong mark on many courses); a picked mark no longer found stays selected and shows no waypoint. No fixed lat/lon fallback (removed 2026-10-16): with no waypoint the waypoint based values are not shown.
 - [x] The Course API keeps an adopted NMEA destination after the instruments stop (seen on 2.30.0). A Course API point with no href and no active route that sits on the last NMEA point now expires with the NMEA.
 - [x] Replay and live feed publish the GC2026 finish as an RMB next point.
 - [ ] Magnetic-only bearing (`bearingMagnetic` plus variation) is not handled.

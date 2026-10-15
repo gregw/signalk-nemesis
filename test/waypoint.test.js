@@ -108,14 +108,19 @@ test('bearing and distance only: projected from our position at that time', () =
     w.stop();
 });
 
-test('named waypoint from the resources API, below Course API', async () => {
-    const {app, w} = setup({waypointName: 'GC Finish'});
+test('named waypoints from the resources API: first found is the fallback, below Course API', async () => {
+    const {app, w} = setup({waypointNames: ['Missing', 'GC Finish', 'Other']});
     app.resources.waypoints = {
         x1: {name: 'Other', feature: {geometry: {type: 'Point', coordinates: [150, -30]}}},
         x2: {name: 'GC Finish', feature: {geometry: {type: 'Point', coordinates: [153.44, -27.96]}}}
     };
     await w._pollNamed();
     assert.deepEqual(w.get(), {lat: -27.96, lon: 153.44, id: 'named:x2', name: 'GC Finish', src: 'named'});
+    assert.deepEqual(
+        w.namedList().map((x) => x.name),
+        ['GC Finish', 'Other'],
+        'all found, in configured order'
+    );
     app.course = {nextPoint: {position: MARK}};
     await w._pollCourse();
     assert.equal(w.get().src, 'course');

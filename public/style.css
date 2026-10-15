@@ -116,6 +116,11 @@ select {
     background: #fff;
     color: var(--ink);
 }
+/* Named waypoints can have long names: keep the Up control from widening the bar. */
+#upSel {
+    max-width: 12em;
+    text-overflow: ellipsis;
+}
 .fleetc {
     font-size: 14px;
     color: var(--steel);
