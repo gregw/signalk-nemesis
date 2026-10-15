@@ -17,7 +17,11 @@ test('snapshot after 6 h of simulated AIS', async () => {
     assert.ok(!body.boats.some((b) => b.id === app.selfId), 'self not listed as competitor');
 
     const calibre = body.boats.find((b) => b.name === 'Calibre 12');
-    assert.ok(calibre, 'Calibre 12 heard');
+    assert.ok(calibre, 'Calibre 12 heard and named');
+    assert.ok(
+        body.boats.every((b) => b.name),
+        'every boat named'
+    );
 
     for (const b of body.boats) {
         assert.equal(b.current, b.ageMs <= body.staleMs, `${b.name} current flag`);

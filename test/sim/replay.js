@@ -25,6 +25,14 @@ async function replayTo(hoursIn, opts = {}) {
     plugin.registerWithRouter(app.router);
     plugin.start(opts.config || {});
 
+    // Static data first, in the N2K PGN 129809 form (path '' with value {name}).
+    for (const [id, name] of sim.names) {
+        app.deliver({
+            context: 'vessels.urn:mrn:imo:mmsi:' + id,
+            updates: [{timestamp: new Date(now).toISOString(), values: [{path: '', value: {name}}]}]
+        });
+    }
+
     // Interleave own samples and competitor reports in time order, up to "now".
     const events = [
         ...sim.own.filter((s) => s.t <= now).map((s) => ({t: s.t, d: toDelta(app.selfContext, s)})),
@@ -33,12 +41,6 @@ async function replayTo(hoursIn, opts = {}) {
             .map((r) => ({t: r.t, d: toDelta('vessels.urn:mrn:imo:mmsi:' + r.boatId, r)}))
     ].sort((a, b) => a.t - b.t);
     for (const e of events) app.deliver(e.d);
-    for (const [id, name] of sim.names) {
-        app.deliver({
-            context: 'vessels.urn:mrn:imo:mmsi:' + id,
-            updates: [{timestamp: new Date(now).toISOString(), values: [{path: 'name', value: name}]}]
-        });
-    }
     await sleep(300); // let the coalescer flush the last report per context
     return {app, plugin, sim, now, dataDir};
 }

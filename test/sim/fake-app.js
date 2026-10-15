@@ -8,6 +8,7 @@
 function fakeApp({dataDir, selfId = 'urn:mrn:imo:mmsi:503999999', selfPaths = {}}) {
     const subs = [];
     const routes = {};
+    const names = new Map(); // context -> name, as the full data model would hold it
     const app = {
         selfId,
         selfContext: 'vessels.' + selfId,
@@ -15,6 +16,11 @@ function fakeApp({dataDir, selfId = 'urn:mrn:imo:mmsi:503999999', selfPaths = {}
         errors: [],
         getDataDirPath: () => dataDir,
         getSelfPath: (p) => selfPaths[p],
+        // Only vessel names are modelled: enough for the AIS adapter's name lookup.
+        getPath: (p) => {
+            const m = /^vessels\.(.+)\.name$/.exec(p);
+            return m ? names.get('vessels.' + m[1]) : undefined;
+        },
         setPluginStatus: (m) => app.statusMessages.push(m),
         error: (m) => app.errors.push(m),
         debug: () => {},
@@ -32,6 +38,8 @@ function fakeApp({dataDir, selfId = 'urn:mrn:imo:mmsi:503999999', selfPaths = {}
             const ctx = delta.context;
             for (const u of delta.updates) {
                 for (const v of u.values) {
+                    if (v.path === 'name' && typeof v.value === 'string') names.set(ctx, v.value);
+                    if (v.path === '' && v.value && typeof v.value.name === 'string') names.set(ctx, v.value.name);
                     const one = {context: ctx, updates: [{...u, values: [v]}]};
                     for (const s of subs) {
                         const ctxOk =

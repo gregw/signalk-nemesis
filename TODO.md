@@ -10,13 +10,13 @@ Phases follow `wiki/overview.md` section 7. `[x]` = in the skeleton with tests.
 - [x] Node 22.22.2 test run: `npm run test:node22` (fetches Node 22.22.2 via npx). Unit and browser suites pass.
 - [x] Playwright + headless Chromium (`npm run test:browser`; first time on a machine: `npx playwright install chromium`). Stand-in server: `node test/sim/dev-server.js [port] [hoursIn]`.
 - [ ] Browser tests in CI or a pre-commit script, so they actually get run.
-- [ ] Install the plugin into a dev signalk-server (via `npm link` from a scratch server dir, never inside `~/.signalk`) and confirm the plugin starts, the webapp mounts at `/signalk-nemesis/` and the API at `/plugins/signalk-nemesis/`.
+- [x] Ran in signalk-server 2.30.0 on Node 22.22.2 (scratch config dir, plugin symlinked into its `node_modules`). Plugin starts, webapp at `/signalk-nemesis/`, API at `/plugins/signalk-nemesis/`, 47 boats ingested from the simulated race, webapp checked in Chromium against it.
 - [ ] README with install, config and API summary. `getOpenApi()` for the REST endpoints.
 
 ## Verify against the server (TODO(verify) in code)
 
-- [ ] Local signalk-server source is 2.18.0; HALPI2 runs 2.30.0. Re-check router mount, webapp mount and subscription delivery on 2.30.
-- [ ] How AIS `name` arrives through the subscription manager: path `name` or path `''` with `{name}`. The adapter handles both; confirm which.
+- [x] Router mount, webapp mount and per-path subscription delivery confirmed on 2.30.0.
+- [x] AIS names: N2K sends path `''` with `{name}` and a subscription to `name` never delivers it (checked on 2.30.0). Names are now read with `app.getPath(<context>.name)`, throttled.
 - [ ] Course next point: v1 `navigation.courseRhumbline.nextPoint.position` (used now) vs v2 `navigation.course.nextPoint`.
 - [ ] Which security permission is enforced on `PUT /plugins/<id>/...` when security is enabled, and how the webapp should handle 401/403.
 - [ ] Whether the subscription manager delivers our own `vessels.self` values when `selfContext` changes (MMSI configured after start).
@@ -38,7 +38,7 @@ Phases follow `wiki/overview.md` section 7. `[x]` = in the skeleton with tests.
 - [ ] Coalescer: report with COG/SOG but no position is dropped. Decide whether to attach it to the previous report instead.
 - [ ] Late or duplicate AIS reports from two receivers (N2K and 0183 both feeding): dedupe by timestamp is in place, but different `$source` timestamps for the same transmission are not.
 - [ ] Clock: plugin uses wall time; the simulator shifts recorded data to wall time. Decide what happens when the server clock is wrong (no GPS time sync on HALPI2 after a brownout).
-- [ ] Simulator CLI that injects deltas into a running server (for end-to-end checks against a real server, not just the fake app).
+- [x] `node test/sim/live-feed.js --url ws://host:port --hours 6 [--live]` feeds the simulated race into a running server over its WebSocket (security off).
 
 ## Race inputs: start time and waypoint
 

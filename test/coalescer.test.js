@@ -88,3 +88,37 @@ test('malformed input never throws', () => {
     fire();
     assert.equal(out.length, 0);
 });
+
+test('AIS adapter looks names up in the data model, throttled', () => {
+    const {AisSourceAdapter} = require('../lib/ais-adapter');
+    let t = 0;
+    let lookups = 0;
+    const model = {};
+    const app = {
+        getPath: (p) => {
+            lookups++;
+            return model[p];
+        },
+        debug: () => {}
+    };
+    const names = [];
+    const a = new AisSourceAdapter(
+        app,
+        () => {},
+        (id, n) => names.push([id, n]),
+        () => t
+    );
+    const ctx = 'vessels.urn:mrn:imo:mmsi:503000001';
+    a._lookupName(ctx, '503000001');
+    assert.deepEqual(names, []);
+    model[ctx + '.name'] = 'Calibre 12';
+    t = 10e3;
+    a._lookupName(ctx, '503000001'); // within retry interval: no lookup
+    assert.equal(lookups, 1);
+    t = 31e3;
+    a._lookupName(ctx, '503000001');
+    assert.deepEqual(names, [['503000001', 'Calibre 12']]);
+    t = 100e3;
+    a._lookupName(ctx, '503000001'); // named: refresh interval is longer
+    assert.equal(lookups, 2);
+});
