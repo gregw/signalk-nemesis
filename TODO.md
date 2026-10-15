@@ -87,7 +87,7 @@ Implemented in `lib/waypoint.js` and checked on a real 2.30.0 server (NMEA RMB, 
 
 - [x] Shell: top bar, Show filter, tabs (Boats, Vectors, TCF, Geo), polling with timeout and backoff, prefs in localStorage.
 - [x] Boats tab: basic list, nemesis toggle, SOG/COG, range, age.
-- [ ] Boats tab: sort by Waypoint and VMG; strip charts (newest left, age taper, shared window height per column, value over latest dot).
+- [ ] Boats tab: sort by Waypoint and VMG; strip charts (newest left, age taper, shared window height per column, value over latest dot). Sign: + = they are doing better than us in every frame (wiki §8); the prototype's Waypoint lead chart is reversed and its North chart is range, don't copy those.
 - [ ] Vectors tab (brief 3.7), auto-fit, selected boat's dashed true velocity shafts.
 - [ ] TCF tab: entry box per boat (don't re-render under focus), Should/Actual/Net sorted by Net.
 - [ ] Geo tab: Web Mercator rotated to Up, White/OSM/Sea basemaps, pan/pinch per the prototype lessons. Tiles need internet: decide on offline behaviour.

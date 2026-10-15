@@ -201,6 +201,7 @@ Plain JS with no framework, built for phones and tablets first.
 - Next waypoint precedence between the Course API and raw NMEA: decided 2026-10-15, configurable (`waypointOrder`), default Course API first.
 - Own state: decided 2026-10-15, both. Continuously for the recent window, and stored with each report.
 - Track history persistence: decided 2026-10-15, append-only journal in the plugin data dir, 5 days by default.
+- Strip chart sign: decided 2026-10-15, positive always means the other boat is doing better than us (ahead, or faster toward Up), so negative is good for us. This applies in every frame and to both columns. The prototype's Waypoint strip chart (`distMetric`) has the sign reversed and its North chart plots range; the port follows 3.3 instead.
 - Which derived values, if any, to publish into the Signal K data model for instrument displays.
 - How to map tracker-feed boat names to MMSIs.
 
