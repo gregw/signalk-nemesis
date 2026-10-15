@@ -81,7 +81,7 @@ test('every tab renders on phone and tablet, without errors or page scroll', asy
         assert.ok((await page.locator('#tcflist .tcfin').count()) > 10, 'TCF boxes');
         assert.ok((await page.locator('#tcflist .spk .dot').count()) > 10, 'Net strip charts');
         assert.match(await page.locator('#startVal').textContent(), /signalk-racer/);
-        assert.match(await page.locator('#courseVal').textContent(), /Course 384\.6 nm from the configured course/);
+        assert.match(await page.locator('#tcfMethod').textContent(), /VMG to the waypoint over 10 min · elapsed 6h0\d/);
         await noPageScroll(page);
         await shot(page, `${name}-tcf`);
         await tab(page, 'geo');

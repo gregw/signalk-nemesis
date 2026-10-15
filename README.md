@@ -32,11 +32,10 @@ npm install signalk-server@2.30.0
 ln -s ~/src/signalk-nemesis ~/sk-dev/config/node_modules/signalk-nemesis
 ```
 
-Enable the plugin before the first start (or do it later in the admin UI, see step 2).
-`courseDistanceNm` is the GC2026 course, for the TCF tab with the simulated race:
+Enable the plugin before the first start (or do it later in the admin UI, see step 2):
 
 ```text
-echo '{"enabled":true,"configuration":{"courseDistanceNm":384.6}}' \
+echo '{"enabled":true,"configuration":{}}' \
   > ~/sk-dev/config/plugin-config-data/signalk-nemesis.json
 ```
 
@@ -137,12 +136,11 @@ The first browser run on a machine needs `npm install` in the checkout and
 | `maxReportsPerBoat`        | Hard cap per boat                                                               | 5000           |
 | `maxBoats`                 | Hard cap on boats tracked                                                       | 500            |
 | `ownSampleSeconds`         | Minimum interval between stored own-boat samples                                | 1              |
+| `tcfVmgSeconds`            | TCF Should: VMG to the waypoint smoothed over this long                         | 600 (10 min)   |
 | `maxRaceHours`             | Ignore a start time older than this                                             | 96             |
 | `waypointOrder`            | Next waypoint: `course,nmea` (Course API first) or `nmea,course`                | `course,nmea`  |
 | `nmeaWaypointStaleSeconds` | Ignore an NMEA next point not updated for this long                             | 30             |
 | `waypointName`             | Fallback waypoint, by name in the waypoint resources                            | (none)         |
-| `startWaypointName`        | Start waypoint, by name, for the TCF course distance                            | (none)         |
-| `courseDistanceNm`         | Course distance for TCF when there is no active route or start waypoint         | 0 (not set)    |
 | `waypoint`                 | Last resort fixed waypoint `{lat, lon}`                                         | (none)         |
 
 ## Interfaces

@@ -6,7 +6,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {NM} = require('./sim/ais-sim');
-const {replayTo, COURSE_NM} = require('./sim/replay');
+const {replayTo} = require('./sim/replay');
 const {PUT_PATHS} = require('../index');
 
 const API = '/signalk/v1/api/nemesis';
@@ -132,10 +132,10 @@ test('track history survives a plugin restart (journal)', async () => {
     plugin2.stop();
 });
 
-test('snapshot carries course distance, racer start and oldest history time', async () => {
+test('snapshot carries the TCF VMG period, racer start and oldest history time', async () => {
     const {app, plugin, now} = await replayTo(6);
     const s = (await app.call('GET', API + '/snapshot')).body;
-    assert.deepEqual(s.course, {totalM: COURSE_NM * NM, afterM: 0, src: 'config'});
+    assert.equal(s.tcfVmgMs, 600e3, 'default 10 min');
     assert.equal(s.start.src, 'racer');
     assert.ok(Math.abs(s.start.t - (now - 6 * 3600e3)) < 1000, 'start 6 h ago');
     assert.ok(s.oldestT <= now - 5 * 3600e3, 'history goes back toward the start');

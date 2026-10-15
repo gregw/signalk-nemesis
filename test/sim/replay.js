@@ -14,8 +14,6 @@ const createPlugin = require('../../index');
 const data = require('../data/gc2026-tracks.json');
 
 const RACE_START = Date.parse(data.race.start);
-// The receiver's distance to go at the start, as the race's course distance (GC2026: 384.6 nm).
-const COURSE_NM = data.boats.find((b) => b.name === 'Kanreki').samples[0][5];
 
 async function replayTo(hoursIn, opts = {}) {
     const now = Date.now();
@@ -26,7 +24,7 @@ async function replayTo(hoursIn, opts = {}) {
     const plugin = createPlugin(app);
     plugin.registerWithRouter(app.pluginRouter);
     plugin.signalKApiRoutes(app.apiRouter);
-    plugin.start(opts.config || {courseDistanceNm: COURSE_NM});
+    plugin.start(opts.config || {});
 
     // Static data first, in the N2K PGN 129809 form (path '' with value {name}).
     for (const [id, name] of sim.names) {
@@ -62,4 +60,4 @@ async function replayTo(hoursIn, opts = {}) {
     return {app, plugin, sim, now, dataDir};
 }
 
-module.exports = {replayTo, COURSE_NM};
+module.exports = {replayTo};

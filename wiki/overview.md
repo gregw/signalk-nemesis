@@ -103,13 +103,13 @@ The waypoint must come from a single `waypoint()` seam. The prototype has `waypo
 
 - Each boat has a TCF (default 1.000), entered by the user and persisted server-side, keyed by MMSI or name.
 - Elapsed time `E` is measured from race start (prototype: the first sample). Corrected time `C = E x TCF`.
-- **Should** (nm the boat must be ahead to be level on corrected time):
-  `Should = (C_boat - C_us) x D / (E x TCF_boat) = D x (1 - TCF_us / TCF_boat)`,
-  where `D` is our distance made good along the course (`DTG_start - DTG_now`).
+- **Should** (nm the boat must be ahead to be level on corrected time, if the race ended at its report; decided 2026-10-15, replacing a distance-from-start form that was too hard on complex courses and mixed many speeds): the time owed over the elapsed time, as a distance at the VMG of the boat that would be trailing at the finish.
+  - It owes us (`TCF_boat > TCF_us`): `dt = E x (TCF_boat / TCF_us - 1)`, `Should = + VMG_us x dt` (it must be ahead).
+  - We owe it (`TCF_boat < TCF_us`): `dt = E x (TCF_us / TCF_boat - 1)`, `Should = - VMG_boat x dt` (it may be behind).
+  - VMG is VMC to the waypoint in use, smoothed over `tcfVmgSeconds` (default 600) at the boat's report time. Unknown or not positive: Should is not shown.
 - **Actual** is the lead toward Up (3.3). **Net = Actual - Should**; positive means they are beating us on handicap. Sort the TCF list by Net.
-- Worked value for tests: with D = 144.6 nm, TCF_us = 1.000 and TCF_boat = 1.100, Should = 13.14 nm.
-- Caveat: Should is along-course progress. It is only strictly comparable with Actual when Up = Waypoint.
-- Open: the source of the course distance when live (route length from the course API vs race configuration).
+- Worked values for tests: E = 6 h, TCF_us = 1.000, TCF_boat = 1.100, our VMG 6 kn: Should = +3.6 nm. TCF_us = 1.100, TCF_boat = 1.000, its VMG 8 kn: Should = -4.8 nm.
+- Caveat: Should is toward the waypoint. It is only strictly comparable with Actual when Up = Waypoint.
 
 ### 3.7 Vector plot
 
@@ -197,7 +197,7 @@ Plain JS with no framework, built for phones and tablets first.
 ## 8. Open decisions (Greg's call)
 
 - Package name: `signalk-nemesis` (decided 2026-10-15; also the plugin id and URL path).
-- Course distance source for the TCF Should calculation when live: decided 2026-10-15. With a Course API active route, route length minus our remaining distance along it; else distance from a named start waypoint to the waypoint minus our DTG; else a configured course distance minus our DTG.
+- TCF Should: decided 2026-10-15 as time owed at the trailing boat's smoothed VMG (3.6). The earlier course-distance form (route, named start waypoint, configured distance) was dropped.
 - Next waypoint precedence between the Course API and raw NMEA: decided 2026-10-15, configurable (`waypointOrder`), default Course API first.
 - Own state: decided 2026-10-15, both. Continuously for the recent window, and stored with each report.
 - Track history persistence: decided 2026-10-15, append-only journal in the plugin data dir, 5 days by default.

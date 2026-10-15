@@ -1,5 +1,5 @@
 'use strict';
-/* global ND, UNITS, GEO, DERIVE, DRAW */
+/* global ND, UNITS, DERIVE, DRAW */
 /*
  * TCF tab (wiki section 3.6): time-on-time handicap against us. A TCF box per boat
  * (saved on the server, PUT setTcf), then Should and Actual in nm at the boat's latest
@@ -7,12 +7,11 @@
  * Boats tab, so a boat whose latest report is a little old still shows its trend.
  * Sorted by the latest Net.
  * Also the race start time (signalk-racer or a manual override, PUT setStartTime) and
- * where the course distance D comes from.
+ * how Should is worked out (time owed, at a smoothed VMG to the waypoint).
  * Inputs are never re-rendered while focused (prototype lesson).
  */
 (() => {
     const $ = (id) => document.getElementById(id);
-    const COURSE_SRC = {route: 'active route', start: 'start waypoint', config: 'configured course'};
     let startMsg = null; // last start-time error, shown until the next change
 
     const nm = (m) => UNITS.nm(m);
@@ -46,19 +45,11 @@
         $('startClear').disabled = !(st && st.src === 'override');
         if (document.activeElement !== $('startIn') && st) $('startIn').value = toLocalInput(st.t);
 
-        const c = view.snap && view.snap.course;
-        let course;
-        if (!c)
-            course =
-                'Course distance: none. Activate a route, or set a start waypoint name or a course distance in the plugin config.';
-        else {
-            const dNow = view.usNow && view.wp ? DERIVE.madeGood(c, GEO.distance(view.usNow, view.wp)) : null;
-            course =
-                `Course ${UNITS.fmt(nm(c.totalM), 1)} nm from the ${COURSE_SRC[c.src] || c.src}` +
-                (c.name ? ` "${DRAW.esc(c.name)}"` : '') +
-                `; made good ${UNITS.fmt(nm(dNow), 1)} nm`;
-        }
-        $('courseVal').innerHTML = course;
+        const min = Math.round(view.tcfVmgMs / 60e3);
+        const em = st ? Math.floor((view.now - st.t) / 60e3) : -1;
+        const elapsed = em >= 0 ? ` &middot; elapsed ${Math.floor(em / 60)}h${String(em % 60).padStart(2, '0')}` : '';
+        $('tcfMethod').innerHTML =
+            `Should: time owed at the trailing boat's VMG to the waypoint over ${min} min${elapsed}`;
     }
 
     function render(view, force) {
@@ -78,11 +69,14 @@
                 s,
                 u: s ? view.usAt(s.t) : null,
                 frame: view.frame,
+                series: b.series,
+                usSeries: us.series,
                 wp: view.wp,
-                course: view.snap.course,
                 startT,
                 tcfUs: us.tcf,
-                tcfBoat: b.tcf
+                tcfBoat: b.tcf,
+                vmgMs: view.tcfVmgMs,
+                maxGapMs: view.staleMs
             });
         const rows = view.visible.map((b) => {
             if (b.isUs) return {b, net: 0, series: []};
@@ -104,7 +98,7 @@
         const fmtNet = (v) => DRAW.signed(v, Math.abs(v) < 10 ? 1 : 0);
         const chipCls = (v) => (v > 0.05 ? 'pos' : v < -0.05 ? 'neg' : '');
 
-        const caveat = view.frame === 'waypoint' ? '' : ' (Should is along the course: compare with Up = Waypoint)';
+        const caveat = view.frame === 'waypoint' ? '' : ' (Should is toward the waypoint: compare with Up = Waypoint)';
         $('tcfNote').innerHTML =
             ` &middot; vs us, toward ${view.frame}${caveat}${reason ? ` &middot; <span class="err">Should: ${reason}</span>` : ''}`;
         $('tcfhead').innerHTML =

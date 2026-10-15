@@ -3,7 +3,6 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const D = require('../public/derive');
 const geo = require('../lib/geo');
-const {courseDistance} = require('../lib/course-distance');
 
 const NM = 1852;
 const KN = NM / 3600;
@@ -17,12 +16,36 @@ const at = (t, lat, lon, cogDeg = 0, sogKn = 6) => ({t, lat, lon, cogRad: cogDeg
 const north = (nm) => (nm * NM) / (geo.EARTH_RADIUS_M * DEG);
 const ctxOf = (frame, us, extra = {}) => ({frame, wp: WP, us, staleMs: 1800e3, usGapMs: 10e3, ...extra});
 
-test('TCF Should: worked value from the brief (D = 144.6 nm, TCF 1.000 vs 1.100)', () => {
-    near(D.should(144.6 * NM, 1.0, 1.1) / NM, 13.145, 0.001, 'Should nm');
-    assert.equal(D.should(144.6 * NM, 1.1, 1.1), 0, 'equal TCF: level');
-    assert.ok(D.should(144.6 * NM, 1.1, 1.0) < 0, 'slower rated boat may be behind');
-    assert.equal(D.should(-5, 1, 1.1), 0, 'no distance made good yet');
-    assert.equal(D.should(null, 1, 1.1), null);
+test('TCF Should: time owed at the trailing boat VMG (worked values)', () => {
+    const E = 6 * 3600e3;
+    // Boat owes us 10%: 36 min after 6 h; we trail, at our 6 kn: it must be 3.6 nm ahead.
+    near(D.should(E, 1.0, 1.1, 6 * KN, 99) / NM, 3.6, 1e-9, 'owes us');
+    // We owe it 10% of our time: 36 min; it trails, at its 8 kn: it may be 4.8 nm behind.
+    near(D.should(E, 1.1, 1.0, 99, 8 * KN) / NM, -4.8, 1e-9, 'we owe it');
+    // Symmetric in the ratio: either way round, 25% of the elapsed time.
+    near(D.should(E, 1.0, 1.25, 6 * KN, null) / NM, 9, 1e-9, '25%');
+    near(D.should(E, 1.25, 1.0, null, 6 * KN) / NM, -9, 1e-9, '25%, we owe it');
+    assert.equal(D.should(E, 1.1, 1.1, null, null), 0, 'equal TCF: level, VMG not needed');
+    assert.equal(D.should(0, 1, 1.1, null, null), 0, 'at the start');
+    assert.equal(D.should(E, 1, 1.1, 0, 8 * KN), null, 'trailing VMG (ours) not positive');
+    assert.equal(D.should(E, 1, 1.1, null, 8 * KN), null, 'our VMG unknown');
+    assert.equal(D.should(E, 1.1, 1, 8 * KN, -1), null, 'trailing VMG (theirs) not positive');
+    assert.equal(D.should(null, 1, 1.1, 6 * KN, 6 * KN), null);
+});
+
+test('vmcOver: smoothed over the window, shorter for a boat first heard recently', () => {
+    // 6 kn due north toward WP, one report a minute for 30 min.
+    const s = [];
+    for (let k = 0; k <= 30; k++) s.push(at(k * 60e3, north((6 * k) / 60), 0));
+    near(D.vmcOver(s, 30 * 60e3, WP, 600e3, 1800e3) / KN, 6, 0.01, '10 min window');
+    // A tack in the last 2 minutes (heading away) barely moves the 10 min value.
+    const t = s.slice(0, 29).concat([at(29 * 60e3, north(2.8), 0), at(30 * 60e3, north(2.7), 0)]);
+    assert.ok(D.vmcOver(t, 30 * 60e3, WP, 600e3, 1800e3) / KN > 3, 'smoothed through the tack');
+    assert.ok(D.vmc(t[29], t[30], WP, 1800e3) < 0, 'while the last interval is negative');
+    near(D.vmcOver(s, 5 * 60e3, WP, 600e3, 1800e3) / KN, 6, 0.01, 'from the first report');
+    assert.equal(D.vmcOver(s, 0, WP, 600e3, 1800e3), null, 'one report: no interval');
+    assert.equal(D.vmcOver(s, 30 * 60e3 + 1801e3, WP, 600e3, 1800e3), null, 'stale at t');
+    assert.equal(D.vmcOver(s, 30 * 60e3, null, 600e3, 1800e3), null, 'no waypoint');
 });
 
 test('upDir per frame', () => {
@@ -93,34 +116,46 @@ test('vector points rotate Up to +y; relative subtracts ours', () => {
     assert.equal(D.vectorPoint(s, null, 'rel', 0), null, 'relative needs our state');
 });
 
-test('TCF row: Should from course distance and our DTG at their report time', () => {
+test('TCF row: Should from elapsed time and the smoothed VMG at their report time', () => {
     const startT = 0;
-    // Course 200 nm long, single leg; we are 55.4 nm from the waypoint, so D = 144.6 nm.
-    const course = {totalM: 200 * NM, afterM: 0};
-    const u = at(3600e3, 1 - north(55.4), 0, 0);
-    const s = at(3600e3, 1 - north(55.4 - 20), 0); // 20 nm ahead toward the waypoint
-    const row = D.tcfRow({s, u, frame: 'waypoint', wp: WP, course, startT, tcfUs: 1, tcfBoat: 1.1});
-    near(row.should / NM, 13.145, 0.01, 'Should');
-    near(row.actual / NM, 20, 0.01, 'Actual');
-    near(row.net / NM, 20 - 13.145, 0.02, 'Net: + beats us');
-    assert.equal(
-        D.tcfRow({s, u, frame: 'waypoint', wp: WP, course, startT: null, tcfUs: 1, tcfBoat: 1}).reason,
-        'no start time'
-    );
-    assert.equal(
-        D.tcfRow({s, u, frame: 'waypoint', wp: WP, course: null, startT, tcfUs: 1, tcfBoat: 1}).reason,
-        'no course distance'
-    );
-    assert.equal(
-        D.tcfRow({s, u, frame: 'waypoint', wp: WP, course, startT: 4e6, tcfUs: 1, tcfBoat: 1}).reason,
-        'before start'
-    );
-    assert.equal(D.tcfRow({s: null, u, frame: 'waypoint', wp: WP, course, startT, tcfUs: 1, tcfBoat: 1}).net, null);
-});
-
-test('madeGood: route legs after the next point count as still to go', () => {
-    near(D.madeGood({totalM: 100, afterM: 30}, 20), 50, 1e-9, 'D');
-    assert.equal(D.madeGood(null, 20), null);
+    const T = 6 * 3600e3;
+    // Both sail north at 6 kn toward WP; one sample a minute over the last 20 min.
+    const track = (aheadNm) => {
+        const r = [];
+        for (let k = 20; k >= 0; k--) r.push(at(T - k * 60e3, north(10 + aheadNm - (6 * k) / 60), 0));
+        return r;
+    };
+    const us = track(0);
+    const series = track(2); // 2 nm ahead
+    const s = series[series.length - 1];
+    const u = us[us.length - 1];
+    const row = (o) =>
+        D.tcfRow({
+            s,
+            u,
+            series,
+            usSeries: us,
+            frame: 'waypoint',
+            wp: WP,
+            startT,
+            tcfUs: 1,
+            tcfBoat: 1.1,
+            vmgMs: 600e3,
+            maxGapMs: 1800e3,
+            ...o
+        });
+    const r = row({});
+    near(r.should / NM, 3.6, 0.01, 'Should: 36 min at our 6 kn');
+    near(r.actual / NM, 2, 0.01, 'Actual');
+    near(r.net / NM, 2 - 3.6, 0.02, 'Net: - it is losing to us on handicap');
+    near(row({tcfUs: 1.1, tcfBoat: 1}).should / NM, -3.6, 0.01, 'we owe it: at its 6 kn');
+    assert.equal(row({startT: null}).reason, 'no start time');
+    assert.equal(row({startT: T + 1}).reason, 'before start');
+    assert.equal(row({wp: null}).reason, 'no waypoint');
+    assert.equal(row({usSeries: [u]}).reason, 'no VMG (ours)');
+    assert.equal(row({tcfUs: 1.1, tcfBoat: 1, series: [s]}).reason, 'no VMG (theirs)');
+    assert.equal(row({tcfBoat: 1, usSeries: []}).should, 0, 'equal TCF needs no VMG');
+    assert.equal(row({s: null}).net, null);
 });
 
 test('stateAt and indexAtOrBefore', () => {
@@ -139,43 +174,4 @@ test('ageFrac and niceStep', () => {
     assert.equal(D.niceStep(9), 2);
     assert.equal(D.niceStep(0.9), 0.2);
     assert.equal(D.niceStep(30), 10);
-});
-
-test('course distance: route, then named start, then configured', () => {
-    const pts = [
-        {lat: 0, lon: 0},
-        {lat: 0.5, lon: 0},
-        {lat: 1, lon: 0}
-    ];
-    const leg = geo.distance(pts[0], pts[1]);
-    const route = {activeRoute: {points: pts, pointIndex: 1, reverse: false, name: 'R'}};
-    const wp = {...pts[1], src: 'course'};
-    let c = courseDistance({waypoint: wp, course: route, startPoint: null, configuredM: null});
-    assert.equal(c.src, 'route');
-    near(c.totalM, 2 * leg, 1e-6, 'route length');
-    near(c.afterM, leg, 1e-6, 'legs after the next point');
-    // Reversed: pointIndex counts in travel order, from the last coordinate.
-    c = courseDistance({
-        waypoint: {...pts[1], src: 'course'},
-        course: {activeRoute: {points: pts, pointIndex: 2, reverse: true}},
-        startPoint: null,
-        configuredM: null
-    });
-    assert.equal(c, null, 'reversed index 2 is the first coordinate, not the waypoint: route ignored');
-    c = courseDistance({
-        waypoint: {...pts[0], src: 'course'},
-        course: {activeRoute: {points: pts, pointIndex: 2, reverse: true}},
-        startPoint: null,
-        configuredM: null
-    });
-    near(c.afterM, 0, 1e-9, 'reversed: last point, nothing after');
-    // NMEA waypoint in use: the route does not describe it.
-    const start = {lat: -1, lon: 0, name: 'Start'};
-    c = courseDistance({waypoint: {...pts[1], src: 'nmea'}, course: route, startPoint: start, configuredM: 5});
-    assert.equal(c.src, 'start');
-    near(c.totalM, geo.distance(start, pts[1]), 1e-6, 'start to waypoint');
-    c = courseDistance({waypoint: wp, course: null, startPoint: null, configuredM: 384 * NM});
-    assert.deepEqual(c, {totalM: 384 * NM, afterM: 0, src: 'config'});
-    assert.equal(courseDistance({waypoint: null, course: route, startPoint: start, configuredM: 5}), null);
-    assert.equal(courseDistance({waypoint: wp, course: null, startPoint: null, configuredM: 0}), null);
 });

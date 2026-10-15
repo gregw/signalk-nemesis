@@ -170,23 +170,50 @@
         return {x: v.e * c - v.n * sn, y: v.e * sn + v.n * c};
     }
 
-    /** Our distance made good along the course (m) from the course distance and our DTG then. */
-    function madeGood(course, dtgUsM) {
-        if (!course || !fin(dtgUsM)) return null;
-        return course.totalM - (dtgUsM + (course.afterM || 0));
-    }
-
-    /** Should (m): how far ahead a boat must be to be level on corrected time (section 3.6). */
-    function should(dMadeGoodM, tcfUs, tcfBoat) {
-        if (!fin(dMadeGoodM) || !(tcfUs > 0) || !(tcfBoat > 0)) return null;
-        return dMadeGoodM > 0 ? dMadeGoodM * (1 - tcfUs / tcfBoat) : 0;
+    /**
+     * Smoothed VMC toward the waypoint (m/s, + closing) of a series at time t: from the
+     * latest item at or before t - windowMs to the latest at or before t. Uses the oldest
+     * item after t - windowMs when there is none before it, so a boat first heard
+     * recently still has a value. Null if the interval is not in (0, windowMs + maxGapMs]
+     * or the end item is older than maxGapMs at t.
+     */
+    function vmcOver(series, t, wp, windowMs, maxGapMs) {
+        if (!wp || !series || !series.length) return null;
+        const j = indexAtOrBefore(series, t);
+        if (j < 0 || t - series[j].t > maxGapMs) return null;
+        let i = indexAtOrBefore(series, t - windowMs);
+        if (i < 0) i = 0;
+        return vmc(series[i], series[j], wp, windowMs + maxGapMs);
     }
 
     /**
-     * TCF row for one boat's current report s and our state u at its time.
+     * Should (m): how far ahead a boat must be to be level on corrected time (section 3.6),
+     * time on time, "if the race ended now". Level when TCFus x Tus = TCFboat x Tboat.
+     * The time owed builds up over the elapsed time e; the trailing boat at the finish
+     * covers it at its own VMG:
+     *   boat owes us (TCFboat > TCFus): dt = e (TCFboat / TCFus - 1); Should = + ourVmg x dt
+     *   we owe it    (TCFboat < TCFus): dt = e (TCFus / TCFboat - 1); Should = - itsVmg x dt
+     * The VMG is only needed for the side that trails. Null when it is unknown or not
+     * positive (no progress toward the waypoint, so no distance equivalent).
+     */
+    function should(elapsedMs, tcfUs, tcfBoat, vmgUsMs, vmgBoatMs) {
+        if (!fin(elapsedMs) || !(tcfUs > 0) || !(tcfBoat > 0)) return null;
+        if (elapsedMs <= 0 || tcfBoat === tcfUs) return 0;
+        if (tcfBoat > tcfUs) {
+            if (!fin(vmgUsMs) || vmgUsMs <= 0) return null;
+            return vmgUsMs * (elapsedMs / 1000) * (tcfBoat / tcfUs - 1);
+        }
+        if (!fin(vmgBoatMs) || vmgBoatMs <= 0) return null;
+        return -vmgBoatMs * (elapsedMs / 1000) * (tcfUs / tcfBoat - 1);
+    }
+
+    /**
+     * TCF row for one boat's report s and our state u at its time.
+     * series / usSeries: the boat's reports and our samples, for the smoothed VMGs
+     * (over vmgMs, toward the waypoint in use now). maxGapMs: stale limit.
      * @returns {{should, actual, net, reason}} metres; reason says why Should is missing.
      */
-    function tcfRow({s, u, frame, wp, course, startT, tcfUs, tcfBoat}) {
+    function tcfRow({s, u, series, usSeries, frame, wp, startT, tcfUs, tcfBoat, vmgMs, maxGapMs}) {
         const out = {should: null, actual: null, net: null, reason: null};
         if (!s || !u) {
             out.reason = 'no data';
@@ -196,8 +223,13 @@
         if (startT == null) out.reason = 'no start time';
         else if (s.t <= startT) out.reason = 'before start';
         else if (!wp) out.reason = 'no waypoint';
-        else if (!course) out.reason = 'no course distance';
-        else out.should = should(madeGood(course, G.distance(u, wp)), tcfUs, tcfBoat);
+        else {
+            const owesUs = tcfBoat > tcfUs;
+            const vUs = owesUs ? vmcOver(usSeries, s.t, wp, vmgMs, maxGapMs) : null;
+            const vBoat = tcfBoat < tcfUs ? vmcOver(series, s.t, wp, vmgMs, maxGapMs) : null;
+            out.should = should(s.t - startT, tcfUs, tcfBoat, vUs, vBoat);
+            if (out.should == null) out.reason = owesUs ? 'no VMG (ours)' : 'no VMG (theirs)';
+        }
         if (out.should != null && out.actual != null) out.net = out.actual - out.should;
         return out;
     }
@@ -228,7 +260,7 @@
         ownVmgAbs,
         lead,
         vectorPoint,
-        madeGood,
+        vmcOver,
         should,
         tcfRow,
         ageFrac,

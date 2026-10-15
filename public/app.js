@@ -5,7 +5,7 @@
  * Plain JS, no framework. The tabs (tab-*.js) register a render(view) function in ND.tabs.
  *
  * Data: polls the plugin's REST snapshot (names, nemesis, TCFs, waypoint, start time,
- * course distance, our state now) and track history (reports per boat plus our own
+ * TCF VMG period, our state now) and track history (reports per boat plus our own
  * track). One poll in flight at a time, each request with a timeout; failures back off
  * exponentially and the last good data stays on screen marked stale. Tracks are fetched
  * incrementally (sinceT, with an overlap for late reports) and fully resynced every
@@ -92,9 +92,11 @@ const ND = (() => {
 
     /* ---------- time window ---------- */
     const staleMs = () => prefs.staleMin * 60e3;
+    const tcfVmgMs = () => (M.snap && M.snap.tcfVmgMs > 0 ? M.snap.tcfVmgMs : 600e3);
     const periodMs = () => prefs.periodMin * 60e3;
     // Tracks held cover the period plus enough before it to know who is current.
-    const spanMs = () => Math.max(periodMs(), staleMs()) + 10 * 60e3;
+    // Fetch a little before the window, for the TCF tab's smoothed VMG at its oldest points.
+    const spanMs = () => Math.max(periodMs(), staleMs()) + Math.max(10 * 60e3, tcfVmgMs());
     function liveNow() {
         return M.snap ? M.snap.now + (Date.now() - M.fetchedAt) : Date.now();
     }
@@ -329,6 +331,7 @@ const ND = (() => {
             now,
             live,
             staleMs: st,
+            tcfVmgMs: tcfVmgMs(),
             periodMs: periodMs(),
             mode: prefs.mode,
             frame: prefs.up,
@@ -610,7 +613,7 @@ const ND = (() => {
         boats: "Tap a boat's icon to mark or unmark it as a nemesis. Tap a name for details. 'Show' picks which boats appear on every view: Nemesi, All, In range (a report within the 'Stale after' time) or None (just us). Each row has two strip charts over the period, newest on the left: VMG toward Up, and lead toward Up (how far ahead of us they are; + = they are ahead). In Relative mode VMG is theirs minus ours, so + = they are faster. Every chart in a column shares one height, shown under the column title, but each is centred on its own data.",
         vectors:
             'Velocity vectors with the chosen Up at the top. Each hull points the way that boat is moving; distance from the centre is speed. The centre is zero speed (Absolute) or our boat (Relative: their velocity minus ours). Comet tails join successive reports over the period, thick = now. Tap a boat to draw its true velocity vectors from the centre.',
-        tcf: "Time-on-time handicap against us. Enter each boat's TCF (default 1.000; saved on the boat's server). Should = how far a boat must be ahead of us to be level on corrected time: D x (1 - TCF us / TCF boat), where D is our distance made good along the course. Actual = how far it really is ahead toward Up. Should and Actual are at the boat's latest report. Net = Actual - Should, charted over the period (newest on the left) so an older report still shows the trend; + (orange) means it is beating us on handicap. Should is along-course progress, so it compares strictly with Actual only when Up = Waypoint.",
+        tcf: "Time-on-time handicap against us. Enter each boat's TCF (default 1.000; saved on the boat's server). Should = how far a boat must be ahead of us to be level on corrected time if the race ended at its report: the time owed over the elapsed time since the start (elapsed x the TCF ratio - 1), as a distance at the VMG to the waypoint of the boat that would be trailing. If it owes us time, at our VMG (Should +: it must be ahead); if we owe it time, at its VMG (Should -: it may be behind). VMGs are smoothed over the period set in the plugin config. Actual = how far it really is ahead toward Up. Net = Actual - Should, charted over the period (newest on the left) so an older report still shows the trend; + (orange) means it is beating us on handicap. Should is toward the waypoint, so it compares strictly with Actual only when Up = Waypoint.",
         geo: 'Boats on the water, rotated so Up is at the top; the ringed WPT is the waypoint. Drag to pan, pinch or wheel to zoom (in Relative mode this switches to Absolute). Relative centres on us and fits all shown boats. Fit reframes. OSM and Sea basemaps need internet; White works offline.'
     };
     function bindInfo() {

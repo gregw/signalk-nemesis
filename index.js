@@ -27,9 +27,6 @@ const {UserState, validTcf} = require('./lib/user-state');
 const {buildSnapshot, buildTracks} = require('./lib/snapshot');
 const {StartTime, RacerStartAdapter} = require('./lib/start-time');
 const {Journal} = require('./lib/journal');
-const {courseDistance} = require('./lib/course-distance');
-
-const M_PER_NM = 1852;
 
 const PLUGIN_ID = 'signalk-nemesis';
 const API_PREFIX = '/nemesis';
@@ -92,6 +89,15 @@ const schema = {
             default: 1,
             minimum: 0.1
         },
+        tcfVmgSeconds: {
+            type: 'number',
+            title: 'TCF: smooth VMG to the waypoint over this long (seconds)',
+            description:
+                "The handicap Should distance is the time owed at the trailing boat's VMG, " +
+                'measured over this period to ride through tacks and gybes.',
+            default: 600,
+            minimum: 60
+        },
         maxRaceHours: {
             type: 'number',
             title: 'Ignore a start time older than this (hours)',
@@ -119,21 +125,6 @@ const schema = {
             type: 'string',
             title: 'Fallback waypoint name, looked up in the waypoint resources (e.g. one made in Freeboard-SK)',
             default: ''
-        },
-        startWaypointName: {
-            type: 'string',
-            title: 'Start waypoint name (TCF course distance), looked up in the waypoint resources',
-            description:
-                'Used for the handicap Should distance when no Signal K route is active: ' +
-                'course distance = start waypoint to the next waypoint.',
-            default: ''
-        },
-        courseDistanceNm: {
-            type: 'number',
-            title: 'Course distance (nm), when there is no active route or start waypoint',
-            description: 'Total race distance, for the handicap Should distance. 0 = not set.',
-            default: 0,
-            minimum: 0
         },
         waypoint: {
             type: 'object',
@@ -367,12 +358,7 @@ module.exports = function (app) {
                     userState: s.userState,
                     waypoint,
                     start: s.startTime.get(),
-                    course: courseDistance({
-                        waypoint,
-                        course: s.waypoints.courseInfo(),
-                        startPoint: s.waypoints.startPoint(),
-                        configuredM: s.cfg.courseDistanceNm * M_PER_NM
-                    }),
+                    tcfVmgMs: s.cfg.tcfVmgSeconds * 1000,
                     staleMs: s.cfg.staleSeconds * 1000,
                     now: s.clock()
                 })
@@ -427,11 +413,10 @@ function withDefaults(options) {
         recentSeconds: Math.min(d('recentSeconds'), d('historySeconds')),
         thinSeconds: d('thinSeconds'),
         maxRaceHours: d('maxRaceHours'),
+        tcfVmgSeconds: d('tcfVmgSeconds'),
         waypointOrder: o.waypointOrder === 'nmea,course' ? 'nmea,course' : 'course,nmea',
         nmeaWaypointStaleSeconds: d('nmeaWaypointStaleSeconds'),
         waypointName: typeof o.waypointName === 'string' ? o.waypointName : '',
-        startWaypointName: typeof o.startWaypointName === 'string' ? o.startWaypointName : '',
-        courseDistanceNm: d('courseDistanceNm'),
         waypoint: o.waypoint || null
     };
 }

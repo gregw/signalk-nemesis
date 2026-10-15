@@ -70,7 +70,7 @@ Implemented in `lib/waypoint.js` and checked on a real 2.30.0 server (NMEA RMB, 
 - [x] Replay and live feed publish the GC2026 finish as an RMB next point.
 - [ ] Magnetic-only bearing (`bearingMagnetic` plus variation) is not handled.
 - [x] Waypoint changes mid-race (rounding a mark): nothing derived is stored; the webapp derives every value from positions and the waypoint in use now, so VMC and lead always compare distances to the same mark. Only the absolute DTG of old reports refers to a mark they were not yet sailing to.
-- [x] TCF Should distance D (decided): `lib/course-distance.js`. Active route (length, legs after the next point; reversed routes walked from the end), else `startWaypointName` to the waypoint, else `courseDistanceNm`. Snapshot `course: {totalM, afterM, src}`; the webapp evaluates D at each report time.
+- [x] TCF Should (decided 2026-10-15, replacing the course distance D): time owed over the elapsed time, at the trailing boat's VMG to the waypoint smoothed over `tcfVmgSeconds` (default 600). Snapshot `tcfVmgMs`. Course distance code, `startWaypointName` and `courseDistanceNm` removed.
 
 ## Phase 2: derivations (pure, unit tested)
 
@@ -80,10 +80,10 @@ All in `public/derive.js`, pure and loaded by both the webapp and `test/derive.t
 - [x] VMC from the boat's own previous report, ignoring gaps over the stale threshold. Ours over at least 60 s of our own samples; in Relative mode ours is taken over the same interval as theirs.
 - [x] VMG toward Up for Course and North; relative mode (theirs minus ours at the same time).
 - [x] Lead toward Up (Waypoint, Course, North), + = they are ahead.
-- [x] TCF: Should, Actual, Net. Unit test with the worked value (D = 144.6 nm, TCF 1.000 vs 1.100, Should = 13.14 nm).
+- [x] TCF: Should, Actual, Net. Unit tests with worked values (6 h, TCF 1.000 vs 1.100 at 6 kn: Should = 3.6 nm).
 - [x] In-range recomputed on every render (client side, from the stale threshold in the Time popup).
 - [x] Elapsed time from the start-time seam (time button; TCF needs a report after the start).
-- [x] Where derived values live: in the webapp, because Up and Mode are per viewer. The server provides reports, our state at each report time, our own track, waypoint, start and course distance. Tracks API: `toT` (look back), `sinceT` (incremental).
+- [x] Where derived values live: in the webapp, because Up and Mode are per viewer. The server provides reports, our state at each report time, our own track, waypoint, start and the TCF VMG period. Tracks API: `toT` (look back), `sinceT` (incremental).
 
 ## Phase 3: webapp port
 
@@ -91,7 +91,7 @@ All in `public/derive.js`, pure and loaded by both the webapp and `test/derive.t
 - [x] Boats tab: basic list, nemesis toggle, SOG/COG, range, age.
 - [x] Boats tab: sort by Near, Waypoint, VMG, A-Z (us included); strip charts (newest left, x by time, age taper, shared window height per column, value over latest dot). Sign: + = they are doing better than us in every frame (wiki §8).
 - [x] Vectors tab (brief 3.7), auto-fit, selected boat's dashed true velocity shafts, taps hit-tested in code.
-- [x] TCF tab: entry box per boat and for us (PUT setTcf, id `self` for us; not re-rendered under focus), Should and Actual at the latest report, Net (TCF corrected lead) as a strip chart over the period like the Boats tab so a slightly old report still shows its trend, sorted by latest Net, reason shown when Should can't be computed, course distance source shown.
+- [x] TCF tab: entry box per boat and for us (PUT setTcf, id `self` for us; not re-rendered under focus), Should and Actual at the latest report, Net (TCF corrected lead) as a strip chart over the period like the Boats tab so a slightly old report still shows its trend, sorted by latest Net, reason shown when Should can't be computed, method and elapsed time shown.
 - [x] Geo tab: Web Mercator rotated to Up, White/OSM/Sea basemaps, pan/pinch per the prototype lessons, follows us until a gesture, Fit. Offline: White is the default; tiles load only when OSM or Sea is chosen, and only when the view changes (not on every poll).
 - [x] Time popup: look back through the server's history (slider, 10 min back/forward, Live), Period 10 to 240 min, Stale after.
 - [x] Selection popup clamped to viewport; selection highlighted on every tab.
@@ -124,7 +124,7 @@ All in `public/derive.js`, pure and loaded by both the webapp and `test/derive.t
 ## Open decisions (Greg's call)
 
 - [x] Package name: `signalk-nemesis` (plugin id and URL path).
-- [x] Course distance source for TCF Should: route, then named start waypoint, then configured distance (see above).
+- [x] TCF Should method: time owed at the trailing boat's smoothed VMG (see above).
 - [ ] Own state kept continuously (current choice) vs only at other boats' report times.
 - [ ] Which derived values, if any, to publish to the data model.
 - [ ] Mapping tracker-feed names to MMSIs.

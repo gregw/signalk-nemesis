@@ -123,41 +123,6 @@ test('named waypoint from the resources API, below Course API', async () => {
     assert.equal(w.get().src, 'course');
 });
 
-test('active route: points loaded once from the route resource', async () => {
-    const {app, w} = setup();
-    let loads = 0;
-    const get = app.resourcesApi.getResource;
-    app.resourcesApi.getResource = (...a) => {
-        loads++;
-        return get(...a);
-    };
-    app.resources.routes = {
-        r1: {
-            feature: {
-                geometry: {
-                    type: 'LineString',
-                    coordinates: [
-                        [151.3, -33.8],
-                        [151.6, -33.5],
-                        [153.44, -27.96]
-                    ]
-                }
-            }
-        }
-    };
-    app.course = {
-        nextPoint: {position: MARK, type: 'RoutePoint'},
-        activeRoute: {href: '/resources/routes/r1', pointIndex: 1, pointTotal: 3, reverse: false, name: 'GC'}
-    };
-    await w._pollCourse();
-    await w._pollCourse();
-    const r = w.courseInfo().activeRoute;
-    assert.equal(r.pointIndex, 1);
-    assert.equal(r.points.length, 3);
-    assert.deepEqual(r.points[2], {lat: -27.96, lon: 153.44});
-    assert.equal(loads, 1);
-});
-
 test('Course API point adopted from NMEA expires with the NMEA source', async () => {
     const {app, w, clock} = setup({nmeaWaypointStaleSeconds: 30, waypoint: {lat: 1, lon: 1}});
     // The Course API adopted it: no href, same position, generic name.
