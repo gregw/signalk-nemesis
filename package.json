@@ -10,6 +10,7 @@
     ],
     "signalk-plugin-enabled-by-default": false,
     "signalk": {
+        "appIcon": "assets/signalk-nemesis-72x72.png",
         "displayName": "Nemesis Delta"
     },
     "engines": {
@@ -21,7 +22,8 @@
         "test": "node --test test/*.test.js",
         "test:browser": "node --test --test-concurrency=1 test/browser/*.test.js",
         "format": "npx -y prettier@3.3.3 --write index.js \"lib/**/*.js\" \"public/**/*.{js,css,html}\" \"test/**/*.js\"",
-        "test:node22": "npx -y -p node@22.22.2 node --test test/*.test.js && npx -y -p node@22.22.2 node --test --test-concurrency=1 test/browser/*.test.js"
+        "test:node22": "npx -y -p node@22.22.2 node --test test/*.test.js && npx -y -p node@22.22.2 node --test --test-concurrency=1 test/browser/*.test.js",
+        "icon": "node tools/make-icon.js"
     },
     "devDependencies": {
         "playwright": "^1.64.1"
