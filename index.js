@@ -11,12 +11,14 @@
  *  - Data model paths published: none yet (brief section 8, Greg's call).
  *  - REST endpoints (read only): /plugins/<id>/* and /signalk/v1/api/nemesis/*.
  *  - PUT handlers (writes): navigation.racing.nemesis.setNemesis, .setTcf, .setStartTime.
- *  - Internal plugin state: TrackStore, OwnState, UserState.
+ *  - Internal plugin state: TrackStore, OwnState, UserState, StartTime; track history
+ *    journaled to <data dir>/journal so it survives a restart (lib/journal.js).
  *
  * The webapp in public/ is served by the server at /<package name>/
  * (signalk-server src/interfaces/webapps.js).
  */
 
+const path = require('node:path');
 const {TrackStore} = require('./lib/track-store');
 const {OwnState} = require('./lib/own-state');
 const {AisSourceAdapter, OwnAdapter} = require('./lib/ais-adapter');
@@ -24,6 +26,7 @@ const {WaypointSource} = require('./lib/waypoint');
 const {UserState, validTcf} = require('./lib/user-state');
 const {buildSnapshot, buildTracks} = require('./lib/snapshot');
 const {StartTime, RacerStartAdapter} = require('./lib/start-time');
+const {Journal} = require('./lib/journal');
 
 const PLUGIN_ID = 'signalk-nemesis';
 const API_PREFIX = '/nemesis';
@@ -47,14 +50,31 @@ const schema = {
         },
         historySeconds: {
             type: 'number',
-            title: 'Track history kept per boat (seconds)',
+            title: 'Track history kept, in memory and on disk (seconds)',
+            description: 'Default 5 days, for long offshore races. Survives a restart.',
+            default: 432000,
+            minimum: 600
+        },
+        recentSeconds: {
+            type: 'number',
+            title: 'Full resolution window (seconds)',
+            description:
+                'History newer than this keeps every report and our own state at full rate. ' +
+                'Older history is thinned to one report per boat per thinning interval.',
             default: 21600,
             minimum: 600
+        },
+        thinSeconds: {
+            type: 'number',
+            title: 'Thinning interval for older history (seconds)',
+            default: 120,
+            minimum: 10
         },
         maxReportsPerBoat: {
             type: 'number',
             title: 'Maximum reports kept per boat',
-            default: 2000,
+            description: 'A hard memory bound on top of the time limits',
+            default: 5000,
             minimum: 10
         },
         maxBoats: {
@@ -125,14 +145,36 @@ module.exports = function (app) {
             maxSpanMs: cfg.historySeconds * 1000,
             maxBoats: cfg.maxBoats
         });
-        const own = new OwnState({minIntervalMs: cfg.ownSampleSeconds * 1000, maxSpanMs: cfg.historySeconds * 1000});
+        const own = new OwnState({minIntervalMs: cfg.ownSampleSeconds * 1000, maxSpanMs: cfg.recentSeconds * 1000});
+        const journal = new Journal({
+            dir: path.join(app.getDataDirPath(), 'journal'),
+            retainMs: cfg.historySeconds * 1000,
+            recentMs: cfg.recentSeconds * 1000,
+            thinMs: cfg.thinSeconds * 1000,
+            onError: (e) => app.error(`Track journal: ${e.message}`)
+        });
         const userState = new UserState(app.getDataDirPath(), (e) => app.error(`Saving state failed: ${e.message}`));
         const ais = new AisSourceAdapter(
             app,
-            (r) => store.add(r),
-            (id, name) => store.setName(id, name)
+            (r) => {
+                // Our state at their report time travels with the report, so it outlives
+                // our own continuous history (kept only for the recent window).
+                const us = own.at(r.t);
+                const rep = {
+                    ...r,
+                    us: us ? {t: us.t, lat: us.lat, lon: us.lon, cogRad: us.cogRad, sogMs: us.sogMs} : null
+                };
+                store.add(rep);
+                journal.append({k: 'r', ...rep});
+            },
+            (id, name) => {
+                store.setName(id, name);
+                journal.append({k: 'n', id, name});
+            }
         );
-        const ownAdapter = new OwnAdapter(app, (s) => own.add(s));
+        const ownAdapter = new OwnAdapter(app, (s) => {
+            if (own.add(s)) journal.append({k: 'o', ...s});
+        });
         const startTime = new StartTime({
             dataDir: app.getDataDirPath(),
             maxRaceMs: cfg.maxRaceHours * 3600e3,
@@ -150,6 +192,9 @@ module.exports = function (app) {
             ownAdapter,
             startTime,
             racerStart,
+            journal,
+            thinTimer: null,
+            ready: null, // promise: journal loaded
             // Live clock. The replay harness shifts recorded times to wall-clock time.
             clock: () => Date.now()
         };
@@ -158,8 +203,46 @@ module.exports = function (app) {
         racerStart.start();
         state.waypoints.start();
         registerPutHandlers();
-        app.setPluginStatus('Started');
+        app.setPluginStatus('Loading track history');
+
+        // Live ingest runs while history loads; the stores accept out-of-order data.
+        const mine = state;
+        mine.ready = journal
+            .load(
+                (rec) => applyRecord(mine, rec),
+                () => state !== mine
+            )
+            .then((n) => {
+                if (state !== mine) return;
+                store.thin(mine.clock(), cfg.recentSeconds * 1000, cfg.thinSeconds * 1000);
+                journal.start();
+                mine.thinTimer = setInterval(
+                    () => store.thin(mine.clock(), cfg.recentSeconds * 1000, cfg.thinSeconds * 1000),
+                    60e3
+                );
+                mine.thinTimer.unref?.();
+                app.setPluginStatus(`Started, ${n} history records loaded`);
+            })
+            .catch((e) => {
+                if (state === mine) app.error(`Loading track history failed: ${e.message}`);
+            });
     };
+
+    // Replays one journal record into the in-memory stores (never re-journaled).
+    function applyRecord(s, rec) {
+        if (rec.k === 'r' && typeof rec.boatId === 'string' && Number.isFinite(rec.t)) {
+            const {k, ...r} = rec;
+            s.store.add(r);
+        } else if (rec.k === 'o' && Number.isFinite(rec.t)) {
+            const {k, ...o} = rec;
+            s.own.add(o);
+        } else if (rec.k === 'n' && typeof rec.id === 'string') {
+            s.store.setName(rec.id, rec.name);
+        }
+    }
+
+    /** Resolves once track history has been loaded from the journal (used by tests). */
+    plugin.whenReady = () => (state ? state.ready : Promise.resolve());
 
     plugin.stop = function () {
         if (!state) return;
@@ -168,7 +251,8 @@ module.exports = function (app) {
         } catch (e) {
             app.debug(e);
         }
-        for (const a of [state.ownAdapter, state.racerStart, state.waypoints]) {
+        if (state.thinTimer) clearInterval(state.thinTimer);
+        for (const a of [state.ownAdapter, state.racerStart, state.waypoints, state.journal]) {
             try {
                 a.stop();
             } catch (e) {
@@ -305,6 +389,8 @@ function withDefaults(options) {
         maxReportsPerBoat: d('maxReportsPerBoat'),
         maxBoats: d('maxBoats'),
         ownSampleSeconds: d('ownSampleSeconds'),
+        recentSeconds: Math.min(d('recentSeconds'), d('historySeconds')),
+        thinSeconds: d('thinSeconds'),
         maxRaceHours: d('maxRaceHours'),
         waypointOrder: o.waypointOrder === 'nmea,course' ? 'nmea,course' : 'course,nmea',
         nmeaWaypointStaleSeconds: d('nmeaWaypointStaleSeconds'),

@@ -97,3 +97,37 @@ test('start time: PUT override shows in the snapshot and survives restart', asyn
     assert.equal((await app.call('GET', API + '/snapshot')).body.start, null);
     plugin.stop();
 });
+
+test('track history survives a plugin restart (journal)', async () => {
+    const {app, plugin, dataDir} = await replayTo(12);
+    await plugin.whenReady();
+    const before = (await app.call('GET', API + '/snapshot')).body;
+    const tracksBefore = (await app.call('GET', API + '/tracks', {query: {periodS: '86400'}})).body;
+    plugin.stop();
+
+    // A fresh server process: new app, nothing delivered, same data dir.
+    const {fakeApp} = require('./sim/fake-app');
+    const app2 = fakeApp({dataDir});
+    const plugin2 = require('../index')(app2);
+    plugin2.signalKApiRoutes(app2.apiRouter);
+    plugin2.start({});
+    await plugin2.whenReady();
+    const after = (await app2.call('GET', API + '/snapshot')).body;
+    assert.equal(after.boats.length, before.boats.length);
+    for (const b of before.boats) {
+        const a = after.boats.find((x) => x.id === b.id);
+        assert.ok(a, b.name);
+        assert.equal(a.name, b.name);
+        assert.deepEqual(a.latest, b.latest);
+        assert.equal(a.rangeM, b.rangeM, `${b.name} range`);
+    }
+    // Instant replay processes each boat's last report only after everything is
+    // delivered, so a boat last heard more than the 6 h own-state window ago has no
+    // stored own state. Live, reports are processed within 250 ms. Most have a range.
+    assert.ok(after.boats.filter((b) => b.rangeM != null).length >= after.boats.length * 0.8);
+    const tracksAfter = (await app2.call('GET', API + '/tracks', {query: {periodS: '86400'}})).body;
+    for (const [id, rs] of Object.entries(tracksBefore.boats)) {
+        assert.equal(tracksAfter.boats[id].length, rs.length, `track length ${id}`);
+    }
+    plugin2.stop();
+});

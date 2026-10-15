@@ -104,15 +104,17 @@ Implemented in `lib/waypoint.js` and checked on a real 2.30.0 server (NMEA RMB, 
 ## Phase 4: persistence and robustness
 
 - [ ] Settings (Show, Up, Mode) server-side or per device? Currently per device in localStorage.
-- [ ] Optional track history persistence for restart and post-race replay (bounded size, atomic).
-- [ ] Restart and brownout tests: kill mid-write, corrupt state file, empty data dir.
+- [x] Track history persistence (decided: append-only log, 5 day default): `lib/journal.js` journals reports, own state and names to `<data dir>/journal/` in 10 min segments, fdatasync every second; older than `recentSeconds` (6 h) compacted to one report per boat per `thinSeconds` (2 min) and own state dropped (each report carries our state at its time); older than `historySeconds` (5 d) deleted; loaded in chunks on start. Worst case measured on Node 22 (100 boats, 30 s cadence, 5 d): 80 MB on disk, 0.7 s load, max 8 ms event-loop stall, 136 MB heap. Verified across a real 2.30.0 restart.
+- [ ] Memory: 136 MB worst case is mostly per-report objects (with the embedded own state). If the HALPI2 feels it, store old history as compact typed arrays.
+- [ ] Post-race replay from the journal (phase 5).
+- [x] Restart test (journal), torn last line, clock jump into a compacted segment.
+- [ ] Brownout test: kill -9 the server mid-write on a real server and reload.
 - [ ] Soak test: memory stays bounded over a 72 h replay.
 
 ## Phase 5: extras
 
 - [ ] Wind frame and VMG to wind (instrument TWD, or CYCA weather grid for replay).
 - [ ] Tracker-feed adapter (CYCA), with a name-to-MMSI mapping table.
-- [ ] Post-race replay from stored history.
 - [ ] Instrument-display outputs in our own namespace.
 
 ## Open decisions (Greg's call)
