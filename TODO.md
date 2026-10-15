@@ -7,7 +7,7 @@ Phases follow `wiki/overview.md` section 7. `[x]` = in the skeleton with tests.
 - [x] Deleted the duplicate `signalk-nemesis-delta/` folder.
 - [x] Code style matches signalk-racer (4-space indent, semicolons, single quotes). `npm run format` applies `.prettierrc.json`.
 - [x] First commit.
-- [ ] Get a Node 22 runtime locally (only Node 24 here) and run the suite on it.
+- [x] Node 22.22.2 test run: `npm run test:node22` (fetches Node 22.22.2 via npx). Unit and browser suites pass.
 - [x] Playwright + headless Chromium (`npm run test:browser`; first time on a machine: `npx playwright install chromium`). Stand-in server: `node test/sim/dev-server.js [port] [hoursIn]`.
 - [ ] Browser tests in CI or a pre-commit script, so they actually get run.
 - [ ] Install the plugin into a dev signalk-server (via `npm link` from a scratch server dir, never inside `~/.signalk`) and confirm the plugin starts, the webapp mounts at `/signalk-nemesis/` and the API at `/plugins/signalk-nemesis/`.
