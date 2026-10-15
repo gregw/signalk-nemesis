@@ -1,0 +1,27 @@
+{
+  "name": "signalk-nemesis",
+  "version": "0.1.0",
+  "description": "Signal K plugin and webapp that tracks how nearby competitors (your nemesis boats) are sailing relative to you during a race.",
+  "main": "index.js",
+  "keywords": [
+    "signalk-node-server-plugin",
+    "signalk-category-utility",
+    "signalk-webapp"
+  ],
+  "signalk-plugin-enabled-by-default": false,
+  "signalk": {
+    "displayName": "Nemesis Delta"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "author": "gregw@mortbay.com",
+  "license": "Apache-2.0",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "test:browser": "node --test --test-concurrency=1 test/browser/*.test.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.64.1"
+  }
+}

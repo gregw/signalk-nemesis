@@ -1,0 +1,1503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nemesis Delta</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;500;600;700&display=swap');
+  :root{
+    --mono:'Share Tech Mono',monospace; --sans:'Barlow Condensed',sans-serif;
+    --ink:#1a2a3a; --steel:#556070; --steel-lt:#8090a0; --line:#d4dde8;
+    --panel:#f4f7fb; --panel-line:#b0c4dc; --accent:#1e5caa;
+    --stbd:#0e9060; --port:#cc2033; --fast:#e07818; --slow:#2472c0; --bg:#eef2f7;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  html,body{max-width:100%;overflow-x:hidden;overscroll-behavior:none;}
+  body{background:var(--bg);font-family:var(--sans);color:var(--ink);
+    display:flex;flex-direction:column;padding:8px;gap:8px;min-height:100vh;}
+  .topbar{width:100%;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    padding:8px 12px;background:#fff;border:1px solid var(--line);border-radius:8px;}
+  .brand{display:flex;flex-direction:column;line-height:1;}
+  .brand .name{font-size:22px;font-weight:700;letter-spacing:0.06em;}
+  .brand .name span{color:var(--accent);}
+  .brand .sub{font-family:var(--mono);font-size:10px;letter-spacing:0.16em;color:var(--steel-lt);
+    text-transform:uppercase;margin-top:3px;}
+  .spacer{flex:1 1 auto;}
+  .ctl-group{display:flex;align-items:center;gap:6px;}
+  .ctl-label{font-family:var(--mono);font-size:10px;letter-spacing:0.1em;color:var(--steel);text-transform:uppercase;}
+  select{font-family:var(--sans);font-weight:600;font-size:14px;padding:4px 8px;border:1px solid var(--panel-line);
+    border-radius:6px;background:#fff;color:var(--ink);}
+  .seg{display:inline-flex;border:1px solid var(--panel-line);border-radius:6px;overflow:hidden;}
+  .seg button{font-family:var(--mono);font-size:11px;letter-spacing:0.05em;padding:5px 10px;background:#fff;
+    border:none;cursor:pointer;color:var(--steel);border-left:1px solid var(--panel-line);}
+  .seg button:first-child{border-left:none;}
+  .seg button.on{background:var(--accent);color:#fff;}
+  .seg button:disabled{color:var(--line);cursor:not-allowed;background:#fafbfc;}
+
+  /* time controls */
+  .timebtn{font-family:var(--mono);font-size:12px;padding:5px 11px;border:1px solid var(--panel-line);
+    border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;flex:0 0 auto;white-space:nowrap;}
+  .timebtn.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .timepop{position:fixed;z-index:120;background:#fff;border:1px solid var(--panel-line);border-radius:8px;
+    padding:10px 14px;display:flex;flex-direction:column;gap:8px;width:min(460px,calc(100vw - 20px));
+    box-shadow:0 8px 26px rgba(20,30,45,.28);}
+  .trow{display:flex;align-items:center;gap:12px;min-width:0;}
+  .trow .tl{font-family:var(--mono);font-size:10px;letter-spacing:0.1em;color:var(--steel);
+    text-transform:uppercase;width:78px;flex:0 0 auto;}
+  .trow input[type=range]{flex:1 1 auto;min-width:0;accent-color:var(--accent);}
+  .numin{width:64px;font-family:var(--mono);font-size:13px;padding:3px 6px;border:1px solid var(--panel-line);border-radius:5px;}
+  .trow.full{gap:0;}
+  .trow.full input[type=range]{width:100%;}
+  .trow .tv{font-family:var(--mono);font-size:12px;color:var(--ink);width:200px;flex:0 0 auto;text-align:right;}
+  .trow .tv.wide{flex:1 1 auto;text-align:left;}
+  @media (max-width:640px){ .trow .tv{width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;} .trow .tv.wide{width:auto;} }
+  .playbtn{font-family:var(--mono);font-size:12px;padding:4px 12px;border:1px solid var(--panel-line);
+    border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;flex:0 0 auto;}
+
+  body{height:100dvh;overflow:hidden;}
+  /* common selection bar */
+  .selbar{width:100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:0 0 auto;
+    padding:6px 12px;background:#fff;border:1px solid var(--line);border-radius:8px;}
+  .selbar .fleetc{font-family:var(--sans);font-size:14px;color:var(--steel);}
+  .selbar .fleetc b{color:var(--ink);}
+  /* tabs */
+  .tabbar{width:100%;display:flex;gap:3px;flex:0 0 auto;margin-bottom:-1px;z-index:2;}
+  .tabbar button{flex:1 1 0;font-family:var(--sans);font-weight:700;font-size:16px;letter-spacing:.04em;
+    padding:9px 6px;border:1px solid var(--line);border-bottom:none;border-radius:8px 8px 0 0;
+    background:#e3eaf2;color:var(--steel);cursor:pointer;}
+  .tabbar button.on{background:#fff;color:var(--ink);}
+  /* tabbed content */
+  .stage{width:100%;flex:1 1 auto;min-height:0;display:flex;}
+  .tabpane{flex:1 1 auto;min-width:0;min-height:0;overflow:hidden;display:flex;flex-direction:column;
+    background:#fff;border:1px solid var(--line);border-radius:0 8px 8px 8px;padding:8px 8px 6px;}
+  .tabpane.hidden{display:none !important;}
+  .plothead{display:flex;justify-content:flex-start;align-items:center;flex-wrap:wrap;margin-bottom:4px;gap:8px;flex:0 0 auto;}
+  .plothead .mode{font-family:var(--mono);font-size:11px;letter-spacing:0.04em;color:var(--steel);}
+  .plothead .mode b{color:var(--ink);font-size:15px;}
+  .plothead .hbtns{display:flex;gap:6px;align-items:center;margin-left:auto;}
+  .svgwrap{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;}
+  svg.polar{width:100%;height:100%;display:block;overflow:visible;}
+  .mapbox{flex:1 1 auto;min-width:0;min-height:0;display:flex;position:relative;}
+  svg.map{width:100%;height:100%;display:block;background:#fff;cursor:grab;touch-action:none;}
+  svg.map:active{cursor:grabbing;}
+  /* map content is re-rendered on every move; keep it out of hit-testing so a touch's target
+     is the persistent <svg> root (a replaced child would orphan the rest of the gesture) */
+  svg.map *{pointer-events:none;}
+  .mapbtn{font-family:var(--mono);font-size:11px;padding:4px 9px;border:1px solid var(--panel-line);
+    border-radius:6px;background:#fff;color:var(--steel);cursor:pointer;}
+  .mapbtn.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+
+  #selector{min-width:0;overflow:hidden;}
+  #selector.closed{display:none;}
+  .side-head{font-family:var(--mono);font-size:10px;letter-spacing:0.14em;color:var(--steel-lt);
+    text-transform:uppercase;padding:2px 0 6px;flex:0 0 auto;}
+  .selrow{display:flex;gap:6px;margin-bottom:6px;align-items:center;flex-wrap:wrap;flex:0 0 auto;}
+  .selrow .ctl-label{flex:0 0 auto;}
+  .side-actions button{font-family:var(--mono);font-size:10px;letter-spacing:0.03em;padding:3px 7px;
+    border:1px solid var(--panel-line);border-radius:5px;background:#fff;color:var(--steel);cursor:pointer;}
+  .side-actions button.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .filter{width:100%;font-family:var(--mono);font-size:12px;padding:5px 8px;border:1px solid var(--panel-line);
+    border-radius:5px;margin-bottom:6px;flex:0 0 auto;}
+  .blist{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
+    overscroll-behavior:contain;display:flex;flex-direction:column;}
+  .brow{display:flex;flex-direction:row;align-items:stretch;gap:6px;padding:5px 4px;border-bottom:1px solid #eef2f6;min-height:54px;}
+  #blist.tall .brow{min-height:81px;}
+  .thead{align-items:flex-end;}
+  .thead .th-name{flex:0 0 92px;width:92px;font-family:var(--sans);font-size:15px;color:var(--ink);}
+  .thead .th-tcf{flex:0 0 64px;width:64px;font-family:var(--sans);font-size:15px;color:var(--ink);text-align:center;}
+  .thead .th-n{flex:1 1 0;min-width:44px;display:flex;flex-direction:column;align-items:flex-end;font-family:var(--sans);font-size:15px;color:var(--ink);}
+  .thead .th-n .bh-sub,.thead .bh-sub{font-family:var(--mono);font-size:9px;color:var(--steel-lt);white-space:nowrap;}
+  .brow.trow2{align-items:center;min-height:44px;}
+  .brow.trow2 .bn{font-size:16px;}
+  .tcfin{flex:0 0 64px;width:64px;font-family:var(--mono);font-size:14px;padding:4px 4px;text-align:center;
+    border:1px solid var(--panel-line);border-radius:5px;background:#fff;color:var(--ink);}
+  .tn{flex:1 1 0;min-width:44px;text-align:right;font-family:var(--mono);font-size:15px;color:var(--steel);}
+  .tn.net{font-weight:700;color:var(--ink);}
+  .tn.net.pos{color:#e07818;} .tn.net.neg{color:#2472c0;}
+  .irc-note{font-family:var(--mono);font-size:12px;color:var(--steel);line-height:1.6;padding:8px 6px 12px;}
+  .irc-note b{color:var(--ink);}
+  /* keep the common bars compact on a phone so the active tab keeps room */
+  @media (max-width:640px){
+    body{padding:5px;gap:5px;}
+    .topbar,.timebar,.selbar{padding:5px 9px;gap:6px;}
+    .brand .name{font-size:17px;} .brand .sub{display:none;}
+    .trow{gap:8px;} .trow .tl{width:64px;} .trow .tv{width:118px;font-size:11px;}
+    .tabbar button{font-size:14px;padding:7px 4px;}
+    .tabpane{padding:6px 6px 5px;}
+    .brow .idcol{flex:0 0 76px;width:76px;} .brow .idcol .bn{font-size:14px;} .brow .idcol .rd{font-size:12px;}
+    .bhead .bh-id{flex:0 0 76px;width:76px;} .bhead .bh-col b{font-size:14px;}
+    .chart .cv{font-size:12px;}
+  }
+  .chart{flex:1 1 0;min-width:40px;display:flex;align-items:stretch;position:relative;}
+  .chart + .chart{margin-left:6px;}
+  .chart .cv{position:absolute;z-index:2;font-family:var(--mono);font-size:14px;color:var(--ink);white-space:nowrap;
+    background:rgba(255,255,255,.75);padding:0 2px;border-radius:2px;line-height:1.15;pointer-events:none;}
+  .hu{font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:var(--steel);display:flex;align-items:center;gap:5px;cursor:pointer;}
+  .hu input{width:13px;height:13px;accent-color:var(--accent);cursor:pointer;}
+  .spkwrap{flex:1 1 auto;min-width:0;display:flex;border:1px solid #e6ebf1;border-radius:2px;background:#fff;}
+  .spk{width:100%;height:100%;display:block;}
+  /* non-scrolling column header for the boat list (titles +50%) */
+  .bhead{display:flex;gap:6px;padding:5px 4px 6px;border-bottom:2px solid var(--panel-line);flex:0 0 auto;align-items:flex-end;}
+  .bhead .sp{flex:0 0 auto;}
+  .bhead .bh-id{flex:0 0 86px;width:86px;display:flex;flex-direction:column;gap:1px;}
+  .bhead .bh-id b{font-family:var(--sans);font-weight:700;font-size:15px;color:var(--ink);}
+  .bhead .bh-id .bh-sub{font-family:var(--mono);font-size:11px;color:var(--steel-lt);}
+  .bhead .bh-col{flex:1 1 0;min-width:34px;display:flex;flex-direction:column;gap:1px;overflow:hidden;}
+  .bhead .bh-col b{font-family:var(--sans);font-weight:700;font-size:15px;color:var(--ink);white-space:nowrap;}
+  .bhead .bh-col .bh-rng{font-family:var(--mono);font-size:11px;color:var(--steel-lt);white-space:nowrap;}
+  .chart + .chart, .bhead .bh-col + .bh-col{margin-left:6px;}
+  .brow:last-child{border-bottom:none;}
+  .brow .sw{align-self:center;width:10px;height:10px;border-radius:50%;flex:0 0 auto;}
+  .brow .bico{align-self:center;flex:0 0 30px;width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;
+    border:2px solid transparent;border-radius:8px;background:transparent;cursor:pointer;}
+  .brow .bico:hover{border-color:var(--panel-line);}
+  .brow .bico.nem{border-color:#cc2033;background:#fde3e6;}
+  .brow .bico.me{cursor:default;border-color:transparent;background:transparent;}
+  .brow .bn{align-self:center;font-family:var(--sans);font-weight:600;font-size:20px;letter-spacing:.01em;cursor:pointer;
+    flex:0 0 92px;width:92px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .brow .bn.ref{color:var(--accent);}
+  .brow .bn.expanded{text-decoration:underline;}
+  .brow .rd{align-self:center;font-family:var(--mono);font-size:20px;text-align:right;flex:0 0 100px;white-space:nowrap;width:100px;}
+  /* compact stacked id column (name over SOG/COG) to free width for the strip charts */
+  .brow .idcol{align-self:center;flex:0 0 86px;width:86px;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:1px;overflow:hidden;}
+  .brow .idcol .bn{flex:0 0 auto;width:100%;font-size:15px;line-height:1.1;}
+  .brow .idcol .rd{flex:0 0 auto;width:100%;text-align:left;font-size:13px;line-height:1.1;color:var(--steel);}
+  .brow.off{opacity:.42;}
+  .brow.gone{opacity:.3;}
+  .brow.us{background:#eef3fb;}
+  .brow.hi{background:#fff3d0;}
+  .hitm.hi{stroke:#ff9500;stroke-width:3;opacity:1;}
+  .info{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;
+    border:1px solid var(--steel-lt);color:var(--steel);font-family:var(--sans);font-size:10px;font-style:italic;
+    font-weight:700;cursor:help;margin-right:6px;flex:0 0 auto;user-select:none;}
+  .info:hover{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .infopop{display:none;position:fixed;z-index:200;max-width:440px;background:#1a2a3a;color:#eef2f6;
+    font-family:var(--mono);font-size:20px;line-height:1.5;letter-spacing:.02em;padding:12px 15px;border-radius:8px;
+    box-shadow:0 6px 20px rgba(20,30,45,.35);pointer-events:none;}
+
+  .tip{position:fixed;background:#1a2a3a;color:#fff;font-family:var(--mono);
+    font-size:13px;line-height:1.45;padding:7px 22px 7px 10px;border-radius:6px;z-index:50;display:none;
+    letter-spacing:.02em;max-width:230px;box-shadow:0 6px 18px rgba(20,30,45,.3);}
+  .tip b{color:#9fd0ff;}
+  .tip .tipx{position:absolute;top:2px;right:4px;width:16px;height:16px;line-height:15px;text-align:center;
+    font-size:14px;color:#9fb0c4;cursor:pointer;border-radius:3px;}
+  .tip .tipx:hover{background:rgba(255,255,255,.15);color:#fff;}
+
+  .legend,.note{display:none;}
+
+  /* loader overlay */
+  #drop{position:fixed;inset:0;background:rgba(30,42,58,0.92);display:flex;align-items:center;justify-content:center;z-index:100;}
+  #drop .box{background:#fff;border-radius:12px;padding:36px 40px;text-align:center;max-width:520px;}
+  @media (max-width:640px){ #drop .box{padding:22px 18px;margin:0 12px;} #drop p{margin-bottom:12px;} #drop .zone{padding:18px;} }
+  #drop h2{font-size:24px;font-weight:700;letter-spacing:.04em;margin-bottom:8px;}
+  #drop p{font-family:var(--mono);font-size:12px;color:var(--steel);line-height:1.7;margin-bottom:18px;}
+  #drop .zone{border:2px dashed var(--panel-line);border-radius:10px;padding:28px;cursor:pointer;
+    font-family:var(--mono);font-size:13px;color:var(--accent);}
+  #drop .zone{display:block;}
+  #drop .zone.drag{background:var(--panel);border-color:var(--accent);}
+  #drop .zone input[type=file]{display:none;}
+  .loadopts{margin-top:18px;text-align:left;display:flex;flex-direction:column;gap:10px;
+    border-top:1px solid var(--line);padding-top:16px;}
+  .loadopts .lo-status{font-family:var(--mono);font-size:12px;color:var(--stbd);}
+  .loadopts .lo-row{display:flex;align-items:center;gap:8px;font-family:var(--sans);font-size:15px;color:var(--ink);}
+  .loadopts .lo-row input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);}
+  .loadopts .lo-row select{flex:1 1 auto;}
+  .loadopts .lo-note{font-family:var(--mono);font-size:11px;color:var(--steel-lt);line-height:1.5;}
+  .loadbtn{font-family:var(--sans);font-weight:700;font-size:16px;letter-spacing:.04em;padding:9px 14px;
+    border:none;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer;margin-top:4px;}
+  .loadbtn:disabled{background:var(--line);color:var(--steel-lt);cursor:not-allowed;}
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+
+<div id="drop">
+  <div class="box">
+    <h2>Nemesis Delta</h2>
+    <p>Drop a <b>race tracks JSON</b> file here, or click to choose one.</p>
+    <label class="zone" id="zone">Choose or drop a tracks JSON file
+      <input type="file" id="file" accept="application/json,.json">
+    </label>
+    <div class="loadopts hidden" id="loadopts">
+      <div class="lo-status" id="loStatus"></div>
+      <label class="lo-row"><input type="checkbox" id="aisSim"> <span>Simulate AIS reception &mdash; drop reports from distant boats</span></label>
+      <div class="lo-row"><span>Receiver boat</span><select id="aisTarget"></select></div>
+      <div class="lo-note">Tracks are interpolated to 1&nbsp;min, then ~2 in 3 reports are dropped at random (AIS cadence). By range: &le;8&nbsp;nm kept; 8&ndash;20&nbsp;nm increasing drop chance; &gt;20&nbsp;nm dropped. Our own position is kept at every report time.</div>
+      <button id="loadBtn" class="loadbtn">Load</button>
+    </div>
+  </div>
+</div>
+
+<div class="topbar hidden" id="topbar">
+  <div class="brand"><div class="name">NEMESIS<span> DELTA</span></div><div class="sub" id="raceName">Fleet Replay</div></div>
+  <div class="spacer"></div>
+  <div class="ctl-group"><span class="ctl-label">Us</span>
+    <select id="refSel"></select></div>
+  <div class="ctl-group"><span class="ctl-label">Mode</span>
+    <select id="modeSel"><option value="abs" selected>Absolute</option><option value="rel">Relative</option></select></div>
+  <div class="ctl-group"><span class="ctl-label">Up</span>
+    <select id="frameSel"><option value="finish" selected>Waypoint</option><option value="course">Course</option><option value="north">North</option><option value="wind" disabled>Wind</option></select></div>
+  <button class="timebtn" id="timeBtn" title="race time &amp; period"><span id="timeBtnVal">time</span> &#9662;</button>
+</div>
+
+<div class="timepop hidden" id="timepop">
+  <div class="trow">
+    <span class="tl">Race time</span>
+    <button class="playbtn" id="prevBtn" title="previous report for our boat">&#8249;</button>
+    <button class="playbtn" id="playBtn">Play</button>
+    <button class="playbtn" id="nextBtn" title="next report for our boat">&#8250;</button>
+    <span class="tv wide" id="timeVal">--</span>
+  </div>
+  <div class="trow full">
+    <input type="range" id="timeSlider" min="0" max="1" value="1">
+  </div>
+  <div class="trow">
+    <span class="tl">Period</span>
+    <input type="range" id="periodSlider" min="0" max="240" step="10" value="60">
+    <span class="tv" id="periodVal">60 min</span>
+  </div>
+  <div class="trow">
+    <span class="tl" title="a boat is greyed and its lines are broken only when its latest report is older than this; shorter gaps (missed AIS reports) are bridged">Stale after</span>
+    <input type="number" id="staleMin" min="5" max="240" step="5" value="30" class="numin"> <span class="tv" style="width:auto;text-align:left">min without a report</span>
+  </div>
+</div>
+
+<div class="selbar hidden" id="selbar">
+  <div class="ctl-group"><span class="ctl-label">Show</span>
+    <select id="selectSel">
+      <option value="all">All</option>
+      <option value="inrange">In range</option>
+      <option value="none">None</option>
+      <option value="div">Div</option>
+      <option value="nemesi" selected>Nemesi</option>
+    </select></div>
+  <div class="spacer"></div>
+  <span class="fleetc"><b>Boats</b> <span id="fleetCount"></span></span>
+</div>
+
+<div class="tabbar hidden" id="tabbar">
+  <button data-tab="boats" class="on">Boats</button>
+  <button data-tab="vectors">Vectors</button>
+  <button data-tab="irc">TCF</button>
+  <button data-tab="geo">Geo</button>
+</div>
+
+<div class="stage hidden" id="stage">
+  <div class="tabpane" id="pane-vectors">
+    <div class="plothead"><span class="info" data-info="vectors">i</span><div class="mode" id="modeLine"></div><div class="mode" id="scaleLine"></div></div>
+    <div class="svgwrap"><svg class="polar" id="polar" viewBox="0 0 400 400"></svg></div>
+  </div>
+  <div class="tabpane hidden" id="pane-geo">
+    <div class="plothead">
+      <span class="info" data-info="geo">i</span>
+      <div class="mode" id="mapLine">Geographic</div>
+      <div class="hbtns">
+        <div class="seg" id="baseSeg"><button data-base="white">White</button><button data-base="osm">OSM</button><button data-base="sea" class="on">Sea</button></div>
+        <button class="mapbtn" id="fitBtn">Fit</button>
+      </div>
+    </div>
+    <div class="mapbox"><svg class="map" id="map" viewBox="0 0 700 500"></svg></div>
+  </div>
+  <div class="tabpane hidden" id="pane-boats">
+    <div class="plothead"><span class="info" data-info="boats">i</span><div class="mode"><b>Boats</b></div>
+      <div class="ctl-group"><span class="ctl-label">Sort</span>
+        <select id="sortSel"><option value="near">Near</option><option value="finish" selected>Finish</option><option value="vmg">VMG</option><option value="alpha">A-Z</option></select></div>
+    </div>
+    <div class="bhead" id="bhead"></div>
+    <div class="blist" id="blist"></div>
+  </div>
+  <div class="tabpane hidden" id="pane-irc">
+    <div class="plothead"><span class="info" data-info="irc">i</span><div class="mode"><b>TCF</b> <span id="tcfNote"></span></div></div>
+    <div class="bhead thead" id="tcfhead"></div>
+    <div class="blist" id="irclist"></div>
+  </div>
+</div>
+
+<div class="tip" id="tip"></div>
+<div class="infopop" id="infoPop"></div>
+
+<div class="legend hidden" id="legend">
+  <div class="col"><h4>Reading the plot</h4>
+    <div>Up = VMG toward the frame reference (finish, own course, or north).</div>
+    <div>Higher dot = better VMG. Further from centre = faster over ground.</div>
+    <div>Relative mode: our boat sits at the centre, others are deltas to us.</div></div>
+  <div class="col"><h4>Trail</h4>
+    <div>One dot per 10-min report over the Period window. Newest is solid, older fades.</div>
+    <div>Click a boat name to expand its trail regardless of period.</div></div>
+  <div class="col"><h4>Colour</h4>
+    <div><span style="color:var(--fast)">orange</span> = faster / gaining VMC vs us.
+         <span style="color:var(--slow)">blue</span> = slower / losing.</div></div>
+</div>
+
+<div class="note hidden" id="note"></div>
+
+<script>
+"use strict";
+/* =========================================================================
+   NEMESIS DELTA - race replay. Loads a race tracks JSON.
+   sample tuple: [t_iso, lat, lon, sog_kn, cog_deg, dtg_nm, dtl_nm]
+   10-min shared grid across the fleet, so matched samples are exact.
+   No wind in this feed: vertical axis is VMG-to-finish (from position/DTG),
+   not VMG-to-wind. No lift/knock (needs TWD).
+   ========================================================================= */
+const T=0,LAT=1,LON=2,SOG=3,COG=4,DTG=5,DTL=6;
+
+/* ---- geo / angle ---- */
+const d2r=d=>d*Math.PI/180, r2d=r=>r*180/Math.PI;
+const sinD=d=>Math.sin(d2r(d)), cosD=d=>Math.cos(d2r(d));
+function norm360(a){a%=360;return a<0?a+360:a;}
+function norm180(a){a=norm360(a);return a>180?a-360:a;}
+function bearing(la1,lo1,la2,lo2){
+  const dN=(la2-la1)*60, dE=(lo2-lo1)*60*cosD((la1+la2)/2);
+  return norm360(r2d(Math.atan2(dE,dN)));
+}
+function distNm(la1,lo1,la2,lo2){
+  const dN=(la2-la1)*60, dE=(lo2-lo1)*60*cosD((la1+la2)/2);
+  return Math.hypot(dN,dE);
+}
+/* age fraction: 1 at 'now', 0 at the oldest plotted point. Timestamp-based so
+   it works for irregular AIS cadence, not just evenly spaced fleet reports. */
+function ageFrac(iso, nowMs, spanMs){ return Math.max(0, Math.min(1, 1-(nowMs-msOf(iso))/Math.max(1,spanMs))); }
+function projVec(E,N,refDir){
+  const brg=r2d(Math.atan2(E,N)), mag=Math.hypot(E,N), a=d2r(brg-refDir);
+  return {x:mag*Math.sin(a), y:mag*Math.cos(a), mag};
+}
+const msOf = iso => Date.parse(iso);
+/* Web Mercator, world [0,1] (so OSM tiles align with plotted positions) */
+function mercX(lon){ return lon/360+0.5; }
+function mercY(lat){ const s=Math.sin(d2r(Math.max(-85,Math.min(85,lat)))); return 0.5-Math.log((1+s)/(1-s))/(4*Math.PI); }
+function invMercLat(wy){ return r2d(2*Math.atan(Math.exp((0.5-wy)*2*Math.PI))-Math.PI/2); }
+const fmtAEST = ms => new Intl.DateTimeFormat('en-AU',
+  {timeZone:'Australia/Brisbane',weekday:'short',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(ms));
+
+/* ---- state ---- */
+let DATA=null, BOATS=[], BYID=new Map(), TIMELINE=[], STEP_S=600, FINISH=null, START_MS=0;
+let refId=null, mode='abs', frame='finish', nowIdx=0, periodMin=60;
+let keepPrimeInView=false;
+let hoverId=null;
+let activeTab='boats', _geoFitted=false;
+let showFilter='nemesi';               // all | none | div | nemesi : which boats are shown
+const visible=new Set(), expanded=new Set(), nemesis=new Set();
+const NEMESIS_NAMES=['calibre','kd1','mako','vixen','supernova'];
+let playing=false, playTimer=null, filterText='';
+/* map view state */
+let MAPW=700, MAPH=500;
+let mapCenter={wx:0.5,wy:0.5}, mapZoom=8, sortMode='finish', selectorOpen=true;
+let baseAbs='sea', baseRel='sea';                      // white | osm | sea, per mode
+const curBase=()=> mode==='abs' ? baseAbs : baseRel;
+
+/* =========================================================================
+   LOAD
+   ========================================================================= */
+function paletteColor(i){ return `hsl(${(i*137.508)%360} 55% 45%)`; }
+
+function init(json){
+  DATA=json; STEP_S=json.step_s||600;
+  START_MS=msOf(json.race?.start)|| null;
+  BOATS=json.boats.map((b,i)=>{
+    const byT=new Map();
+    for(const s of b.samples) byT.set(s[T], s);
+    return { id:b.id, name:b.name, club:b.club, owner:b.owner,
+             cat:(b.categories&&b.categories[0]?b.categories[0].name:''),
+             div:(b.categories&&b.categories[0]?b.categories[0].division:''),
+             color:paletteColor(i), samples:b.samples, byT,
+             t0:msOf(b.samples[0][T]), t1:msOf(b.samples[b.samples.length-1][T]) };
+  });
+  BYID=new Map(BOATS.map(b=>[b.id,b]));
+
+  // master timeline = sorted union of all sample timestamps
+  const set=new Set();
+  for(const b of BOATS) for(const s of b.samples) set.add(s[T]);
+  TIMELINE=[...set].sort((a,b)=>msOf(a)-msOf(b));
+  if(!START_MS) START_MS=msOf(TIMELINE[0]);
+
+  // finish = position of the sample with smallest DTG anywhere
+  let best=Infinity;
+  for(const b of BOATS) for(const s of b.samples){
+    if(s[DTG]!=null && s[DTG]<best){ best=s[DTG]; FINISH={lat:s[LAT],lon:s[LON]}; }
+  }
+
+  // default reference: Kanreki if present, else the longest track
+  const kan=BOATS.find(b=>b.name==='Kanreki');
+  refId = kan? kan.id : BOATS.slice().sort((a,b)=>b.samples.length-a.samples.length)[0].id;
+
+  // default nemesis list: calibre, KD1, Mako, Vixen, Supernova (those present)
+  nemesis.clear();
+  for(const b of BOATS){ const n=b.name.toLowerCase();
+    if(NEMESIS_NAMES.some(t=>n.includes(t))) nemesis.add(b.id); }
+
+  // default visible: the nemesis list + reference boat
+  showFilter='nemesi'; document.getElementById('selectSel').value='nemesi';
+  recomputeVisible();
+
+  nowIdx=Math.floor((TIMELINE.length-1)*0.25);   // start a quarter into the race
+  fitVisibleNow();
+
+  buildRefSelect();
+  document.getElementById('raceName').textContent=json.race?.name||'Replay';
+  document.getElementById('timeSlider').max=TIMELINE.length-1;
+  document.getElementById('timeSlider').value=nowIdx;
+  ['topbar','selbar','tabbar','stage'].forEach(id=>document.getElementById(id).classList.remove('hidden'));
+  document.getElementById('drop').classList.add('hidden');
+  _geoFitted=false;
+  setTab(activeTab);
+  render();
+  syncBaseUI();
+  // panes need real pixel dimensions, which exist only after layout
+  requestAnimationFrame(()=>{ render(); });
+}
+function lastDtg(b){ const s=b.samples[b.samples.length-1]; return s[DTG]==null?9999:s[DTG]; }
+
+/* sample for a boat at a given timeline iso (exact grid match) */
+function sampleAt(b, iso){ return b.byT.get(iso) || null; }
+
+/* AIS-style tolerance: a boat only counts as stale (greyed, line broken) when its latest
+   report is older than STALE_MIN. Shorter gaps (missed 3-5 min AIS reports) are bridged. */
+let STALE_MIN=30;
+const staleMs=()=>STALE_MIN*60000;
+/* latest sample of b at or before iso, if no older than STALE_MIN; else null */
+function curSample(b, iso){
+  const t=msOf(iso);
+  if(!b._ms) b._ms=b.samples.map(x=>msOf(x[T]));
+  let lo=0, hi=b._ms.length-1, k=-1;
+  while(lo<=hi){ const m=(lo+hi)>>1; if(b._ms[m]<=t){ k=m; lo=m+1; } else hi=m-1; }
+  if(k<0 || t-b._ms[k]>staleMs()) return null;
+  return b.samples[k];
+}
+
+/* velocity E/N (kn) for a sample */
+function vel(s){ return {E:s[SOG]*sinD(s[COG]), N:s[SOG]*cosD(s[COG])}; }
+
+/* VMC (kn made good to finish) at iso, from DTG delta over one step */
+/* VMC from DTG change since this boat's own previous report (not the timeline's previous
+   step), so gappy AIS-style tracks still yield a value. Gaps over 2 h are ignored. */
+function vmc(b, iso){
+  const s=b.byT.get(iso); if(!s||s[DTG]==null) return null;
+  if(!b._idx) b._idx=new Map(b.samples.map((x,i)=>[x[T],i]));
+  const i=b._idx.get(iso); if(i==null||i===0) return null;
+  const p=b.samples[i-1]; if(!p||p[DTG]==null) return null;
+  const dh=(msOf(iso)-msOf(p[T]))/3600000;
+  if(!(dh>0) || dh*3600000>staleMs()) return null;
+  return (p[DTG]-s[DTG])/dh;          // + closing the finish
+}
+function usSampleAt(iso){ const ref=BYID.get(refId); return ref? ref.byT.get(iso):null; }
+/* boat's absolute VMG toward the current frame axis (course axis = our heading) */
+function vmgAbs(b, iso){
+  const s=b.byT.get(iso); if(!s) return null;
+  if(frame==='finish') return vmc(b,iso);
+  if(frame==='north')  return s[SOG]*cosD(s[COG]);
+  if(frame==='course'){ const rs=usSampleAt(iso); if(!rs) return null; return s[SOG]*cosD(s[COG]-rs[COG]); }
+  return null;                                   // wind (disabled)
+}
+/* VMG toward frame: absolute, or relative to our own VMG when in relative mode */
+function vmgToward(b, iso){
+  const v=vmgAbs(b,iso); if(v==null) return null;
+  if(mode==='abs') return v;
+  const ref=BYID.get(refId), uv=ref?vmgAbs(ref,iso):null;
+  return uv==null ? null : v-uv;
+}
+/* distance chart value: north => range to us; else signed distance-to-target relative to us */
+function distMetric(b, iso){
+  const s=b.byT.get(iso), rs=usSampleAt(iso); if(!s||!rs) return null;
+  if(frame==='north')  return distNm(rs[LAT],rs[LON],s[LAT],s[LON]);
+  if(frame==='finish'){ if(s[DTG]==null||rs[DTG]==null) return null; return s[DTG]-rs[DTG]; }
+  if(frame==='course'){ const dN=(s[LAT]-rs[LAT])*60, dE=(s[LON]-rs[LON])*60*cosD((rs[LAT]+s[LAT])/2);
+    return dN*cosD(rs[COG])+dE*sinD(rs[COG]); }    // along our heading, + ahead
+  return null;                                     // wind
+}
+/* responsive sparkline, newest on the LEFT, comet taper (thick/solid recent -> thin/faint old).
+   pairs = [{iso,v}] oldest..newest; [lo,hi] is a shared scale across all displayed charts. */
+function spark(pairs, color, lo, hi, nowMs, spanMs){
+  const W=100,H=30;
+  const seq=pairs.slice().reverse();                 // index 0 = newest -> left edge
+  const vals=seq.map(p=>p.v).filter(v=>v!=null&&isFinite(v));
+  if(vals.length<1 || !(hi>lo)) return `<svg class="spk" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"></svg>`;
+  const pad=(hi-lo)*0.06; lo-=pad; hi+=pad;          // small headroom, otherwise fill full height
+  const n=seq.length, X=i=>(n>1?(i/(n-1))*(W-2):0)+1, Y=v=>H-1-((v-lo)/(hi-lo))*(H-2);
+  const zero = (lo<0 && hi>0) ? `<line x1="1" y1="${Y(0).toFixed(1)}" x2="${W-1}" y2="${Y(0).toFixed(1)}" stroke="#e3e9f0" vector-effect="non-scaling-stroke"/>` : '';
+  // join consecutive reports; bridge missing samples unless the gap exceeds STALE_MIN
+  let segs='';
+  const idx=[]; seq.forEach((q,i)=>{ if(q.v!=null&&isFinite(q.v)) idx.push(i); });
+  for(let k=0;k<idx.length-1;k++){
+    const i=idx[k], j=idx[k+1], a=seq[i], b=seq[j];
+    if(Math.abs(msOf(a.iso)-msOf(b.iso))>staleMs()) continue;
+    const f=(ageFrac(a.iso,nowMs,spanMs)+ageFrac(b.iso,nowMs,spanMs))/2;   // 1 newest .. 0 oldest
+    const w=(0.6+3.0*f).toFixed(2), op=(0.18+0.82*f).toFixed(2);
+    segs+=`<line x1="${X(i).toFixed(1)}" y1="${Y(a.v).toFixed(1)}" x2="${X(j).toFixed(1)}" y2="${Y(b.v).toFixed(1)}" `+
+          `stroke="${color}" stroke-width="${w}" opacity="${op}" vector-effect="non-scaling-stroke" stroke-linecap="round"/>`;
+  }
+  // dot on the latest available point (zero-length round-capped line stays circular when stretched)
+  let dot='';
+  const k=seq.findIndex(p=>p.v!=null&&isFinite(p.v));
+  if(k>=0){ const x=X(k).toFixed(2), y=Y(seq[k].v).toFixed(2);
+    dot=`<line x1="${x}" y1="${y}" x2="${x}" y2="${y}" stroke="${color}" stroke-width="6" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`; }
+  return `<svg class="spk" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${zero}${segs}${dot}</svg>`;
+}
+/* latest available value in a series (oldest..newest) and its position as fractions of the
+   chart box, using exactly the same mapping as spark() so the label sits over the dot */
+function latestPos(pairs, lo, hi){
+  const n=pairs.length, W=100, H=30;
+  if(!(hi>lo)) return null;
+  const pad=(hi-lo)*0.06, L=lo-pad, U=hi+pad;
+  for(let i=n-1;i>=0;i--){ const v=pairs[i].v;
+    if(v!=null&&isFinite(v)){ const k=n-1-i;
+      const x=(n>1?(k/(n-1))*(W-2):0)+1, y=H-1-((v-L)/(U-L))*(H-2);
+      return { v, xf:x/W, yf:y/H }; } }
+  return null;
+}
+
+/* frame reference direction (deg) at current now, using reference boat pos */
+/* Active waypoint. For now this is the derived finish point; when live data is wired in,
+   return the real next waypoint here and everything (frame, VMG, map marker) follows. */
+function waypoint(){ return FINISH; }
+/* user-facing frame names (internal value 'finish' is the waypoint frame) */
+function frameName(){ return frame==='finish' ? 'waypoint' : frame; }
+function frameRef(){
+  if(frame==='north') return 0;
+  const ref=BYID.get(refId), iso=TIMELINE[nowIdx];
+  const rs=ref?sampleAt(ref,iso):null;
+  if(frame==='course') return rs? rs[COG] : 0;
+  const wp=waypoint();
+  if(frame==='finish' && wp && rs) return bearing(rs[LAT],rs[LON],wp.lat,wp.lon);
+  return 0;   // north, wind(disabled)
+}
+
+/* point for a competitor sample under mode + refDir, matched to ref at same iso */
+function pointFor(b, iso, refDir){
+  const s=b.byT.get(iso); if(!s) return null;
+  const fE=s[SOG]*sinD(s[COG]), fN=s[SOG]*cosD(s[COG]);
+  if(mode==='abs') return projVec(fE,fN,refDir);
+  const ref=BYID.get(refId), rs=ref?ref.byT.get(iso):null;
+  if(!rs) return null;                 // no matched own-sample -> skip point
+  const oE=rs[SOG]*sinD(rs[COG]), oN=rs[SOG]*cosD(rs[COG]);
+  return projVec(fE-oE,fN-oN,refDir);
+}
+function ownPoint(refDir){
+  if(mode==='rel') return {x:0,y:0,mag:0};
+  const ref=BYID.get(refId), rs=ref?sampleAt(ref,TIMELINE[nowIdx]):null;
+  if(!rs) return null;
+  return projVec(rs[SOG]*sinD(rs[COG]), rs[SOG]*cosD(rs[COG]), refDir);
+}
+
+/* isos within the period window ending at now, oldest..newest */
+function windowIsos(){
+  const nowMs=msOf(TIMELINE[nowIdx]), fromMs=nowMs - periodMin*60000;
+  const out=[];
+  for(let i=nowIdx;i>=0;i--){ const ms=msOf(TIMELINE[i]); if(ms<fromMs) break; out.push(TIMELINE[i]); }
+  return out.reverse();
+}
+
+/* =========================================================================
+   RENDER
+   ========================================================================= */
+function niceStep(max){const raw=max/3||1;const pw=Math.pow(10,Math.floor(Math.log10(raw)));
+  const n=raw/pw;const s=n<1.5?1:n<3.5?2:n<7.5?5:10;return s*pw;}
+const speedColor=v=>{const t=Math.max(-1,Math.min(1,v/1.2));const hex=t>=0?'#e07818':'#2472c0';
+  const c=parseInt(hex.slice(1),16),r=(c>>16)&255,g=(c>>8)&255,b=c&255,a=Math.abs(t),m=x=>Math.round(255+(x-255)*a);
+  return `rgb(${m(r)},${m(g)},${m(b)})`;};
+
+function render(){
+  if(!DATA) return;
+  keepPrimeInView = (mode==='abs');
+  if(showFilter==='inrange') recomputeVisible();     // depends on race time and the stale threshold
+  const iso=TIMELINE[nowIdx];
+  const isos=windowIsos();
+
+  document.getElementById('timeVal').textContent=
+    fmtAEST(msOf(iso))+'  (+'+fmtElapsed(msOf(iso)-START_MS)+')';
+  document.getElementById('periodVal').textContent=periodMin+' min ('+isos.length+' pts)';
+  const tb=document.getElementById('timeBtnVal'); if(tb) tb.textContent='+'+fmtElapsed(msOf(iso)-START_MS)+' · '+periodMin+'m';
+  const fc=document.getElementById('fleetCount'); if(fc) fc.textContent=visible.size+'/'+BOATS.length;
+
+  if(activeTab==='vectors') renderPolar();
+  else if(activeTab==='geo') renderMap();
+  else if(activeTab==='boats') renderList();
+  else if(activeTab==='irc') renderIrc();
+}
+
+function setTab(t){
+  activeTab=t;
+  for(const x of ['vectors','geo','boats','irc']){
+    document.getElementById('pane-'+x).classList.toggle('hidden', x!==t);
+    const btn=document.querySelector('#tabbar button[data-tab="'+x+'"]'); if(btn) btn.classList.toggle('on', x===t);
+  }
+  if(DATA && t==='geo' && !_geoFitted){ renderMap(); fitVisibleNow(); _geoFitted=true; }
+  if(DATA) render();
+}
+
+/* ---- TCF (time-on-time handicap) ----------------------------------------------------
+   TCFs are typed in per boat and persisted (cookie, plus localStorage because browsers ignore
+   cookies on pages opened from disk). Keyed by boat name so they survive reloads and new files. */
+const TCF_KEY='nd_tcf';
+let TCF=(function(){
+  let o={};
+  try{ const m=document.cookie.match(new RegExp('(?:^|; )'+TCF_KEY+'=([^;]*)')); if(m) o=JSON.parse(decodeURIComponent(m[1])); }catch(e){}
+  try{ const ls=JSON.parse(localStorage.getItem(TCF_KEY)||'{}'); o=Object.assign(ls,o); }catch(e){}
+  return o;
+})();
+function saveTCF(){
+  const v=JSON.stringify(TCF);
+  try{ document.cookie=TCF_KEY+'='+encodeURIComponent(v)+'; max-age=31536000; path=/; SameSite=Lax'; }catch(e){}
+  try{ localStorage.setItem(TCF_KEY,v); }catch(e){}
+}
+const tcfOf=b=>{ const v=+TCF[b.name]; return (v>0 && isFinite(v)) ? v : 1; };
+
+/* Lead toward the current Up reference, + = boat b ahead of us (nm). Compared against our own
+   position at b's report time, which we always have from our instruments. */
+function leadToward(s, rs){
+  if(frame==='finish'){ if(s[DTG]==null||rs[DTG]==null) return null; return rs[DTG]-s[DTG]; }
+  const dN=(s[LAT]-rs[LAT])*60, dE=(s[LON]-rs[LON])*60*cosD((rs[LAT]+s[LAT])/2);
+  if(frame==='course') return dN*cosD(rs[COG])+dE*sinD(rs[COG]);
+  if(frame==='north')  return dN;
+  return null;                                           // wind (no data yet)
+}
+
+function renderIrc(force){
+  if(!DATA) return;
+  const fa=document.activeElement;                       // don't redraw under the user's cursor while typing
+  if(!force && fa && fa.classList && fa.classList.contains('tcfin')) return;
+  const iso=TIMELINE[nowIdx], ref=BYID.get(refId);
+  const t0=msOf(TIMELINE[0]);                            // elapsed time is measured from the first sample
+  const us0=ref ? ref.samples.find(x=>x[DTG]!=null) : null;
+  const tcfUs=ref?tcfOf(ref):1;
+  const fmt=v=>v==null?'&ndash;':(v>=0?'+':'&minus;')+Math.abs(v).toFixed(1);
+  const cls=v=>v==null?'':(v>0.05?'pos':v<-0.05?'neg':'');
+  const rows=BOATS.filter(b=>visible.has(b.id)).map(b=>{
+    const isRef=b.id===refId, s=curSample(b,iso);
+    let should=null, actual=null, net=null;
+    if(s && ref && !isRef){
+      const rs=ref.byT.get(s[T]) || curSample(ref,s[T]);           // our state at their report time
+      if(rs && us0 && rs[DTG]!=null){
+        const E=(msOf(s[T])-t0)/1000;                              // elapsed seconds (same for both boats)
+        const Cb=E*tcfOf(b), Cus=E*tcfUs;                          // corrected times
+        const D=us0[DTG]-rs[DTG];                                  // our distance made good so far, nm
+        // corrected-time difference -> distance: b covers D in corrected time E*TCF_b
+        should = (E>0 && D>0) ? (Cb-Cus)*D/(E*tcfOf(b)) : 0;       // = D*(1 - TCF_us/TCF_b)
+        actual = leadToward(s,rs);
+        if(actual!=null) net=actual-should;
+      }
+    }
+    return {b,isRef,s,should,actual,net};
+  });
+  // handicap standing: most ahead of us on corrected time first; us at 0; no data last
+  rows.sort((x,y)=>(y.isRef?0:(y.net??-1e9))-(x.isRef?0:(x.net??-1e9)));
+  document.getElementById('tcfNote').innerHTML=` &middot; vs ${ref?ref.name:'us'}, toward ${frameName()}`;
+  document.getElementById('tcfhead').innerHTML=
+    `<span class="sp" style="width:10px"></span><span class="th-name"><b>Boat</b></span>`+
+    `<span class="th-tcf"><b>TCF</b></span>`+
+    `<span class="th-n"><b>Should</b><span class="bh-sub">nm ahead</span></span>`+
+    `<span class="th-n"><b>Actual</b><span class="bh-sub">nm ahead</span></span>`+
+    `<span class="th-n"><b>Net</b><span class="bh-sub">+ beats us</span></span>`;
+  const el=document.getElementById('irclist'), sc=el.scrollTop;
+  el.innerHTML=rows.map(r=>`<div class="brow trow2 ${r.isRef?'us':''} ${r.s?'':'gone'}" data-id="${r.b.id}">
+      <span class="sw" style="background:${r.isRef?'#1a2a3a':r.b.color}"></span>
+      <span class="bn ${r.isRef?'ref':''}">${r.b.name}</span>
+      <input class="tcfin" type="number" inputmode="decimal" step="0.001" min="0.5" max="2" value="${tcfOf(r.b).toFixed(3)}" data-name="${r.b.name.replace(/"/g,'&quot;')}">
+      <span class="tn">${r.isRef?'&ndash;':fmt(r.should)}</span>
+      <span class="tn">${r.isRef?'&ndash;':fmt(r.actual)}</span>
+      <span class="tn net ${cls(r.net)}">${r.isRef?'0.0':fmt(r.net)}</span>
+    </div>`).join('');
+  el.scrollTop=sc;
+  el.querySelectorAll('.tcfin').forEach(inp=>{
+    inp.onchange=()=>{ const v=+inp.value;
+      if(v>0.3 && v<3){ TCF[inp.dataset.name]=+v.toFixed(4); saveTCF(); }
+      renderIrc(true); };
+    inp.onkeydown=e=>{ if(e.key==='Enter') inp.blur(); };
+  });
+}
+
+/* top-view boat hull outline, forward = +x, length ~= size; fine bow, max beam amidships,
+   transom a little narrower than the beam (reads as a sailing hull, not a powerboat) */
+function boatIcon(px,py,ang,size){
+  // forward = +x. Two points at max beam (0.34) give a parallel midbody -> a longer, finer hull.
+  const P=[[0.58,0],[0.34,0.20],[0.08,0.34],[-0.18,0.34],[-0.40,0.27],[-0.55,0.21],
+           [-0.55,-0.21],[-0.40,-0.27],[-0.18,-0.34],[0.08,-0.34],[0.34,-0.20]];
+  const c=Math.cos(ang), s=Math.sin(ang), k=size, BEAM=0.7;   // BEAM: hull 30% slimmer than the outline above
+  return P.map(([lx,ly0])=>{ const ly=ly0*BEAM; return `${(px+(lx*c-ly*s)*k).toFixed(1)},${(py+(lx*s+ly*c)*k).toFixed(1)}`; }).join(' ');
+}
+/* bow-up hull for the boat list */
+function listIcon(color){
+  return `<svg width="26" height="26" viewBox="0 0 26 26"><polygon points="${boatIcon(13,13,-Math.PI/2,21)}" fill="${color}" stroke="#fff" stroke-width="1"/></svg>`;
+}
+/* triangular arrowhead points; tip points along `ang` (the velocity direction) */
+function arrowTri(px,py,ang,size){
+  const c=Math.cos(ang), s=Math.sin(ang);
+  const t=[px+c*size*1.3, py+s*size*1.3];
+  const bl=[px - c*size*0.7 - s*size, py - s*size*0.7 + c*size];
+  const br=[px - c*size*0.7 + s*size, py - s*size*0.7 - c*size];
+  return `${t[0].toFixed(1)},${t[1].toFixed(1)} ${bl[0].toFixed(1)},${bl[1].toFixed(1)} ${br[0].toFixed(1)},${br[1].toFixed(1)}`;
+}
+
+let _polarHover=undefined;
+function renderPolar(){
+  if(!DATA) return;
+  const iso=TIMELINE[nowIdx], refDir=frameRef();
+  const isos=windowIsos();
+  const own0=ownPoint(refDir);
+  const draw=[]; const XY=[[0,0]];               // origin always included
+  if(own0) XY.push([own0.x,own0.y]);
+  for(const b of BOATS){
+    if(!visible.has(b.id)) continue;
+    const full=expanded.has(b.id);
+    const useIsos = full ? b.samples.map(s=>s[T]).filter(t=>msOf(t)<=msOf(iso)) : isos;
+    const proj=[];
+    useIsos.forEach(ti=>{ const p=pointFor(b,ti,refDir);
+      if(p){ proj.push({p, iso:ti, newest:false}); XY.push([p.x,p.y]); } });
+    // current position = latest report, unless it is older than STALE_MIN
+    if(proj.length){ const last=proj[proj.length-1]; if(msOf(iso)-msOf(last.iso)<=staleMs()) last.newest=true; }
+    if(proj.length) draw.push({b,proj});
+  }
+
+  // dynamic box + fit-to-content (pan & zoom so origin + all boats + tails fill the box)
+  const pel=document.getElementById('polar');
+  let BW=pel.clientWidth, BH=pel.clientHeight;
+  if(!(BW>20&&BH>20)){ BW=400; BH=400; }
+  pel.setAttribute('viewBox',`0 0 ${BW} ${BH}`);
+  const CX=BW/2, CY=BH/2;
+  const xs=XY.map(p=>p[0]), ys=XY.map(p=>p[1]);
+  const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+  const cx0=(minX+maxX)/2, cy0=(minY+maxY)/2;
+  const spanX=Math.max(maxX-minX,0.1), spanY=Math.max(maxY-minY,0.1);
+  const scale=Math.min((BW*0.80)/spanX, (BH*0.80)/spanY);
+  const sx=x=>CX+(x-cx0)*scale, sy=y=>CY-(y-cy0)*scale;
+  const maxMag=Math.max(0.05,...XY.map(p=>Math.hypot(p[0],p[1])));
+  const step=niceStep(maxMag);
+  const oX=sx(0), oY=sy(0);                       // origin (0,0) on screen
+
+  let s=`<defs><clipPath id="polclip"><rect x="0" y="0" width="${BW}" height="${BH}"/></clipPath></defs>`;
+  s+=`<g clip-path="url(#polclip)">`;
+  s+=`<line x1="${oX.toFixed(1)}" y1="0" x2="${oX.toFixed(1)}" y2="${BH}" stroke="#8ea3bc" stroke-width="1.2"/>`;
+  s+=`<line x1="0" y1="${oY.toFixed(1)}" x2="${BW}" y2="${oY.toFixed(1)}" stroke="#c6d3e2"/>`;
+  let dirx=CX-oX, diry=CY-oY; const dl=Math.hypot(dirx,diry)||1; dirx/=dl; diry/=dl;
+  for(let rv=step; rv<=maxMag-step*0.5; rv+=step){
+    const rr=rv*scale;
+    s+=`<circle cx="${oX.toFixed(1)}" cy="${oY.toFixed(1)}" r="${rr.toFixed(1)}" fill="none" stroke="#aebfd4" stroke-width="1.1"/>`;
+    s+=`<text x="${(oX+dirx*rr).toFixed(1)}" y="${(oY+diry*rr).toFixed(1)}" font-family="'Share Tech Mono'" font-size="11" fill="#5a7290">${+rv.toFixed(2)}</text>`;
+  }
+  { const rr=maxMag*scale;
+    s+=`<circle cx="${oX.toFixed(1)}" cy="${oY.toFixed(1)}" r="${rr.toFixed(1)}" fill="none" stroke="#7f95b0" stroke-width="1.4"/>`;
+    s+=`<text x="${(oX+dirx*rr).toFixed(1)}" y="${(oY+diry*rr).toFixed(1)}" font-family="'Share Tech Mono'" font-size="11" fill="#42566f">${+maxMag.toFixed(2)}kn</text>`;
+  }
+
+  // US heading direction in the current frame (for the US arrowhead, even at the origin in Relative)
+  const rsmp = (function(){ const r=BYID.get(refId); return r? (r.byT.get(iso)||lastKnown(r)) : null; })();
+  let usAng=0;
+  if(rsmp && rsmp[COG]!=null){ const brg=norm360(rsmp[COG]-refDir);
+    usAng=Math.atan2(Math.sin(brg*Math.PI/180), -Math.cos(brg*Math.PI/180)); }
+
+  for(const {b,proj} of draw){
+    const isRef=b.id===refId;
+    const nowMs=msOf(iso), spanMs=Math.max(1, nowMs-msOf(proj[0].iso));
+    const hoverMul=(b.id===hoverId)?1.5:1;              // highlighted -> 150% of the (doubled) size
+    // comet tail: connects consecutive sample points (NOT the velocity vector)
+    if(proj.length>1){
+      const wMin=isRef?0.5:0.4, wMax=isRef?7.2:5.2;
+      for(let i=0;i<proj.length-1;i++){
+        if(msOf(proj[i+1].iso)-msOf(proj[i].iso)>staleMs()) continue;   // break only on long gaps
+        const a=proj[i].p, c=proj[i+1].p;
+        const ax=sx(a.x), ay=sy(a.y), bx=sx(c.x), by=sy(c.y);
+        const f=(ageFrac(proj[i].iso,nowMs,spanMs)+ageFrac(proj[i+1].iso,nowMs,spanMs))/2;
+        const w=(wMin+(wMax-wMin)*f).toFixed(2), op=(0.08+0.82*f).toFixed(2);
+        s+=`<line x1="${ax.toFixed(1)}" y1="${ay.toFixed(1)}" x2="${bx.toFixed(1)}" y2="${by.toFixed(1)}" `+
+           `stroke="${isRef?'#1a2a3a':b.color}" stroke-width="${w}" opacity="${op}" stroke-linecap="round"/>`;
+      }
+    }
+    // hovered boat: draw the actual velocity vectors (origin -> each arrowhead), age-tapered
+    if(b.id===hoverId){
+      for(const q of proj){
+        const f=q.newest?1:ageFrac(q.iso,nowMs,spanMs);
+        const w=(0.5+3.0*f).toFixed(2), op=(0.14+0.66*f).toFixed(2);
+        s+=`<line x1="${oX.toFixed(1)}" y1="${oY.toFixed(1)}" x2="${sx(q.p.x).toFixed(1)}" y2="${sy(q.p.y).toFixed(1)}" `+
+           `stroke="${isRef?'#1a2a3a':b.color}" stroke-width="${w}" opacity="${op}" stroke-linecap="round" stroke-dasharray="5 4"/>`;
+      }
+    }
+    // hull icons, pointed along each sample's velocity direction
+    proj.forEach((q)=>{
+      const px=sx(q.p.x), py=sy(q.p.y);
+      const isUsNewest=(isRef && q.newest);
+      let ang=Math.atan2(py-oY, px-oX);                 // direction of the velocity vector (matches the shaft)
+      if(isUsNewest && Math.hypot(px-oX,py-oY)<2) ang=usAng;   // US sitting on the origin (Relative) -> use heading
+      const fr=q.newest?1:ageFrac(q.iso,nowMs,spanMs);
+      let size=((isRef?11:9)*(0.45+0.55*fr)+(q.newest?4:0))*2*hoverMul;   // ×2 everywhere
+      const op=q.newest?1:(0.25+0.6*fr);
+      if(isUsNewest){                                   // special US hull (replaces the old dot)
+        size*=1.4;
+        s+=`<polygon class="hit" data-id="${b.id}" data-iso="${q.iso}" points="${boatIcon(px,py,ang,size)}" fill="#1a2a3a" stroke="#fff" stroke-width="1.8"/>`;
+        s+=`<text x="${px.toFixed(1)}" y="${(py-size*0.55-6).toFixed(1)}" text-anchor="middle" font-family="'Share Tech Mono'" font-size="9" fill="#1a2a3a">US</text>`;
+      }else{
+        s+=`<polygon class="hit" data-id="${b.id}" data-iso="${q.iso}" points="${boatIcon(px,py,ang,size)}" `+
+           `fill="${isRef?'#1a2a3a':b.color}" opacity="${op.toFixed(2)}"${q.newest?' stroke="#fff" stroke-width="1"':''}/>`;
+      }
+    });
+  }
+  s+=`</g>`;
+  pel.innerHTML=s;
+  _polarHover=hoverId;
+
+  document.querySelectorAll('#polar .hit').forEach(el=>{
+    el.style.cursor='pointer';
+    el.addEventListener('mousemove',ev=>setHover(+el.dataset.id,'polar',ev,el.dataset.iso));
+    el.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); setHover(+el.dataset.id,'polar',ev,el.dataset.iso); });
+  });
+
+  const ref=BYID.get(refId);
+  document.getElementById('modeLine').innerHTML=
+    `<b>${mode==='rel'?'Relative to '+(ref?ref.name:'us'):'Absolute'}</b> &middot; ${frameName()} up`;
+  document.getElementById('scaleLine').textContent=`ring ${+step.toFixed(2)}kn  max ~${+maxMag.toFixed(2)}kn`;
+}
+function fmtElapsed(ms){ if(ms==null||isNaN(ms))return'?'; const m=Math.floor(ms/60000); return Math.floor(m/60)+'h'+String(m%60).padStart(2,'0'); }
+
+/* =========================================================================
+   GEOGRAPHIC MAP  (Web Mercator; absolute pans/zooms, relative locks on us)
+   ========================================================================= */
+function mapScale(){ return 256*Math.pow(2,mapZoom); }              // px per world unit
+function projPx(wx,wy){ const sc=mapScale(); return [ (wx-mapCenter.wx)*sc+MAPW/2, (wy-mapCenter.wy)*sc+MAPH/2 ]; }
+/* SVG rotate(deg) transform of a screen offset (x right, y down) about origin */
+function rotXY(x,y,deg){ const a=d2r(deg), c=Math.cos(a), s=Math.sin(a); return [ x*c - y*s, x*s + y*c ]; }
+/* small compass showing where true north points once the map is rotated */
+function northIndicator(rot){
+  const x=MAPW-20, y=22, len=12, a=d2r(-rot);      // north is up, rotated by -rot with the map
+  const nx=x+len*Math.sin(a), ny=y-len*Math.cos(a);
+  return `<g opacity="0.8"><line x1="${x}" y1="${y}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="#cc2033" stroke-width="2"/>`+
+    `<circle cx="${x}" cy="${y}" r="2" fill="#556070"/>`+
+    `<text x="${nx.toFixed(1)}" y="${(ny-3).toFixed(1)}" text-anchor="middle" font-family="'Share Tech Mono'" font-size="9" fill="#cc2033">N</text></g>`;
+}
+function pxPerNm(){ const lat=invMercLat(mapCenter.wy); const dwy=Math.abs(mercY(lat+1/60)-mercY(lat)); return dwy*mapScale(); }
+function lastKnown(b){ const nowMs=msOf(TIMELINE[nowIdx]);
+  for(let i=b.samples.length-1;i>=0;i--){ if(msOf(b.samples[i][T])<=nowMs) return b.samples[i]; } return null; }
+
+function fitVisibleNow(){
+  const iso=TIMELINE[nowIdx]; const pts=[];
+  for(const b of BOATS){ if(!visible.has(b.id))continue; const s=sampleAt(b,iso)||lastKnown(b);
+    if(s) pts.push([mercX(s[LON]),mercY(s[LAT])]); }
+  if(!pts.length) return;
+  const xs=pts.map(p=>p[0]), ys=pts.map(p=>p[1]);
+  const wx0=Math.min(...xs),wx1=Math.max(...xs),wy0=Math.min(...ys),wy1=Math.max(...ys);
+  mapCenter={wx:(wx0+wx1)/2, wy:(wy0+wy1)/2};
+  const spanX=Math.max(1e-7,wx1-wx0), spanY=Math.max(1e-7,wy1-wy0);
+  const zx=Math.log2((MAPW*0.82)/(256*spanX)), zy=Math.log2((MAPH*0.82)/(256*spanY));
+  mapZoom=Math.max(3, Math.min(pts.length<2?12:15, Math.min(zx,zy)));
+}
+
+function tileImages(Z, tmpl){
+  const sc=mapScale(), n=Math.pow(2,Z);
+  const R=Math.hypot(MAPW,MAPH)/2;                    // circumscribing radius (rotation-proof)
+  const wx0=mapCenter.wx-R/sc, wx1=mapCenter.wx+R/sc;
+  const wy0=mapCenter.wy-R/sc, wy1=mapCenter.wy+R/sc;
+  const tx0=Math.floor(wx0*n),tx1=Math.floor(wx1*n),ty0=Math.floor(wy0*n),ty1=Math.floor(wy1*n);
+  const tilePx=sc/n; let out='',cnt=0;
+  for(let tx=tx0;tx<=tx1;tx++) for(let ty=ty0;ty<=ty1;ty++){
+    if(tx<0||ty<0||tx>=n||ty>=n) continue; if(++cnt>200) break;
+    const [px,py]=projPx(tx/n,ty/n);
+    out+=`<image href="${tmpl(Z,tx,ty)}" x="${px.toFixed(1)}" y="${py.toFixed(1)}" width="${(tilePx+0.5).toFixed(2)}" height="${(tilePx+0.5).toFixed(2)}"/>`;
+  }
+  return out;
+}
+function tileLayer(){
+  const bt=curBase(); if(bt==='white') return '';
+  const Z=Math.max(2,Math.min(16,Math.round(mapZoom)));
+  if(bt==='osm') return tileImages(Z,(z,x,y)=>`https://tile.openstreetmap.org/${z}/${x}/${y}.png`);
+  if(bt==='sea'){
+    // Esri Ocean base (bathymetry / shelf shading; tiles are z/y/x) + OpenSeaMap seamark overlay
+    return tileImages(Math.min(Z,13),(z,x,y)=>`https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/${z}/${y}/${x}`)
+         + tileImages(Math.min(Z,16),(z,x,y)=>`https://tiles.openseamap.org/seamark/${z}/${x}/${y}.png`);
+  }
+  return '';
+}
+function rangeRings(){
+  const ppn=pxPerNm(); if(!isFinite(ppn)||ppn<=0) return '';
+  const maxNm=(Math.min(MAPW,MAPH)/2)/ppn, stepNm=niceStep(maxNm); let out='';
+  for(let r=stepNm; r<=maxNm+1e-6; r+=stepNm){ const rr=r*ppn;
+    out+=`<circle cx="${MAPW/2}" cy="${MAPH/2}" r="${rr.toFixed(1)}" fill="none" stroke="#e3e9f0"/>`;
+    out+=`<text x="${MAPW/2+4}" y="${(MAPH/2-rr+11).toFixed(1)}" font-family="'Share Tech Mono'" font-size="8" fill="#a8b4c2">${+r.toFixed(r<1?1:0)}nm</text>`; }
+  return out;
+}
+function scaleBar(){
+  const ppn=pxPerNm(); if(!isFinite(ppn)||ppn<=0) return '';
+  const nm=niceStep((MAPW*0.25)/ppn), w=nm*ppn, x=14, y=MAPH-16;
+  return `<line x1="${x}" y1="${y}" x2="${(x+w).toFixed(1)}" y2="${y}" stroke="#556070" stroke-width="2"/>`+
+    `<line x1="${x}" y1="${y-3}" x2="${x}" y2="${y+3}" stroke="#556070" stroke-width="2"/>`+
+    `<line x1="${(x+w).toFixed(1)}" y1="${y-3}" x2="${(x+w).toFixed(1)}" y2="${y+3}" stroke="#556070" stroke-width="2"/>`+
+    `<text x="${(x+w/2).toFixed(1)}" y="${y-5}" text-anchor="middle" font-family="'Share Tech Mono'" font-size="9" fill="#556070">${+nm.toFixed(nm<1?1:0)} nm</text>`;
+}
+
+function renderMap(){
+  if(!DATA) return;
+  const mapEl=document.getElementById('map');
+  const cw=mapEl.clientWidth, ch=mapEl.clientHeight;
+  if(cw>20 && ch>20){ MAPW=cw; MAPH=ch; mapEl.setAttribute('viewBox',`0 0 ${MAPW} ${MAPH}`); }
+  const iso=TIMELINE[nowIdx], ref=BYID.get(refId);
+  const rsNow = ref ? (sampleAt(ref,iso)||lastKnown(ref)) : null;
+
+  // pass 1: gather world points (incl tails) for every visible boat
+  const boatsDraw=[]; const allW=[];
+  for(const b of BOATS){
+    if(!visible.has(b.id)) continue;
+    const full=expanded.has(b.id);
+    const useIsos = full ? b.samples.map(x=>x[T]).filter(t=>msOf(t)<=msOf(iso)) : windowIsos();
+    const pts=[];
+    useIsos.forEach(ti=>{ const smp=b.byT.get(ti); if(!smp)return;
+      const wx=mercX(smp[LON]), wy=mercY(smp[LAT]); pts.push({wx,wy,iso:ti,newest:false}); allW.push([wx,wy]); });
+    if(pts.length){ const last=pts[pts.length-1]; if(msOf(iso)-msOf(last.iso)<=staleMs()) last.newest=true; }
+    if(pts.length) boatsDraw.push({b,pts});
+  }
+
+  // center + zoom
+  const rot=frameRef();                       // map "up" bearing (0 for north/wind)
+  if(mode==='rel'){
+    if(rsNow) mapCenter={wx:mercX(rsNow[LON]), wy:mercY(rsNow[LAT])};
+    if(allW.length){                          // fit all selected boats + tails around us (radial => rotation-proof)
+      let mr=1e-9;
+      for(const [wx,wy] of allW) mr=Math.max(mr, Math.hypot(wx-mapCenter.wx, wy-mapCenter.wy));
+      mapZoom=Math.max(3, Math.min(17, Math.log2((Math.min(MAPW,MAPH)*0.45)/(256*mr))));
+    }
+  } else if(keepPrimeInView && rsNow){        // absolute: nudge just enough to keep prime inside inner 80% (in rotated screen space)
+    const [ox,oy]=[ (mercX(rsNow[LON])-mapCenter.wx)*mapScale(), (mercY(rsNow[LAT])-mapCenter.wy)*mapScale() ];
+    const [sx,sy]=rotXY(ox,oy,-rot);          // actual screen offset from centre after group rotation
+    const px=MAPW/2+sx, py=MAPH/2+sy, mx=MAPW*0.10, my=MAPH*0.10;
+    let ddx=0,ddy=0;
+    if(px<mx) ddx=mx-px; else if(px>MAPW-mx) ddx=(MAPW-mx)-px;
+    if(py<my) ddy=my-py; else if(py>MAPH-my) ddy=(MAPH-my)-py;
+    if(ddx||ddy){ const [nux,nuy]=rotXY(ddx,ddy,rot); const sc=mapScale();
+      mapCenter={wx:mapCenter.wx - nux/sc, wy:mapCenter.wy - nuy/sc}; }
+  }
+  keepPrimeInView=false;
+
+  // pass 2: draw. tiles+boats live inside a rotated group; rings/scale/north stay upright.
+  const cx=MAPW/2, cy=MAPH/2;
+  let s=`<defs><clipPath id="mapclip"><rect x="0" y="0" width="${MAPW}" height="${MAPH}"/></clipPath></defs>`;
+  s+=`<rect x="0" y="0" width="${MAPW}" height="${MAPH}" fill="#ffffff"/>`;
+  s+=`<g clip-path="url(#mapclip)">`;
+  s+=`<g transform="rotate(${(-rot).toFixed(3)}, ${cx.toFixed(1)}, ${cy.toFixed(1)})">`;
+  s+=tileLayer();
+  // waypoint marker (derived finish for now): ringed dot, label kept upright against the map rotation
+  { const wp=waypoint();
+    if(wp){ const [wx,wy]=projPx(mercX(wp.lon),mercY(wp.lat));
+      s+=`<circle cx="${wx.toFixed(1)}" cy="${wy.toFixed(1)}" r="9" fill="none" stroke="#cc2033" stroke-width="2"/>`+
+         `<circle cx="${wx.toFixed(1)}" cy="${wy.toFixed(1)}" r="3.5" fill="#cc2033"/>`+
+         `<text transform="rotate(${rot.toFixed(3)}, ${wx.toFixed(1)}, ${wy.toFixed(1)})" x="${(wx+13).toFixed(1)}" y="${(wy+4).toFixed(1)}" `+
+         `font-family="'Share Tech Mono'" font-size="11" font-weight="700" fill="#cc2033" stroke="#fff" stroke-width="3" paint-order="stroke">WPT</text>`; } }
+  MAP_HITS=[];
+  for(const {b,pts} of boatsDraw){
+    const proj=pts.map(p=>{ const [px,py]=projPx(p.wx,p.wy); return {px,py,iso:p.iso,newest:p.newest}; });
+    for(const q of proj){ const [ox,oy]=rotXY(q.px-cx, q.py-cy, -rot);      // screen position after group rotation
+      MAP_HITS.push({ id:b.id, iso:q.iso, x:cx+ox, y:cy+oy, newest:q.newest }); }
+    const isRef=b.id===refId, wMin=isRef?0.5:0.4, wMax=isRef?7.2:5.2;
+    const nowMs=msOf(iso), spanMs=Math.max(1, nowMs-msOf(proj[0].iso));
+    for(let i=0;i<proj.length-1;i++){
+      if(msOf(proj[i+1].iso)-msOf(proj[i].iso)>staleMs()) continue;     // break only on long gaps
+      const f=(ageFrac(proj[i].iso,nowMs,spanMs)+ageFrac(proj[i+1].iso,nowMs,spanMs))/2;
+      const w=(wMin+(wMax-wMin)*f).toFixed(2), op=(0.08+0.82*f).toFixed(2);
+      s+=`<line x1="${proj[i].px.toFixed(1)}" y1="${proj[i].py.toFixed(1)}" x2="${proj[i+1].px.toFixed(1)}" y2="${proj[i+1].py.toFixed(1)}" `+
+         `stroke="${isRef?'#1a2a3a':b.color}" stroke-width="${w}" opacity="${op}" stroke-linecap="round"/>`;
+    }
+    proj.forEach((q)=>{
+      if(q.newest){
+        const smp=b.byT.get(q.iso);
+        const th=(smp&&smp[COG]!=null?smp[COG]:0)*Math.PI/180;
+        const ang=Math.atan2(-Math.cos(th), Math.sin(th));   // north-up screen dir; group rotation aligns to frame
+        const len=(isRef?13:11)*2*(b.id===hoverId?1.5:1);
+        s+=`<polygon class="hitm" data-id="${b.id}" data-iso="${q.iso}" points="${boatIcon(q.px,q.py,ang,len)}" fill="${isRef?'#1a2a3a':b.color}" stroke="#fff" stroke-width="1.3"/>`;
+        if(isRef) s+=`<text transform="rotate(${rot.toFixed(3)}, ${q.px.toFixed(1)}, ${(q.py-13).toFixed(1)})" x="${q.px.toFixed(1)}" y="${(q.py-13).toFixed(1)}" text-anchor="middle" font-family="'Share Tech Mono'" font-size="8" fill="#1a2a3a">US</text>`;
+      }else{
+        const fr=ageFrac(q.iso,nowMs,spanMs);
+        s+=`<circle class="hitm" data-id="${b.id}" data-iso="${q.iso}" cx="${q.px.toFixed(1)}" cy="${q.py.toFixed(1)}" r="2.2" fill="${b.color}" opacity="${(0.10+0.55*fr).toFixed(2)}"/>`;
+      }
+    });
+  }
+  s+=`</g>`;                                    // end rotated group
+  if(mode==='rel') s+=rangeRings();             // concentric, orientation-invariant, upright labels
+  s+=`</g>`;                                    // end clip group
+  s+=scaleBar();
+  s+=northIndicator(rot);
+  if(curBase()!=='white'){
+    const attr = curBase()==='sea' ? 'Esri, GEBCO, NOAA &middot; OpenSeaMap' : '&#169; OpenStreetMap contributors';
+    s+=`<text x="${MAPW-4}" y="${MAPH-5}" text-anchor="end" font-family="'Share Tech Mono'" font-size="8" fill="#8090a0">${attr}</text>`;
+  }
+  mapEl.innerHTML=s;
+
+  document.getElementById('mapLine').innerHTML=
+    `<b>Geographic</b> &middot; ${frameName()} up &middot; ${mode==='rel'?'fit all':'z'+mapZoom.toFixed(1)}`;
+
+  // boat selection on the map is hit-tested in the map gesture handler (see mapHitTest)
+  applyHover();
+}
+/* nearest drawn boat point to an svg-coordinate position; current positions win over trail dots */
+let MAP_HITS=[];
+function mapHitTest(x,y){
+  let best=null, bd=Infinity;
+  for(const h of MAP_HITS){ const r=h.newest?22:9, d=Math.hypot(h.x-x,h.y-y);
+    if(d<=r){ const score=d-(h.newest?100:0); if(score<bd){ bd=score; best=h; } } }
+  return best;
+}
+
+
+function renderList(){
+  const iso=TIMELINE[nowIdx], ref=BYID.get(refId), rs=ref?curSample(ref,iso):null;   // latest report within STALE_MIN
+  const isos=windowIsos();
+  const pad3=v=>String(Math.round(norm360(v))).padStart(3,'0');
+  const arr=BOATS
+    .filter(b=> visible.has(b.id))
+    .map(b=>{
+      const s=curSample(b,iso);                     // missed AIS reports < STALE_MIN don't grey a boat
+      const dist = (s&&rs)? distNm(rs[LAT],rs[LON],s[LAT],s[LON]) : Infinity;
+      const dtg  = (s&&s[DTG]!=null)? s[DTG] : Infinity;
+      // VMG toward the current Up reference, at the boat's latest report (absolute, so the ranking
+      // is the same in Absolute and Relative mode); no value sorts last
+      const vm = s ? vmgAbs(b, s[T]) : null;
+      const vmg = (vm!=null && isFinite(vm)) ? vm : -Infinity;
+      return {b,s,dist,dtg,vmg};
+    });
+  if(sortMode==='near')        arr.sort((x,y)=>x.dist-y.dist);
+  else if(sortMode==='finish') arr.sort((x,y)=>x.dtg-y.dtg);
+  else if(sortMode==='vmg')    arr.sort((x,y)=>y.vmg-x.vmg);       // fastest toward the Up reference first
+  else                         arr.sort((x,y)=>x.b.name.localeCompare(y.b.name));
+
+  const vmgBase = frame==='finish'?'VMG&#8594;wpt' : frame==='course'?'VMG&#8594;crs' : frame==='wind'?'VMG&#8594;wind' : 'VMG N';
+  const vmgLabel = (mode==='rel'?'&Delta;':'') + vmgBase;
+  const distLabel = frame==='north'?'rng us' : frame==='finish'?'&Delta;wpt' : frame==='course'?'&Delta;crs' : '&Delta;wind';
+
+  // Vertical scale: every chart picks its own window (centred on its own data), but all charts
+  // in a column share one window HEIGHT = the largest change seen in any single displayed row.
+  // So each chart is as zoomed-in as possible while slopes stay comparable row to row.
+  const nowMs=msOf(iso), spanMs=Math.max(1, nowMs-msOf(isos[0]));
+  const ext=new Map(); let vSpan=0, dSpan=0;
+  for(const {b} of arr){                       // every row actually displayed in the list
+    let a=Infinity,z=-Infinity,c=Infinity,e=-Infinity;
+    for(const ti of isos){
+      const vv=vmgToward(b,ti); if(vv!=null&&isFinite(vv)){ if(vv<a)a=vv; if(vv>z)z=vv; }
+      const dv=distMetric(b,ti); if(dv!=null&&isFinite(dv)){ if(dv<c)c=dv; if(dv>e)e=dv; }
+    }
+    ext.set(b.id,{v:[a,z],d:[c,e]});
+    if(z>=a) vSpan=Math.max(vSpan,z-a); if(e>=c) dSpan=Math.max(dSpan,e-c);
+  }
+  vSpan=Math.max(vSpan,0.2); dSpan=Math.max(dSpan,0.05);   // floor so flat lines don't blow up noise
+  const win=(mm,span)=>{ if(!(mm[1]>=mm[0])) return [0,span]; const mid=(mm[0]+mm[1])/2; return [mid-span/2, mid+span/2]; };
+
+  const rows=arr.map(({b,s})=>{
+      const on=visible.has(b.id), exp=expanded.has(b.id), isRef=b.id===refId, isNem=nemesis.has(b.id);
+      const col=isRef?'#1a2a3a':b.color;
+      // speed & heading (absolute) or deltas (relative)
+      let hdr;
+      if(!s){ hdr='<span style="color:#8090a0">no fix</span>'; }
+      else if(mode==='abs'){ hdr=`<span style="color:#556070">${s[SOG].toFixed(1)}kn ${pad3(s[COG])}&deg;</span>`; }
+      else { const dS=rs?s[SOG]-rs[SOG]:null; const dC=rs?norm180(s[COG]-rs[COG]):null;
+             hdr=`<span style="color:${dS==null?'#8090a0':(dS>=0?'#e07818':'#2472c0')}">${dS==null?'':(dS>=0?'+':'')+dS.toFixed(1)}kn</span> <span style="color:#556070">${dC==null?'':(dC>=0?'+':'')+Math.round(dC)+'&deg;'}</span>`; }
+      // series over the period window (paired with timestamps for age taper)
+      const vPairs=isos.map(ti=>({iso:ti, v:vmgToward(b,ti)}));
+      const dPairs=isos.map(ti=>({iso:ti, v:distMetric(b,ti)}));
+      const vNow=s?vmgToward(b,iso):null, dNow=s?distMetric(b,iso):null;
+      const fmtV=v=>v.toFixed(1), fmtD=v=>(Math.abs(v)<10?v.toFixed(1):Math.round(v));
+      // latest value always sits directly above the latest point (left edge when it is current)
+      const chip=(p,fmt)=>{ if(!p) return '';
+        const tx = p.xf<0.15 ? '0%' : p.xf>0.85 ? '-100%' : '-50%';
+        return `<span class="cv" style="left:${(p.xf*100).toFixed(1)}%;top:${(p.yf*100).toFixed(1)}%;transform:translate(${tx},calc(-100% - 3px))">${fmt(p.v)}</span>`; };
+      const [vLo,vHi]=win(ext.get(b.id).v,vSpan), [dLo,dHi]=win(ext.get(b.id).d,dSpan);
+      const vCv=chip(latestPos(vPairs,vLo,vHi),fmtV), dCv=chip(latestPos(dPairs,dLo,dHi),fmtD);
+      const charts = `
+        <div class="chart">${vCv}<span class="spkwrap">${spark(vPairs,col,vLo,vHi,nowMs,spanMs)}</span></div>
+        <div class="chart">${dCv}<span class="spkwrap">${spark(dPairs,col,dLo,dHi,nowMs,spanMs)}</span></div>`;
+      return `<div class="brow ${on?'':'off'} ${s?'':'gone'} ${isRef?'us':''}" data-id="${b.id}">
+        <button class="bico ${isNem?'nem':''} ${isRef?'me':''}" data-nem="${b.id}" title="${isRef?'our boat':(isNem?'nemesis: tap to remove':'tap to mark as nemesis')}">${listIcon(col)}</button>
+        <div class="idcol">
+          <span class="bn ${isRef?'ref':''} ${exp?'expanded':''}" data-exp="${b.id}">${b.name}${isRef?' &#9678;':''}</span>
+          <span class="rd">${hdr}</span>
+        </div>
+        ${charts}
+      </div>`;
+    }).join('');
+
+  // non-scrolling column header: each chart's window height (same for every row in the column)
+  const fmtSpan=(v,u)=>`&#8597; ${v<1?v.toFixed(2):v<10?v.toFixed(1):Math.round(v)} ${u}`;
+  document.getElementById('bhead').innerHTML=
+    `<span class="sp" style="width:30px"></span>`+
+    `<span class="bh-id"><b>Boat</b><span class="bh-sub">SOG/COG</span></span>`+
+    `<span class="bh-col"><b>${vmgLabel}</b><span class="bh-rng" title="height of every chart in this column">${fmtSpan(vSpan,'kn')}</span></span>`+
+    `<span class="bh-col"><b>${distLabel}</b><span class="bh-rng" title="height of every chart in this column">${fmtSpan(dSpan,'nm')}</span></span>`;
+  const blistEl=document.getElementById('blist');
+  blistEl.classList.add('tall');
+  const savedScroll=blistEl.scrollTop;
+  blistEl.innerHTML=rows;
+  blistEl.scrollTop=savedScroll;
+  const fc=document.getElementById('fleetCount'); if(fc) fc.textContent=`· ${visible.size}/${BOATS.length}`;
+  document.querySelectorAll('#blist .bn').forEach(el=>{ el.onclick=()=>toggleExpand(+el.dataset.exp); });
+  document.querySelectorAll('#blist .bico').forEach(el=>{ el.onclick=()=>{
+    const id=+el.dataset.nem; if(id===refId) return;
+    nemesis.has(id)?nemesis.delete(id):nemesis.add(id); recomputeVisible(); render();
+  }; });
+  document.querySelectorAll('#blist .brow').forEach(row=>{
+    row.addEventListener('mousemove',ev=>setHover(+row.dataset.id,'list',ev));
+    row.addEventListener('mouseleave',clearHover);
+  });
+  applyHover();
+}
+function toggleExpand(id){ if(!visible.has(id))return; expanded.has(id)?expanded.delete(id):expanded.add(id); render(); }
+
+/* tooltip */
+const tip=document.getElementById('tip');
+function showTip(ev,id,iso){
+  const b=BYID.get(id); if(!b)return;
+  let s=b.byT.get(iso); if(!s){ s=curSample(b,iso); if(!s) return; iso=s[T]; }   // short AIS gap: show latest report
+  const ref=BYID.get(refId), rs=ref?(ref.byT.get(iso)||curSample(ref,iso)):null;
+  const dSog=rs?(s[SOG]-rs[SOG]):null, dist=rs?distNm(rs[LAT],rs[LON],s[LAT],s[LON]):null,
+        brg=rs?bearing(rs[LAT],rs[LON],s[LAT],s[LON]):null, mv=vmc(b,iso);
+  tip.innerHTML=`<span class="tipx" id="tipClose">&times;</span>`+
+    `<b>${b.name}</b> ${b.id===refId?'(us)':''}<br>`+
+    `SOG ${s[SOG]==null?'-':s[SOG].toFixed(1)}kn  COG ${s[COG]==null?'-':String(Math.round(s[COG])).padStart(3,'0')}&deg;<br>`+
+    `VMC ${mv==null?'-':mv.toFixed(1)}kn  DTG ${s[DTG]==null?'-':s[DTG].toFixed(1)}nm<br>`+
+    (rs?`&Delta;SOG ${(dSog>=0?'+':'')+dSog.toFixed(1)}kn  to us ${dist.toFixed(1)}nm @ ${String(Math.round(brg)).padStart(3,'0')}&deg;<br>`:'')+
+    `<span style="color:#8090a0">${fmtAEST(msOf(iso))}</span>`;
+  tip.style.display='block';
+  // clamp fully inside the viewport (both axes), measured after display
+  const m=8, w=tip.offsetWidth, h=tip.offsetHeight;
+  let x=(ev&&ev.clientX!=null?ev.clientX:window.innerWidth/2)+12;
+  let y=(ev&&ev.clientY!=null?ev.clientY:window.innerHeight/2)+12;
+  if(x+w>window.innerWidth-m) x=Math.max(m, (ev?ev.clientX:x)-12-w);
+  if(x<m) x=m; if(x+w>window.innerWidth-m) x=window.innerWidth-m-w;
+  if(y+h>window.innerHeight-m) y=Math.max(m, (ev?ev.clientY:y)-12-h);
+  if(y<m) y=m; if(y+h>window.innerHeight-m) y=window.innerHeight-m-h;
+  tip.style.left=x+'px'; tip.style.top=y+'px';
+  const xb=document.getElementById('tipClose');
+  if(xb) xb.addEventListener('pointerdown',e=>{ e.stopPropagation(); e.preventDefault(); hideTip(); });
+}
+function hideTip(){ tip.style.display='none'; }   // hides popup, leaves highlight intact
+
+/* ---- cross-panel hover linking ---- */
+function applyHover(){
+  const id=hoverId;
+  document.querySelectorAll('#polar .hit').forEach(el=>el.classList.toggle('hi',+el.dataset.id===id));
+  document.querySelectorAll('#map .hitm').forEach(el=>el.classList.toggle('hi',+el.dataset.id===id));
+  document.querySelectorAll('#blist .brow').forEach(r=>r.classList.toggle('hi',+r.dataset.id===id));
+}
+function ensureMapVisible(id){                       // adjusts mapCenter only; caller renders
+  if(mode!=='abs' || !visible.has(id)) return;
+  const b=BYID.get(id); const s=b.byT.get(TIMELINE[nowIdx])||lastKnown(b); if(!s) return;
+  const rot=frameRef(), sc=mapScale();
+  const ox=(mercX(s[LON])-mapCenter.wx)*sc, oy=(mercY(s[LAT])-mapCenter.wy)*sc;
+  const [sx,sy]=rotXY(ox,oy,-rot); const px=MAPW/2+sx, py=MAPH/2+sy;
+  const mx=14,my=14; let ddx=0,ddy=0;
+  if(px<mx) ddx=mx-px; else if(px>MAPW-mx) ddx=(MAPW-mx)-px;
+  if(py<my) ddy=my-py; else if(py>MAPH-my) ddy=(MAPH-my)-py;
+  if(ddx||ddy){ const [nux,nuy]=rotXY(ddx,ddy,rot); mapCenter={wx:mapCenter.wx-nux/sc, wy:mapCenter.wy-nuy/sc}; }
+}
+let _hoverRendered=undefined;
+function setHover(id, source, ev, iso){
+  const changed=(id!==_hoverRendered);
+  hoverId=id;
+  if(changed){                                   // resize hovered hull on the active plot
+    if(activeTab==='vectors') renderPolar();
+    else if(activeTab==='geo') renderMap();
+    _hoverRendered=id;
+  }
+  applyHover();
+  if(ev) showTip(ev, id, iso||TIMELINE[nowIdx]);
+}
+function clearHover(){ hoverId=null;
+  if(_hoverRendered!=null){ if(activeTab==='vectors')renderPolar(); else if(activeTab==='geo')renderMap(); _hoverRendered=null; }
+  applyHover(); hideTip(); }
+/* any touch/click that is not on a boat marker and not inside the popup ends the highlight */
+document.addEventListener('pointerdown',ev=>{
+  if(hoverId==null) return;
+  const t=ev.target;
+  if(t && t.closest && (t.closest('.hit')||t.closest('#map')||t.closest('#tip'))) return;   // map handles its own taps
+  clearHover();
+});
+
+/* =========================================================================
+   CONTROLS
+   ========================================================================= */
+function buildRefSelect(){
+  const sel=document.getElementById('refSel');
+  sel.innerHTML=BOATS.slice().sort((a,b)=>a.name.localeCompare(b.name))
+    .map(b=>`<option value="${b.id}" ${b.id===refId?'selected':''}>${b.name}</option>`).join('');
+  sel.onchange=()=>{ refId=+sel.value; nemesis.delete(refId); recomputeVisible(); render(); };
+}
+document.getElementById('modeSel').onchange=e=>{ mode=e.target.value; syncBaseUI(); fitVisibleNow(); render(); };
+document.getElementById('frameSel').onchange=e=>{ frame=e.target.value; render(); };
+document.getElementById('timeSlider').oninput=e=>{ nowIdx=+e.target.value; render(); };
+document.getElementById('periodSlider').oninput=e=>{ periodMin=+e.target.value; render(); };
+document.getElementById('staleMin').onchange=e=>{ const v=Math.max(5,Math.min(240,+e.target.value||30));
+  e.target.value=v; STALE_MIN=v; render(); };
+function stepToOwnSample(dir){
+  const ref=BYID.get(refId); if(!ref) return;
+  let i=nowIdx+dir;
+  while(i>=0 && i<TIMELINE.length){ if(ref.byT.has(TIMELINE[i])){ nowIdx=i; document.getElementById('timeSlider').value=nowIdx; render(); return; } i+=dir; }
+}
+document.getElementById('prevBtn').onclick=()=>stepToOwnSample(-1);
+document.getElementById('nextBtn').onclick=()=>stepToOwnSample(1);
+/* One list: the nemesis set. The Show filter decides which boats are drawn and listed;
+   our boat is always shown. */
+function recomputeVisible(){
+  visible.clear(); const ref=BYID.get(refId);
+  for(const b of BOATS){
+    if(b.id===refId || showFilter==='all' || (showFilter==='nemesi' && nemesis.has(b.id))
+       || (showFilter==='inrange' && TIMELINE.length && curSample(b,TIMELINE[nowIdx]))   // heard within STALE_MIN
+       || (showFilter==='div' && ref && b.cat===ref.cat && b.div===ref.div)) visible.add(b.id);
+  }
+  for(const id of [...expanded]) if(!visible.has(id)) expanded.delete(id);
+}
+document.getElementById('selectSel').onchange=e=>{ showFilter=e.target.value; recomputeVisible(); render(); };
+
+/* map controls */
+function syncBaseUI(){ const b=curBase();
+  document.querySelectorAll('#baseSeg button').forEach(x=>x.classList.toggle('on', x.dataset.base===b)); }
+document.getElementById('baseSeg').onclick=e=>{ if(!e.target.dataset.base)return;
+  const v=e.target.dataset.base;
+  if(mode==='abs') baseAbs=v; else baseRel=v;
+  syncBaseUI(); renderMap(); };
+document.getElementById('fitBtn').onclick=()=>{ fitVisibleNow(); renderMap(); };
+document.getElementById('sortSel').onchange=e=>{ sortMode=e.target.value; renderList(); };
+document.getElementById('tabbar').onclick=e=>{ const t=e.target.dataset.tab; if(t && t!==activeTab) setTab(t); };
+
+/* time & period popup */
+(function(){
+  const btn=document.getElementById('timeBtn'), pop=document.getElementById('timepop');
+  function place(){ const r=btn.getBoundingClientRect(); const pw=Math.min(460, window.innerWidth-20);
+    let left=Math.min(r.right-pw, window.innerWidth-10-pw); left=Math.max(10,left);
+    pop.style.left=left+'px'; pop.style.top=(r.bottom+6)+'px'; }
+  function open(){ pop.classList.remove('hidden'); btn.classList.add('on'); place(); }
+  function close(){ pop.classList.add('hidden'); btn.classList.remove('on'); }
+  btn.addEventListener('click',e=>{ e.stopPropagation(); pop.classList.contains('hidden')?open():close(); });
+  pop.addEventListener('click',e=>e.stopPropagation());
+  document.addEventListener('click',()=>{ if(!pop.classList.contains('hidden')) close(); });
+  window.addEventListener('resize',()=>{ if(!pop.classList.contains('hidden')) place(); });
+})();
+window.addEventListener('resize',()=>{ if(DATA) renderMap(); });
+/* Map gestures. All map content has pointer-events:none, so every event targets the
+   persistent <svg> root (re-rendering never orphans a gesture). Boats are hit-tested in
+   code: a tap/click with no movement selects the nearest boat (or clears the highlight),
+   any movement pans (one finger / mouse) or pinch-zooms (two fingers). A gesture in
+   Relative mode flips to Absolute so pan/zoom holds instead of auto-refitting. */
+(function(){
+  const TAP=6;   // px of movement below which a press counts as a tap
+  const mapSvg=document.getElementById('map');
+  const px=(cx,cy)=>{ const r=mapSvg.getBoundingClientRect(); if(!r.width) return [0,0];
+    return [ (cx-r.left)*MAPW/r.width, (cy-r.top)*MAPH/r.height ]; };
+  const goAbs=()=>{ if(mode==='abs')return; mode='abs';
+    const sel=document.getElementById('modeSel'); if(sel) sel.value='abs'; };
+  function zoomAbout(x,y,dz){ const sc=mapScale(), rot=frameRef();
+    const [ox,oy]=rotXY(x-MAPW/2, y-MAPH/2, rot); const wxAt=mapCenter.wx+ox/sc, wyAt=mapCenter.wy+oy/sc;
+    mapZoom=Math.max(3,Math.min(16, mapZoom+dz));
+    const s2=mapScale(); const [ox2,oy2]=rotXY(x-MAPW/2, y-MAPH/2, rot);
+    mapCenter={ wx:wxAt-ox2/s2, wy:wyAt-oy2/s2 }; }
+  function panTo(cur,start){ goAbs(); const sc=mapScale();
+    const [nux,nuy]=rotXY(cur[0]-start.p[0], cur[1]-start.p[1], frameRef());
+    mapCenter={ wx:start.c.wx-nux/sc, wy:start.c.wy-nuy/sc }; renderMap(); }
+
+  // tap at svg point: select nearest boat, or clear the highlight if nothing is there
+  function tapAt(pt, client){
+    const h=mapHitTest(pt[0],pt[1]);
+    if(h) setHover(h.id,'map',{clientX:client[0],clientY:client[1]},h.iso); else clearHover();
+  }
+  const moved=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1])>TAP;
+
+  // --- mouse / pen (pointer events, captured on the svg root) ---
+  let mDrag=null;
+  mapSvg.addEventListener('pointerdown',ev=>{ if(ev.pointerType==='touch')return; ev.preventDefault();
+    try{ mapSvg.setPointerCapture(ev.pointerId); }catch(e){}
+    mDrag={ p:px(ev.clientX,ev.clientY), c:{...mapCenter}, panning:false }; });
+  mapSvg.addEventListener('pointermove',ev=>{ if(ev.pointerType==='touch')return;
+    const cur=px(ev.clientX,ev.clientY);
+    if(mDrag){ if(!mDrag.panning && moved(cur,mDrag.p)){ mDrag.panning=true; if(hoverId!=null) clearHover(); }
+      if(mDrag.panning) panTo(cur,mDrag); return; }
+    const h=mapHitTest(cur[0],cur[1]);               // desktop hover: show a boat's details on mouse-over
+    if(h && h.id!==hoverId) setHover(h.id,'map',ev,h.iso);
+  });
+  const mEnd=ev=>{ if(ev.pointerType==='touch'||!mDrag) return;
+    if(!mDrag.panning && ev.type==='pointerup') tapAt(px(ev.clientX,ev.clientY),[ev.clientX,ev.clientY]);
+    mDrag=null; };
+  mapSvg.addEventListener('pointerup',mEnd); mapSvg.addEventListener('pointercancel',mEnd);
+  mapSvg.addEventListener('wheel',ev=>{ ev.preventDefault(); const [x,y]=px(ev.clientX,ev.clientY);
+    goAbs(); zoomAbout(x,y, ev.deltaY<0?0.35:-0.35); renderMap();
+  }, {passive:false});
+
+  // --- touch (tap selects, one finger pans, two fingers pinch) ---
+  let tDrag=null, pin=null;
+  const tlist=tl=>[...tl].map(t=>px(t.clientX,t.clientY));
+  mapSvg.addEventListener('touchstart',ev=>{ ev.preventDefault();
+    if(ev.touches.length>=2){ const [a,b]=tlist(ev.touches);
+      const mid=[(a[0]+b[0])/2,(a[1]+b[1])/2], sc=mapScale();
+      const [ox,oy]=rotXY(mid[0]-MAPW/2, mid[1]-MAPH/2, frameRef());
+      // world point under the fingers at pinch start; it stays under the fingers' midpoint
+      pin={ d:Math.hypot(a[0]-b[0],a[1]-b[1])||1, z:mapZoom, w:[mapCenter.wx+ox/sc, mapCenter.wy+oy/sc] }; tDrag=null; }
+    else { const t=ev.touches[0];
+      tDrag={ p:px(t.clientX,t.clientY), c:{...mapCenter}, client:[t.clientX,t.clientY], panning:false }; pin=null; }
+  }, {passive:false});
+  mapSvg.addEventListener('touchmove',ev=>{ ev.preventDefault();
+    if(ev.touches.length>=2 && pin){ const [a,b]=tlist(ev.touches);
+      const d=Math.hypot(a[0]-b[0],a[1]-b[1]); goAbs(); if(hoverId!=null) clearHover();
+      // absolute (not incremental) update from the pinch-start state: no accumulated drift
+      mapZoom=Math.max(3,Math.min(16, pin.z+Math.log2(Math.max(1e-3,d/pin.d))));
+      const mid=[(a[0]+b[0])/2,(a[1]+b[1])/2], sc=mapScale();
+      const [ox,oy]=rotXY(mid[0]-MAPW/2, mid[1]-MAPH/2, frameRef());
+      mapCenter={ wx:pin.w[0]-ox/sc, wy:pin.w[1]-oy/sc };
+      renderMap(); }
+    else if(ev.touches.length===1 && tDrag){ const cur=px(ev.touches[0].clientX,ev.touches[0].clientY);
+      if(!tDrag.panning && moved(cur,tDrag.p)){ tDrag.panning=true; if(hoverId!=null) clearHover(); }
+      if(tDrag.panning) panTo(cur,tDrag); }
+  }, {passive:false});
+  const tEnd=ev=>{
+    if(ev.touches.length===0){
+      if(ev.type==='touchend' && tDrag && !tDrag.panning && !pin) tapAt(tDrag.p, tDrag.client);
+      tDrag=null; pin=null; }
+    else if(ev.touches.length===1){ pin=null; const t=ev.touches[0];   // pinch -> one finger: continue as pan
+      tDrag={ p:px(t.clientX,t.clientY), c:{...mapCenter}, client:[t.clientX,t.clientY], panning:true }; } };
+  mapSvg.addEventListener('touchend',tEnd); mapSvg.addEventListener('touchcancel',tEnd);
+})();
+
+/* resizable panes (bottom-right grip): drag right grows width, down grows height */
+document.querySelectorAll('.grip').forEach(g=>{
+  g.addEventListener('mousedown',ev=>{ ev.preventDefault(); ev.stopPropagation();
+    const panel=g.closest('.resizable'); if(!panel) return;
+    const sx=ev.clientX, sy=ev.clientY, sw=panel.offsetWidth, sh=panel.offsetHeight;
+    const isSel=(panel.id==='selector');
+    let started=false;
+    const mv=e=>{
+      if(!started){ if(Math.abs(e.clientX-sx)<2 && Math.abs(e.clientY-sy)<2) return;   // ignore a plain click
+        started=true; panel.classList.add('sized'); panel.style.flex='0 0 auto'; }
+      const maxW=window.innerWidth-40, maxH=window.innerHeight-60;
+      panel.style.width=Math.max(160, Math.min(maxW, sw+(e.clientX-sx)))+'px';
+      panel.style.height=Math.max(150, Math.min(maxH, sh+(e.clientY-sy)))+'px';
+      if(DATA) renderMap();
+    };
+    const up=()=>{ document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up); if(started&&DATA) render(); };
+    document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up);
+  });
+});
+
+/* info popups describing each window and its controls */
+const INFO_TEXT={
+  vectors:"Velocity vectors in the chosen frame. Each hull points the way that boat is moving; distance from the centre is speed. Centre = zero speed (Absolute) or your boat (Relative). Comet tails join consecutive positions over the period (thick = now). Hover a boat to draw its true velocity vectors from the centre.",
+  geo:"Boats on the water, rotated so the selected frame (North / Course / Waypoint) is up; the waypoint is the ringed WPT marker. Absolute: drag to pan, wheel to zoom, White / OSM / Sea basemaps (Sea shows depth shading for the shelf). Relative: centred on you, auto-fit. Fit reframes. Tails taper with age.",
+  boats:"Fleet list. Tap a boat's icon to mark or unmark it as a nemesis (highlighted icon = nemesis). 'Show' in the bar above picks which boats appear on every view: Nemesi, All, In range (a report received within the 'Stale after' time, 30 min by default), your Div, or None (just you). Each row: speed/heading, plus VMG toward the frame and distance relative to you as age-tapered mini charts; all charts in a column share one height (shown under the column title) but each is centred on its own data.",
+  irc:"Time-on-time handicap vs our boat. Enter each boat's TCF (default 1.000; saved in this browser). Corrected time = elapsed x TCF, elapsed measured from the first sample. Should = how far a boat must be ahead of us to be level on corrected time, from the corrected-time difference and our distance made good (start DTG minus current DTG): D x (1 - TCFus/TCFboat). Actual = how far it really is ahead toward the current Up (waypoint: DTG difference; course: along our heading; north: northward). Net = Actual - Should; positive (orange) means it is beating us on handicap. Sorted by Net."
+};
+const infoPop=document.getElementById('infoPop');
+document.querySelectorAll('.info').forEach(ic=>{
+  ic.addEventListener('mouseenter',()=>{
+    infoPop.textContent=INFO_TEXT[ic.dataset.info]||'';
+    infoPop.style.display='block';
+    const r=ic.getBoundingClientRect();
+    let x=r.left, y=r.bottom+6;
+    const pw=infoPop.offsetWidth, ph=infoPop.offsetHeight;
+    if(x+pw>window.innerWidth-8) x=window.innerWidth-8-pw;
+    if(y+ph>window.innerHeight-8) y=r.top-6-ph;
+    infoPop.style.left=Math.max(8,x)+'px'; infoPop.style.top=Math.max(8,y)+'px';
+  });
+  ic.addEventListener('mouseleave',()=>{ infoPop.style.display='none'; });
+});
+
+const playBtn=document.getElementById('playBtn');
+playBtn.onclick=()=>{
+  playing=!playing; playBtn.textContent=playing?'Pause':'Play';
+  if(playing){ playTimer=setInterval(()=>{
+      if(nowIdx<TIMELINE.length-1){                       // advance 10 min of race time per tick, whatever the sample spacing
+        const target=msOf(TIMELINE[nowIdx])+600000;
+        do{ nowIdx++; }while(nowIdx<TIMELINE.length-1 && msOf(TIMELINE[nowIdx])<target);
+        document.getElementById('timeSlider').value=nowIdx; render(); }
+      else { playing=false; playBtn.textContent='Play'; clearInterval(playTimer);} },400); }
+  else clearInterval(playTimer);
+};
+
+/* =========================================================================
+   FILE LOADING
+   ========================================================================= */
+let RAW_JSON=null;
+function onParsed(json){
+  RAW_JSON=json;
+  const boats=(json.boats||[]).slice();
+  const sel=document.getElementById('aisTarget');
+  sel.innerHTML=boats.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
+  const kan=boats.find(b=>/kanreki/i.test(b.name||'')); if(kan) sel.value=kan.id;
+  const nS=boats.reduce((n,b)=>n+((b.samples&&b.samples.length)||0),0);
+  document.getElementById('loStatus').textContent=`Parsed ${boats.length} boats, ${nS} samples. Choose options and Load.`;
+  document.getElementById('loadopts').classList.remove('hidden');
+  document.getElementById('loadBtn').disabled=false;
+}
+function readFile(f){ const r=new FileReader();
+  r.onload=()=>{ try{ onParsed(JSON.parse(r.result)); }catch(err){ alert('Could not parse JSON: '+err.message); } };
+  r.readAsText(f); }
+
+/* Simulate AIS reception: keep the receiver boat's own track; for every other boat,
+   drop a report with probability rising from 0 at 8 nm to 1 at 20 nm from the
+   receiver's position at that time; never drop <=8 nm, always drop >=20 nm. */
+/* Simulate AIS reception from a regular tracker feed.
+   1. Interpolate every boat to 1-minute samples (lat/lon/SOG/DTG/DTL linear, COG the short way round).
+   2. Other boats: keep each 1-minute sample with probability 1/3 (AIS-like ~every 3 min, irregular).
+   3. Other boats: distance from the receiver at that minute: <=8 nm kept, 8-20 nm drop chance rising
+      linearly to 1, >=20 nm dropped.
+   4. Receiver (us): keep our sample at every minute any other boat reported (our own instruments are
+      always available to compare against), plus our original fixes so our own track never goes stale. */
+function simAIS(json, targetId){
+  const src=json.boats||[], tgt=src.find(b=>b.id===targetId);
+  if(!tgt || !tgt.samples || !tgt.samples.length) return json;
+  const MIN=60000;
+  const tz=(String(tgt.samples[0][0]).match(/([+-]\d\d:\d\d|Z)$/)||['','Z'])[1];
+  const offMs = tz==='Z' ? 0 : (tz[0]==='-'?-1:1)*(+tz.slice(1,3)*60 + +tz.slice(4,6))*MIN;
+  const isoAt=ms=>new Date(ms+offMs).toISOString().slice(0,19)+tz;
+  const lin=(a,b,f)=> (a==null||b==null) ? (f<0.5?a:b) : a+(b-a)*f;
+  const angLerp=(a,b,f)=>{ if(a==null||b==null) return f<0.5?a:b; let d=((b-a)%360+540)%360-180; return ((a+d*f)%360+360)%360; };
+  const r5=v=>v==null?null:Math.round(v*1e5)/1e5, r2=v=>v==null?null:Math.round(v*100)/100;
+  // 1-minute interpolation of one boat: Map(ms -> tuple)
+  function perMinute(b){
+    const out=new Map(), S=b.samples;
+    for(let k=0;k<S.length;k++){
+      const a=S[k], t0=Date.parse(a[0]);
+      out.set(t0,[isoAt(t0),a[1],a[2],a[3],a[4],a[5],a[6]]);
+      if(k===S.length-1) break;
+      const c=S[k+1], t1=Date.parse(c[0]), n=Math.round((t1-t0)/MIN);
+      for(let m=1;m<n;m++){ const f=m/n, t=t0+m*MIN;
+        out.set(t,[isoAt(t), r5(lin(a[1],c[1],f)), r5(lin(a[2],c[2],f)), r2(lin(a[3],c[3],f)),
+                   r2(angLerp(a[4],c[4],f)), r2(lin(a[5],c[5],f)), r2(lin(a[6],c[6],f))]); }
+    }
+    return out;
+  }
+  const hav=(la1,lo1,la2,lo2)=>{ const R=3440.065,p=Math.PI/180;
+    const dla=(la2-la1)*p, dlo=(lo2-lo1)*p;
+    const x=Math.sin(dla/2)**2+Math.cos(la1*p)*Math.cos(la2*p)*Math.sin(dlo/2)**2;
+    return 2*R*Math.asin(Math.min(1,Math.sqrt(x))); };
+  const us=perMinute(tgt);
+  const heard=new Set();                                    // minutes at which some other boat was received
+  const boats=[];
+  for(const b of src){
+    if(b.id===targetId) continue;
+    const kept=[];
+    for(const [t,smp] of perMinute(b)){
+      if(Math.random()>=1/3) continue;                      // AIS cadence: ~1 report in 3 minutes
+      const u=us.get(t); if(!u) continue;                   // outside our own track
+      const d=hav(smp[1],smp[2],u[1],u[2]);
+      if(d>=20 || (d>8 && Math.random()<(d-8)/12)) continue;   // reception range
+      kept.push(smp); heard.add(t);
+    }
+    if(kept.length) boats.push(Object.assign({}, b, { samples:kept }));   // never-heard boats drop out
+  }
+  const ours=[...us.entries()].filter(([t])=>heard.has(t)).map(([,smp])=>smp);
+  const orig=new Set(tgt.samples.map(x=>Date.parse(x[0])));
+  for(const [t,smp] of us) if(orig.has(t) && !heard.has(t)) ours.push(smp);
+  ours.sort((a,b)=>Date.parse(a[0])-Date.parse(b[0]));
+  boats.unshift(Object.assign({}, tgt, { samples:ours }));
+  return Object.assign({}, json, { step_s:60, boats, ais_sim:{ minute_keep:1/3, near_nm:8, far_nm:20 } });
+}
+
+const fileEl=document.getElementById('file'), zone=document.getElementById('zone');
+fileEl.onchange=()=>{ const f=fileEl.files[0]; if(f) readFile(f); };
+['dragover','dragenter'].forEach(ev=>zone.addEventListener(ev,e=>{e.preventDefault();zone.classList.add('drag');}));
+['dragleave','drop'].forEach(ev=>zone.addEventListener(ev,e=>{e.preventDefault();zone.classList.remove('drag');}));
+zone.addEventListener('drop',e=>{ const f=e.dataTransfer.files[0]; if(f) readFile(f); });
+
+document.getElementById('loadBtn').onclick=()=>{
+  if(!RAW_JSON) return;
+  const useAis=document.getElementById('aisSim').checked;
+  const tid=+document.getElementById('aisTarget').value;
+  init(useAis ? simAIS(RAW_JSON, tid) : RAW_JSON);
+};
+
+// auto-load if served over http(s): parse and present the load form (user clicks Load)
+(async()=>{ if(location.protocol==='http:'||location.protocol==='https:'){
+  try{ const r=await fetch('./gc2026-tracks.json'); if(r.ok){ onParsed(JSON.parse(await r.text())); } }catch(e){}
+}})();
+</script>
+</body>
+</html>
