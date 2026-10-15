@@ -113,10 +113,48 @@ then restart the server and enable the plugin in the admin UI. Caveats:
 
 - Don't run `npm install` or `npm link` there for this. The link is not in
   `~/.signalk/package.json`, so an npm run in that directory (including installing or
-  updating any plugin from the Appstore) may remove it as extraneous (not checked). Look
+  updating any plugin from the Appstore) can remove it as extraneous: checked with a copied
+  (unpacked) plugin, which npm 10 removed; a symlink is expected to go the same way. Look
   with `readlink -f ~/.signalk/node_modules/signalk-nemesis` and recreate it if gone.
 - With security on, feed with `--user` (step 3), and the webapp asks you to log in (the
   "login needed" link goes to the server's login page).
+
+### Installing on a boat for a test (e.g. Windows 10)
+
+The plugin is not on npm yet, so it is not in the Appstore. Install it from a package file
+instead, the same way the Appstore installs plugins (npm in the server's config folder), so
+it is recorded in that folder's `package.json` and survives later Appstore installs.
+
+1. Build the package on a development machine: `npm run pack` makes
+   `dist/signalk-nemesis-<version>.tgz` (about 100 kB: the plugin and webapp only, no tests or
+   test data).
+2. Copy it to the boat computer, into the Signal K config folder: the one holding
+   `settings.json`, `package.json` and `plugin-config-data`. On a plain Node install that is
+   `%USERPROFILE%\.signalk`; the Signal K Windows installer may put it elsewhere
+   (TODO(verify)).
+3. In a Command Prompt in that folder:
+
+   ```text
+   npm install signalk-nemesis-0.1.0.tgz
+   ```
+
+   `npm` must be the one belonging to the Node.js the server runs on (TODO(verify): how the
+   Windows installer exposes it on the PATH).
+4. Restart the server (admin UI **Restart**), then **Server > Plugin Config > Nemesis
+   Delta**: enable it and fill in the boats and waypoint names. The webapp is under
+   **Webapps**, or `http://<boat computer>:3000/signalk-nemesis/`.
+
+To update, copy the new `.tgz` and run the same `npm install` (a rebuilt package with the
+same version number does replace the old one); restart the server. To remove:
+`npm uninstall signalk-nemesis` in the same folder.
+
+Checked on Linux with signalk-server 2.30.0 and Node 22.22.2 (not yet on Windows): installed
+from the package into a fresh config folder, found and enabled, fed with the simulated race
+(47 boats); a later unrelated npm install in the folder kept it. Don't unpack or copy the
+plugin folder into `node_modules` by hand: that copy was removed by the next npm install.
+
+The plugin needs Node 22 or newer (`engines`); the server's Node version is at the bottom of
+the admin UI. On older Node npm warns and the plugin is untested.
 
 ### Without a Signal K server
 
