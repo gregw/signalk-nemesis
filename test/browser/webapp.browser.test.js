@@ -77,10 +77,9 @@ test('phone: loads live data, shows the fleet, layout fits', async () => {
     assert.ok(n > 3, `fleet rows ${n}`);
     assert.equal(await page.locator('#blist .brow.us').count(), 1, 'our own row');
     assert.match(await page.locator('#fleetCount').textContent(), new RegExp(`^${n}/${n}$`));
-    // Values reach the UI converted from SI: range in nm, SOG in kn, COG in degrees.
-    const first = await rows.first().textContent();
-    assert.match(first, /\d+\.\d nm/);
-    assert.match(first, /\d+\.\d kn\s+\d+°/);
+    // Values reach the UI converted from SI: SOG in kn, COG in whole degrees.
+    const other = await page.locator('#blist .brow[data-id]:not(.us)').first().textContent();
+    assert.match(other, /\d+\.\dkn \d{3}°/);
     await assertLayout(page);
     await shot(page, 'phone-all');
     assert.deepEqual(errors, []);
@@ -100,23 +99,23 @@ test('tablet: layout fits', async () => {
 test('tapping the nemesis button persists on the server and survives reload', async () => {
     const {ctx, page} = await open(PHONE);
     await page.selectOption('#showSel', 'all');
-    const row = page.locator('#blist .brow[data-id]').first();
+    const row = page.locator('#blist .brow[data-id]:not(.us)').first();
     await row.waitFor();
     const id = await row.getAttribute('data-id');
-    await row.locator('.nem').tap();
-    await page.locator(`#blist .brow[data-id="${id}"] .nem.on`).waitFor();
+    await row.locator('.bico').tap();
+    await page.locator(`#blist .brow[data-id="${id}"] .bico.nem`).waitFor();
     await waitFor(async () => (await srvUser()).nemesis.includes(id), 'server recorded nemesis');
 
     await page.reload();
     await page.locator('#conn', {hasText: 'live'}).waitFor();
     // Show filter was remembered (localStorage) and the default Nemesi view lists the boat.
     await page.selectOption('#showSel', 'nemesi');
-    await page.locator(`#blist .brow[data-id="${id}"] .nem.on`).waitFor();
-    assert.equal(await page.locator('#blist .brow[data-id]').count(), 1);
+    await page.locator(`#blist .brow[data-id="${id}"] .bico.nem`).waitFor();
+    assert.equal(await page.locator('#blist .brow[data-id]').count(), 2, 'us and the nemesis');
     await shot(page, 'phone-nemesi');
 
     // Untoggle so other tests start clean.
-    await page.locator(`#blist .brow[data-id="${id}"] .nem`).tap();
+    await page.locator(`#blist .brow[data-id="${id}"] .bico`).tap();
     await waitFor(async () => !(await srvUser()).nemesis.includes(id), 'server cleared nemesis');
     await ctx.close();
 });

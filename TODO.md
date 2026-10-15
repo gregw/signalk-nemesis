@@ -19,7 +19,7 @@ Phases follow `wiki/overview.md` section 7. `[x]` = in the skeleton with tests.
 - [x] AIS names: N2K sends path `''` with `{name}` and a subscription to `name` never delivers it (checked on 2.30.0). Names are now read with `app.getPath(<context>.name)`, throttled.
 - [ ] Course next point: v1 `navigation.courseRhumbline.nextPoint.position` (used now) vs v2 `navigation.course.nextPoint`.
 - [x] Security (checked on 2.30.0 with security on): all of `/plugins/*` is admin only, so reads are also mounted at `/signalk/v1/api/nemesis/*` (read access is enough) and writes are Signal K PUT handlers `navigation.racing.nemesis.setNemesis|setTcf` (need readwrite). Webapp shows "login needed" on 401/403.
-- [ ] Webapp: a login link or prompt when "login needed" (server login is `/admin/#/login`; the session cookie is then used by the webapp's fetches).
+- [x] Webapp: "login needed" is a link to the server login (`/admin/#/login`; the session cookie is then used by the webapp's fetches). TODO(verify) on a secured 2.30.0 server that the cookie is accepted by the API mount after logging in there.
 - [ ] Whether the subscription manager delivers our own `vessels.self` values when `selfContext` changes (MMSI configured after start).
 
 ## Phase 1: skeleton
@@ -51,7 +51,7 @@ Both are adapter seams with an explicit precedence, and the snapshot reports whi
 2. [x] signalk-racer `navigation.racing.startTime` (RFC 3339 UTC; `reset` publishes null, verified with racer running in a 2.30.0 server). Our copy is persisted, because racer loses its start time on a server restart (checked: the path is 404 after restart).
 3. [x] None, or older than `maxRaceHours` (default 96): snapshot `start` is null. TCF must then show "no start time".
 - [ ] signalk-racer itself should persist its start time across restarts (a racer change, not this plugin).
-- [ ] Webapp control to set/clear the override (e.g. "start was at hh:mm:ss", or "now").
+- [x] Webapp control to set/clear the override (TCF tab: date-time box with Set, Now, Clear).
 
 ### Next waypoint (Up = Waypoint, DTG, VMC, Should)
 
@@ -68,38 +68,41 @@ Implemented in `lib/waypoint.js` and checked on a real 2.30.0 server (NMEA RMB, 
 - [x] The Course API keeps an adopted NMEA destination after the instruments stop (seen on 2.30.0). A Course API point with no href and no active route that sits on the last NMEA point now expires with the NMEA.
 - [x] Replay and live feed publish the GC2026 finish as an RMB next point.
 - [ ] Magnetic-only bearing (`bearingMagnetic` plus variation) is not handled.
-- [ ] Waypoint changes mid-race (rounding a mark): VMC and lead must not compare DTGs to different marks. Store the waypoint id with each derived value and break series at a change.
-- [ ] TCF Should distance D (decided): with an active route, route length minus our remaining distance along it; else distance from a named start waypoint to the waypoint minus our DTG; else configured course distance minus our DTG.
+- [x] Waypoint changes mid-race (rounding a mark): nothing derived is stored; the webapp derives every value from positions and the waypoint in use now, so VMC and lead always compare distances to the same mark. Only the absolute DTG of old reports refers to a mark they were not yet sailing to.
+- [x] TCF Should distance D (decided): `lib/course-distance.js`. Active route (length, legs after the next point; reversed routes walked from the end), else `startWaypointName` to the waypoint, else `courseDistanceNm`. Snapshot `course: {totalM, afterM, src}`; the webapp evaluates D at each report time.
 
 ## Phase 2: derivations (pure, unit tested)
 
-- [ ] Frame reference direction: Waypoint, Course, North; Wind disabled.
-- [ ] DTG to waypoint for every report, and for us at their report time.
-- [ ] VMC from the boat's own previous report, ignoring gaps over the stale threshold.
-- [ ] VMG toward Up for Course and North; relative mode (theirs minus ours at the same time).
-- [ ] Lead toward Up (Waypoint, Course, North).
-- [ ] TCF: Should, Actual, Net. Unit test with the worked value (D = 144.6 nm, TCF 1.000 vs 1.100, Should = 13.14 nm).
-- [ ] In-range recomputed continuously.
-- [ ] Elapsed time from the start-time seam (see Race inputs above).
-- [ ] Add derived values to the snapshot and track payloads.
+All in `public/derive.js`, pure and loaded by both the webapp and `test/derive.test.js`.
+- [x] Frame reference direction: Waypoint, Course, North; Wind disabled.
+- [x] DTG to waypoint for every report, and for us at their report time.
+- [x] VMC from the boat's own previous report, ignoring gaps over the stale threshold. Ours over at least 60 s of our own samples; in Relative mode ours is taken over the same interval as theirs.
+- [x] VMG toward Up for Course and North; relative mode (theirs minus ours at the same time).
+- [x] Lead toward Up (Waypoint, Course, North), + = they are ahead.
+- [x] TCF: Should, Actual, Net. Unit test with the worked value (D = 144.6 nm, TCF 1.000 vs 1.100, Should = 13.14 nm).
+- [x] In-range recomputed on every render (client side, from the stale threshold in the Time popup).
+- [x] Elapsed time from the start-time seam (time button; TCF needs a report after the start).
+- [x] Where derived values live: in the webapp, because Up and Mode are per viewer. The server provides reports, our state at each report time, our own track, waypoint, start and course distance. Tracks API: `toT` (look back), `sinceT` (incremental).
 
 ## Phase 3: webapp port
 
 - [x] Shell: top bar, Show filter, tabs (Boats, Vectors, TCF, Geo), polling with timeout and backoff, prefs in localStorage.
 - [x] Boats tab: basic list, nemesis toggle, SOG/COG, range, age.
-- [ ] Boats tab: sort by Waypoint and VMG; strip charts (newest left, age taper, shared window height per column, value over latest dot). Sign: + = they are doing better than us in every frame (wiki §8); the prototype's Waypoint lead chart is reversed and its North chart is range, don't copy those.
-- [ ] Vectors tab (brief 3.7), auto-fit, selected boat's dashed true velocity shafts.
-- [ ] TCF tab: entry box per boat (don't re-render under focus), Should/Actual/Net sorted by Net.
-- [ ] Geo tab: Web Mercator rotated to Up, White/OSM/Sea basemaps, pan/pinch per the prototype lessons. Tiles need internet: decide on offline behaviour.
-- [ ] Time popup: Period, Stale after. Decide whether live mode needs a race-time slider for scrubbing history.
-- [ ] Selection popup clamped to viewport.
+- [x] Boats tab: sort by Near, Waypoint, VMG, A-Z (us included); strip charts (newest left, x by time, age taper, shared window height per column, value over latest dot). Sign: + = they are doing better than us in every frame (wiki §8).
+- [x] Vectors tab (brief 3.7), auto-fit, selected boat's dashed true velocity shafts, taps hit-tested in code.
+- [x] TCF tab: entry box per boat and for us (PUT setTcf, id `self` for us; not re-rendered under focus), Should/Actual/Net sorted by Net, reason shown when Should can't be computed, course distance source shown.
+- [x] Geo tab: Web Mercator rotated to Up, White/OSM/Sea basemaps, pan/pinch per the prototype lessons, follows us until a gesture, Fit. Offline: White is the default; tiles load only when OSM or Sea is chosen, and only when the view changes (not on every poll).
+- [x] Time popup: look back through the server's history (slider, 10 min back/forward, Live), Period 10 to 240 min, Stale after.
+- [x] Selection popup clamped to viewport; selection highlighted on every tab.
+- [ ] Not ported from the prototype: Play (animate history), expanding one boat's full trail by tapping its name, the Div filter (AIS has no division).
+- [ ] Info popups open on tap; check they read well on a phone.
 - [ ] WebSocket stream (or SK stream subscription) for updates, poll kept as resync.
 - [x] Optimistic nemesis toggle: pending edits are re-applied over snapshots until the PUT completes, so a poll can't flicker it back.
 - [x] Playwright tests: phone and tablet layout (no horizontal or page scroll), nemesis tap persists across reload, scroll survives polling re-renders, outage shows stale and recovers.
-- [ ] Playwright tests still to add: pinch and pan (Geo, Vectors), popups clamped to the viewport, TCF input not re-rendered under focus.
-- [ ] While stale, per-boat ages freeze at the last snapshot. Age them on the client from `snapshot.now` plus elapsed wall time.
+- [x] Playwright tests (`test/browser/tabs.browser.test.js`): every tab on phone and tablet, sign convention (Boats lead = TCF Actual), TCF entry not re-rendered under focus, start override, vector tap selection and popup clamp, Geo pinch about the fingers (CDP touch events), pan, Relative to Absolute on gesture, history window, Relative mode. Focus guard and pinch anchor tests were checked to fail when the code is broken.
+- [x] Client-side aging: "now" is `snapshot.now` plus wall time elapsed since it arrived, and the view re-renders while polls fail.
 - [ ] `renderBoats` restores `scrollTop`, but the browser test showed `innerHTML` replacement keeps it anyway. Keep the restore as a guard for when list height changes; the test checks behaviour, not that line.
-- [ ] Performance budget: about 15 ms per render with 48 boats and a 4 h window.
+- [x] Performance budget: measured in Chromium with 48 boats and a 4 h window (2,458 reports): Boats 11 ms, Vectors 11 ms, Geo 11 ms, TCF 3 ms per render. Needed age-tapered segments and old hulls grouped into one path per taper step (from 31 ms).
 
 ## Phase 4: persistence and robustness
 

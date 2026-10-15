@@ -13,6 +13,8 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const {replayTo} = require('./replay');
+const {finishOf, rmbDelta} = require('./ais-sim');
+const data = require('../data/gc2026-tracks.json');
 
 const PUBLIC = path.join(__dirname, '..', '..', 'public');
 const TYPES = {
@@ -26,6 +28,9 @@ const TYPES = {
 async function startDevServer({port = 0, hoursIn = 6, replay} = {}) {
     const r = replay || (await replayTo(hoursIn));
     let failWith = null; // HTTP status every request fails with, or null
+    // Keep the nav PC's RMB next point coming, as the live feed does, or it goes stale.
+    const rmbTimer = setInterval(() => r.app.deliver(rmbDelta(r.app.selfContext, finishOf(data), Date.now())), 5000);
+    rmbTimer.unref();
     const server = http.createServer((req, res) => {
         const url = new URL(req.url, 'http://x');
         if (failWith) {
@@ -73,6 +78,7 @@ async function startDevServer({port = 0, hoursIn = 6, replay} = {}) {
             failWith = status;
         },
         async close() {
+            clearInterval(rmbTimer);
             r.plugin.stop();
             await new Promise((resolve) => server.close(resolve));
         }

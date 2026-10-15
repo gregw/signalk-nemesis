@@ -30,17 +30,37 @@
                     <option value="wind" disabled>Wind</option>
                 </select>
             </div>
-            <div class="ctl-group">
-                <span class="ctl-label">Period</span>
-                <select id="periodSel">
-                    <option value="15">15m</option>
-                    <option value="30">30m</option>
-                    <option value="60">60m</option>
-                    <option value="120">2h</option>
-                    <option value="240">4h</option>
-                </select>
-            </div>
+            <button class="timebtn" id="timeBtn" title="race time and period">
+                <span id="timeBtnVal">time</span> &#9662;
+            </button>
         </header>
+
+        <div class="timepop hidden" id="timepop">
+            <div class="trow">
+                <span class="tl">Time</span>
+                <button class="playbtn" id="backBtn" title="10 minutes back">&#8249;</button>
+                <button class="playbtn" id="liveBtn" title="back to live">Live</button>
+                <button class="playbtn" id="fwdBtn" title="10 minutes forward">&#8250;</button>
+                <span class="tv wide" id="timeVal">--</span>
+            </div>
+            <div class="trow full">
+                <input type="range" id="timeSlider" min="0" max="1" value="1" step="1" />
+            </div>
+            <div class="trow">
+                <span class="tl">Period</span>
+                <input type="range" id="periodSlider" min="10" max="240" step="10" value="60" />
+                <span class="tv" id="periodVal">60 min</span>
+            </div>
+            <div class="trow">
+                <span
+                    class="tl"
+                    title="a boat is greyed and its lines are broken only when its latest report is older than this; shorter gaps (missed AIS reports) are bridged"
+                    >Stale after</span
+                >
+                <input type="number" id="staleMin" min="5" max="240" step="5" value="30" class="numin" />
+                <span class="tv" style="width: auto; text-align: left">min without a report</span>
+            </div>
+        </div>
 
         <div class="selbar">
             <div class="ctl-group">
@@ -64,27 +84,93 @@
 
         <main class="stage">
             <section class="tabpane" id="pane-boats">
-                <div class="sorthead">
-                    <span class="ctl-label">Sort</span>
-                    <select id="sortSel">
-                        <option value="near">Near</option>
-                        <option value="alpha">A-Z</option>
-                    </select>
+                <div class="plothead">
+                    <button class="info" data-info="boats" aria-label="about this view">i</button>
+                    <div class="mode"><b>Boats</b></div>
+                    <div class="ctl-group">
+                        <span class="ctl-label">Sort</span>
+                        <select id="sortSel">
+                            <option value="near">Near</option>
+                            <option value="waypoint">Waypoint</option>
+                            <option value="vmg">VMG</option>
+                            <option value="alpha">A-Z</option>
+                        </select>
+                    </div>
                 </div>
+                <div class="bhead" id="bhead"></div>
                 <div class="blist" id="blist"></div>
             </section>
             <section class="tabpane hidden" id="pane-vectors">
-                <p class="todo">Vectors: not yet ported from the prototype.</p>
+                <div class="plothead">
+                    <button class="info" data-info="vectors" aria-label="about this view">i</button>
+                    <div class="mode" id="modeLine"></div>
+                    <div class="mode" id="scaleLine"></div>
+                </div>
+                <div class="svgwrap"><svg class="polar" id="polar" viewBox="0 0 400 400"></svg></div>
             </section>
             <section class="tabpane hidden" id="pane-tcf">
-                <p class="todo">TCF: not yet ported from the prototype.</p>
+                <div class="plothead">
+                    <button class="info" data-info="tcf" aria-label="about this view">i</button>
+                    <div class="mode"><b>TCF</b> <span id="tcfNote"></span></div>
+                </div>
+                <div class="startbar" id="startbar">
+                    <span class="ctl-label">Start</span>
+                    <span class="startval" id="startVal">--</span>
+                    <input type="datetime-local" step="1" id="startIn" />
+                    <button class="mapbtn" id="startSet">Set</button>
+                    <button class="mapbtn" id="startNow">Now</button>
+                    <button class="mapbtn" id="startClear" title="clear the override and use signalk-racer">
+                        Clear
+                    </button>
+                </div>
+                <div class="coursebar" id="courseVal"></div>
+                <div class="bhead thead" id="tcfhead"></div>
+                <div class="blist" id="tcflist"></div>
             </section>
             <section class="tabpane hidden" id="pane-geo">
-                <p class="todo">Geo: not yet ported from the prototype.</p>
+                <div class="plothead">
+                    <button class="info" data-info="geo" aria-label="about this view">i</button>
+                    <div class="mode" id="mapLine">Geographic</div>
+                    <div class="hbtns">
+                        <div class="seg" id="baseSeg">
+                            <button data-base="white">White</button><button data-base="osm">OSM</button
+                            ><button data-base="sea">Sea</button>
+                        </div>
+                        <button class="mapbtn" id="fitBtn">Fit</button>
+                    </div>
+                </div>
+                <div class="mapbox">
+                    <svg class="map" id="map" viewBox="0 0 700 500">
+                        <defs>
+                            <clipPath id="mapclip">
+                                <rect id="mapcliprect" x="0" y="0" width="700" height="500" />
+                            </clipPath>
+                        </defs>
+                        <rect id="mapbg" x="0" y="0" width="700" height="500" fill="#ffffff" />
+                        <g clip-path="url(#mapclip)">
+                            <g id="maprot">
+                                <g id="maptiles"></g>
+                                <g id="mapcontent"></g>
+                            </g>
+                            <g id="maprings"></g>
+                        </g>
+                        <g id="mapoverlay"></g>
+                    </svg>
+                </div>
             </section>
         </main>
 
+        <div class="tip" id="tip"></div>
+        <div class="infopop" id="infoPop"></div>
+
         <script src="units.js"></script>
+        <script src="geo.js"></script>
+        <script src="derive.js"></script>
+        <script src="draw.js"></script>
         <script src="app.js"></script>
+        <script src="tab-boats.js"></script>
+        <script src="tab-vectors.js"></script>
+        <script src="tab-tcf.js"></script>
+        <script src="tab-geo.js"></script>
     </body>
 </html>

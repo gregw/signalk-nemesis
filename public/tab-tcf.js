@@ -1,0 +1,158 @@
+'use strict';
+/* global ND, UNITS, GEO, DERIVE, DRAW */
+/*
+ * TCF tab (wiki section 3.6): time-on-time handicap against us. A TCF box per boat
+ * (saved on the server, PUT setTcf), then Should, Actual and Net in nm, sorted by Net.
+ * Also the race start time (signalk-racer or a manual override, PUT setStartTime) and
+ * where the course distance D comes from.
+ * Inputs are never re-rendered while focused (prototype lesson).
+ */
+(() => {
+    const $ = (id) => document.getElementById(id);
+    const COURSE_SRC = {route: 'active route', start: 'start waypoint', config: 'configured course'};
+    let startMsg = null; // last start-time error, shown until the next change
+
+    const nm = (m) => UNITS.nm(m);
+    const fmt = (m) => DRAW.signed(nm(m), 1);
+    const cls = (m) => (m == null ? '' : m > 0.05 * 1852 ? 'pos' : m < -0.05 * 1852 ? 'neg' : '');
+
+    function focusedInput() {
+        const a = document.activeElement;
+        return a && (a.classList.contains('tcfin') || a.id === 'startIn');
+    }
+
+    function toLocalInput(t) {
+        const d = new Date(t);
+        const p = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+    }
+
+    function renderStart(view) {
+        const st = view.snap && view.snap.start;
+        const el = $('startVal');
+        if (startMsg) {
+            el.innerHTML = `<span class="err">${DRAW.esc(startMsg)}</span>`;
+        } else if (st) {
+            el.textContent =
+                new Date(st.t).toLocaleString([], {
+                    weekday: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                }) + (st.src === 'override' ? ' (set here)' : ' (signalk-racer)');
+        } else el.textContent = 'not known';
+        $('startClear').disabled = !(st && st.src === 'override');
+        if (document.activeElement !== $('startIn') && st) $('startIn').value = toLocalInput(st.t);
+
+        const c = view.snap && view.snap.course;
+        let course;
+        if (!c)
+            course =
+                'Course distance: none. Activate a route, or set a start waypoint name or a course distance in the plugin config.';
+        else {
+            const dNow = view.usNow && view.wp ? DERIVE.madeGood(c, GEO.distance(view.usNow, view.wp)) : null;
+            course =
+                `Course ${UNITS.fmt(nm(c.totalM), 1)} nm from the ${COURSE_SRC[c.src] || c.src}` +
+                (c.name ? ` "${DRAW.esc(c.name)}"` : '') +
+                `; made good ${UNITS.fmt(nm(dNow), 1)} nm`;
+        }
+        $('courseVal').innerHTML = course;
+    }
+
+    function render(view, force) {
+        if (!force && focusedInput()) return;
+        renderStart(view);
+        const list = $('tcflist');
+        if (!view.snap) {
+            $('tcfhead').innerHTML = '';
+            list.innerHTML = '<div class="empty">Waiting for data from the plugin.</div>';
+            return;
+        }
+        const us = view.all.find((b) => b.isUs);
+        const startT = view.snap.start ? view.snap.start.t : null;
+        let reason = null;
+        const rows = view.visible.map((b) => {
+            if (b.isUs) return {b, net: 0};
+            const s = b.cur;
+            const r = DERIVE.tcfRow({
+                s,
+                u: s ? view.usAt(s.t) : null,
+                frame: view.frame,
+                wp: view.wp,
+                course: view.snap.course,
+                startT,
+                tcfUs: us.tcf,
+                tcfBoat: b.tcf
+            });
+            if (r.reason && r.reason !== 'no data' && !reason) reason = r.reason;
+            return {b, ...r};
+        });
+        // Handicap standing: most ahead of us on corrected time first; us at 0; no data last.
+        rows.sort((x, y) => (y.net ?? -1e12) - (x.net ?? -1e12));
+
+        const caveat = view.frame === 'waypoint' ? '' : ' (Should is along the course: compare with Up = Waypoint)';
+        $('tcfNote').innerHTML =
+            ` &middot; vs us, toward ${view.frame}${caveat}${reason ? ` &middot; <span class="err">Should: ${reason}</span>` : ''}`;
+        $('tcfhead').innerHTML =
+            `<span class="sp" style="width:10px"></span><span class="th-name"><b>Boat</b></span>` +
+            `<span class="th-tcf"><b>TCF</b></span>` +
+            `<span class="th-n"><b>Should</b><span class="bh-sub">nm</span></span>` +
+            `<span class="th-n"><b>Actual</b><span class="bh-sub">nm</span></span>` +
+            `<span class="th-n"><b>Net</b><span class="bh-sub">+ beats us</span></span>`;
+        const scroll = list.scrollTop;
+        list.innerHTML = rows
+            .map(
+                (
+                    r
+                ) => `<div class="brow trow2 ${r.b.isUs ? 'us' : ''} ${r.b.isUs || r.b.cur ? '' : 'gone'}${view.sel === r.b.id ? ' hi' : ''}" data-id="${DRAW.esc(r.b.id)}">
+      <span class="sw" style="background:${r.b.color}"></span>
+      <span class="bn ${r.b.isUs ? 'ref' : ''}" data-sel="${DRAW.esc(r.b.id)}" data-hit="1">${DRAW.esc(r.b.name)}</span>
+      <input class="tcfin" type="number" inputmode="decimal" step="0.001" min="0.3" max="3" value="${r.b.tcf.toFixed(3)}" data-id="${DRAW.esc(r.b.id)}" aria-label="TCF ${DRAW.esc(r.b.name)}">
+      <span class="tn">${r.b.isUs ? '&ndash;' : fmt(r.should)}</span>
+      <span class="tn">${r.b.isUs ? '&ndash;' : fmt(r.actual)}</span>
+      <span class="tn net ${r.b.isUs ? '' : cls(r.net)}">${r.b.isUs ? '0.0' : fmt(r.net)}</span>
+    </div>`
+            )
+            .join('');
+        list.scrollTop = scroll;
+    }
+
+    async function setStart(iso) {
+        startMsg = await ND.setStart(iso);
+        ND.render(true);
+    }
+
+    function init() {
+        const list = $('tcflist');
+        list.addEventListener('change', (e) => {
+            const inp = e.target.closest('.tcfin');
+            if (!inp) return;
+            const v = Number(inp.value);
+            if (v > 0.3 && v <= 3) ND.setTcf(inp.dataset.id, Number(v.toFixed(4)));
+            else ND.render(true); // put the stored value back
+        });
+        list.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && e.target.classList.contains('tcfin')) e.target.blur();
+        });
+        list.addEventListener('click', (e) => {
+            const s = e.target.closest('[data-sel]');
+            if (s) ND.select(s.dataset.sel, e.clientX, e.clientY);
+        });
+        $('startSet').addEventListener('click', () => {
+            const v = $('startIn').value;
+            const t = v ? new Date(v).getTime() : NaN;
+            if (!Number.isFinite(t)) {
+                startMsg = 'enter a date and time';
+                return ND.render(true);
+            }
+            setStart(new Date(t).toISOString());
+        });
+        $('startNow').addEventListener('click', () => setStart(new Date().toISOString()));
+        $('startClear').addEventListener('click', () => setStart(null));
+        $('startIn').addEventListener('input', () => {
+            startMsg = null;
+        });
+    }
+
+    ND.tabs.tcf = {init, render};
+})();

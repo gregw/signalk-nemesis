@@ -1,0 +1,292 @@
+'use strict';
+/*
+ * The four tabs in real headless Chromium (Playwright) against the plugin running on
+ * replayed GC2026 AIS data: rendering, the sign convention, TCF entry, the start time
+ * override, selection popups, map gestures (pinch via CDP touch events) and the time
+ * window. Screenshots go to $SHOT_DIR when set.
+ */
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const {chromium} = require('playwright');
+const {startDevServer} = require('../sim/dev-server');
+
+const POLL = 300;
+const SHOT_DIR = process.env.SHOT_DIR;
+const PHONE = {viewport: {width: 390, height: 844}, hasTouch: true, isMobile: true, deviceScaleFactor: 2};
+const TABLET = {viewport: {width: 1024, height: 768}, hasTouch: true};
+
+let browser;
+let srv;
+
+test.before(async () => {
+    browser = await chromium.launch();
+    srv = await startDevServer({hoursIn: 6});
+});
+test.after(async () => {
+    await browser?.close();
+    await srv?.close();
+});
+
+async function open(device, show = 'all') {
+    const ctx = await browser.newContext(device);
+    const page = await ctx.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(srv.url + '?poll=' + POLL);
+    await page.locator('#conn', {hasText: 'live'}).waitFor();
+    await page.selectOption('#showSel', show);
+    return {ctx, page, errors};
+}
+
+async function tab(page, name) {
+    await page.click(`#tabbar button[data-tab="${name}"]`);
+    await page.waitForTimeout(POLL * 2);
+}
+
+async function shot(page, name) {
+    if (SHOT_DIR) await page.screenshot({path: path.join(SHOT_DIR, name + '.png')});
+}
+
+async function noPageScroll(page) {
+    const m = await page.evaluate(() => ({
+        vw: innerWidth,
+        vh: innerHeight,
+        sw: document.scrollingElement.scrollWidth,
+        sh: document.scrollingElement.scrollHeight
+    }));
+    assert.ok(m.sw <= m.vw, `no horizontal page scroll (${m.sw} > ${m.vw})`);
+    assert.ok(m.sh <= m.vh + 1, `no vertical page scroll (${m.sh} > ${m.vh})`);
+}
+
+const num = (s) => Number(String(s).replace('−', '-').replace('+', ''));
+
+test('every tab renders on phone and tablet, without errors or page scroll', async () => {
+    for (const [name, dev] of [
+        ['phone', PHONE],
+        ['tablet', TABLET]
+    ]) {
+        const {ctx, page, errors} = await open(dev);
+        await tab(page, 'boats');
+        assert.ok((await page.locator('#blist .spk .dot').count()) > 5, 'strip chart dots');
+        assert.ok((await page.locator('#blist .cv').count()) > 5, 'values over the latest dots');
+        await noPageScroll(page);
+        await shot(page, `${name}-boats`);
+        await tab(page, 'vectors');
+        assert.ok((await page.locator('#polar polygon').count()) > 10, 'hulls on the vector plot');
+        assert.match(await page.locator('#modeLine').textContent(), /Absolute · waypoint up$/);
+        await noPageScroll(page);
+        await shot(page, `${name}-vectors`);
+        await tab(page, 'tcf');
+        assert.ok((await page.locator('#tcflist .tcfin').count()) > 10, 'TCF boxes');
+        assert.match(await page.locator('#startVal').textContent(), /signalk-racer/);
+        assert.match(await page.locator('#courseVal').textContent(), /Course 384\.6 nm from the configured course/);
+        await noPageScroll(page);
+        await shot(page, `${name}-tcf`);
+        await tab(page, 'geo');
+        assert.ok((await page.locator('#mapcontent polygon').count()) > 10, 'hulls on the map');
+        await noPageScroll(page);
+        await shot(page, `${name}-geo`);
+        assert.deepEqual(errors, []);
+        await ctx.close();
+    }
+});
+
+test('sign convention: Boats lead chart agrees with TCF Actual (+ = they are ahead)', async () => {
+    const {ctx, page} = await open(TABLET);
+    await tab(page, 'boats');
+    const leads = await page.$$eval('#blist .brow[data-id]:not(.us)', (rows) =>
+        rows.map((r) => ({id: r.dataset.id, v: r.querySelectorAll('.chart')[1].querySelector('.cv')?.textContent}))
+    );
+    await tab(page, 'tcf');
+    const actual = await page.$$eval('#tcflist .brow[data-id]:not(.us)', (rows) =>
+        Object.fromEntries(rows.map((r) => [r.dataset.id, r.querySelectorAll('.tn')[1].textContent]))
+    );
+    let compared = 0;
+    let ahead = 0;
+    for (const l of leads) {
+        if (l.v == null || actual[l.id] == null || actual[l.id] === '–') continue;
+        const a = num(actual[l.id]);
+        assert.ok(Math.abs(num(l.v) - a) <= 0.6, `${l.id}: lead ${l.v} vs actual ${actual[l.id]}`);
+        if (a > 0.1) ahead++;
+        compared++;
+    }
+    assert.ok(compared > 10, `compared ${compared}`);
+    assert.ok(ahead > 0 && ahead < compared, 'some boats ahead, some behind');
+    await ctx.close();
+});
+
+test('TCF: typing is not re-rendered by polls; Enter saves on the server and sets Should', async () => {
+    const {ctx, page} = await open(PHONE);
+    await tab(page, 'tcf');
+    const row = page.locator('#tcflist .brow[data-id]:not(.us)').first();
+    const id = await row.getAttribute('data-id');
+    const inp = row.locator('.tcfin');
+    await inp.click();
+    await inp.fill('1.1');
+    await inp.evaluate((el) => (el.dataset.mark = '1'));
+    await page.waitForTimeout(POLL * 4);
+    assert.equal(await page.locator('#tcflist .tcfin[data-mark]').count(), 1, 'same input node while focused');
+    assert.equal(await page.locator('#tcflist .tcfin[data-mark]').inputValue(), '1.1');
+    await page.keyboard.press('Enter');
+    await waitFor(async () => (await srvUser()).tcf[id] === 1.1, 'server saved TCF');
+    const should = page.locator(`#tcflist .brow[data-id="${id}"] .tn`).first();
+    await waitFor(async () => num(await should.textContent()) > 1, 'Should for a higher rated boat');
+    await shot(page, 'phone-tcf-entry');
+    // Back to the default so other tests are unaffected.
+    await page.locator(`#tcflist .brow[data-id="${id}"] .tcfin`).fill('1');
+    await page.keyboard.press('Enter');
+    await waitFor(async () => (await srvUser()).tcf[id] == null || (await srvUser()).tcf[id] === 1, 'TCF reset');
+    await ctx.close();
+});
+
+test('start time: Now sets the override, Clear goes back to signalk-racer', async () => {
+    const {ctx, page} = await open(PHONE);
+    await tab(page, 'tcf');
+    await page.click('#startNow');
+    await page.locator('#startVal', {hasText: 'set here'}).waitFor();
+    assert.equal((await snapshot()).start.src, 'override');
+    await page.click('#startClear');
+    await page.locator('#startVal', {hasText: 'signalk-racer'}).waitFor();
+    assert.equal((await snapshot()).start.src, 'racer');
+    await ctx.close();
+});
+
+test('vectors: tapping a boat selects it, draws its velocity shafts, popup inside the viewport', async () => {
+    const {ctx, page} = await open(PHONE);
+    await tab(page, 'vectors');
+    // The current hull furthest right and lowest, so the popup has to be clamped.
+    const pt = await page.$$eval('#polar polygon[stroke="#fff"]', (ps) => {
+        let best = null;
+        for (const p of ps) {
+            const r = p.getBoundingClientRect();
+            const c = {x: r.left + r.width / 2, y: r.top + r.height / 2};
+            if (!best || c.x + c.y > best.x + best.y) best = c;
+        }
+        return best;
+    });
+    await page.touchscreen.tap(pt.x, pt.y);
+    await page.locator('#tip').waitFor({state: 'visible'});
+    const tip = await page.locator('#tip').boundingBox();
+    assert.ok(tip.x >= 0 && tip.y >= 0 && tip.x + tip.width <= 390 && tip.y + tip.height <= 844, 'tip in viewport');
+    assert.match(await page.locator('#tip').textContent(), /SOG \d+\.\dkn/);
+    assert.ok((await page.locator('#polar line[stroke-dasharray]').count()) > 0, 'velocity shafts');
+    await shot(page, 'phone-vectors-selected');
+    // Tapping empty space clears the selection.
+    const box = await page.locator('#polar').boundingBox();
+    await page.touchscreen.tap(box.x + 5, box.y + 5);
+    await page.locator('#tip').waitFor({state: 'hidden'});
+    assert.equal(await page.locator('#polar line[stroke-dasharray]').count(), 0);
+    await ctx.close();
+});
+
+test('geo: pinch zooms about the fingers, drag pans, a gesture in Relative switches to Absolute', async () => {
+    const {ctx, page, errors} = await open(PHONE);
+    await tab(page, 'geo');
+    const cdp = await ctx.newCDPSession(page);
+    const touch = (type, pts) =>
+        cdp.send('Input.dispatchTouchEvent', {type, touchPoints: pts.map(([x, y], id) => ({x, y, id}))});
+    const box = await page.locator('#map').boundingBox();
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    const state = () => page.evaluate(() => ND.tabs.geo.state());
+    // World point under a client position, from the map state (inverse of the render).
+    const worldAt = (s, x, y) => {
+        const px = ((x - box.x) * s.W) / box.width - s.W / 2;
+        const py = ((y - box.y) * s.H) / box.height - s.H / 2;
+        const a = (s.rotDeg * Math.PI) / 180;
+        const sc = 256 * 2 ** s.zoom;
+        return [
+            s.center.wx + (px * Math.cos(a) - py * Math.sin(a)) / sc,
+            s.center.wy + (px * Math.sin(a) + py * Math.cos(a)) / sc
+        ];
+    };
+
+    const s0 = await state();
+    const mid = [cx + 30, cy - 40];
+    const before = worldAt(s0, ...mid);
+    await touch('touchStart', [
+        [mid[0] - 40, mid[1]],
+        [mid[0] + 40, mid[1]]
+    ]);
+    for (let k = 1; k <= 5; k++) {
+        await touch('touchMove', [
+            [mid[0] - 40 - 8 * k, mid[1]],
+            [mid[0] + 40 + 8 * k, mid[1]]
+        ]);
+    }
+    await touch('touchEnd', []);
+    const s1 = await state();
+    assert.ok(Math.abs(s1.zoom - s0.zoom - 1) < 0.01, `pinch doubled the spread: zoom ${s0.zoom} -> ${s1.zoom}`);
+    const after = worldAt(s1, ...mid);
+    const px = 256 * 2 ** s1.zoom;
+    assert.ok(
+        Math.hypot((after[0] - before[0]) * px, (after[1] - before[1]) * px) < 1,
+        'point under the fingers stays put'
+    );
+    assert.equal(s1.follow, false, 'stops following us after a gesture');
+
+    // Relative mode, then a one-finger drag: back to Absolute, and the map pans.
+    await page.selectOption('#modeSel', 'rel');
+    await page.waitForTimeout(POLL);
+    const s2 = await state();
+    await touch('touchStart', [[cx, cy]]);
+    for (let k = 1; k <= 5; k++) await touch('touchMove', [[cx + 20 * k, cy + 10 * k]]);
+    await touch('touchEnd', []);
+    assert.equal(await page.locator('#modeSel').inputValue(), 'abs');
+    const s3 = await state();
+    assert.ok(s3.center.wx !== s2.center.wx || s3.center.wy !== s2.center.wy, 'panned');
+    await shot(page, 'phone-geo-gestures');
+
+    // Fit follows us again.
+    await page.click('#fitBtn');
+    assert.equal((await state()).follow, true);
+    assert.deepEqual(errors, []);
+    await ctx.close();
+});
+
+test('time popup: look back an hour, then back to live', async () => {
+    const {ctx, page} = await open(TABLET);
+    await tab(page, 'boats');
+    await page.click('#timeBtn');
+    await page.locator('#timepop').waitFor({state: 'visible'});
+    for (let i = 0; i < 6; i++) await page.click('#backBtn');
+    await page.locator('#timeBtnVal', {hasText: 'ago'}).waitFor();
+    assert.match(await page.locator('#timeBtnVal').textContent(), /\+5h0\d · 1h0\d ago/);
+    await waitFor(async () => (await page.evaluate(() => ND.model.tracksKey)).startsWith('at:'), 'history fetched');
+    assert.ok((await page.locator('#blist .spk .dot').count()) > 5, 'charts drawn from history');
+    await shot(page, 'tablet-history');
+    await page.click('#liveBtn');
+    await page.locator('#timeBtnVal', {hasText: /^\+6h00 · 60m$/}).waitFor();
+    assert.equal(await page.evaluate(() => ND.model.viewT), null);
+    await ctx.close();
+});
+
+test('relative mode: boats show deltas, vectors centre on us', async () => {
+    const {ctx, page} = await open(TABLET);
+    await page.selectOption('#modeSel', 'rel');
+    await tab(page, 'boats');
+    assert.match(await page.locator('#bhead').textContent(), /ΔSOG\/COG/);
+    assert.match(await page.locator('#bhead').textContent(), /ΔVMG/);
+    await tab(page, 'vectors');
+    assert.match(await page.locator('#modeLine').textContent(), /Relative to us/);
+    await shot(page, 'tablet-vectors-rel');
+    await page.selectOption('#modeSel', 'abs');
+    await ctx.close();
+});
+
+async function srvUser() {
+    return (await srv.app.call('GET', '/signalk/v1/api/nemesis/user')).body;
+}
+async function snapshot() {
+    return (await srv.app.call('GET', '/signalk/v1/api/nemesis/snapshot')).body;
+}
+
+async function waitFor(cond, what, timeoutMs = 4000) {
+    const end = Date.now() + timeoutMs;
+    while (Date.now() < end) {
+        if (await cond()) return;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    assert.fail('timed out waiting for ' + what);
+}
