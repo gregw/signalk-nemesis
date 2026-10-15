@@ -47,10 +47,10 @@ Both are adapter seams with an explicit precedence, and the snapshot reports whi
 
 ### Start time (for TCF elapsed time)
 
-1. [ ] Manual override: plugin REST `PUT /start` (and clear), persisted atomically with user state. Wins when set.
-2. [ ] signalk-racer: data model path `navigation.racing.startTime`, RFC 3339 UTC string, published on the timer `start` command (verified: `../signalk-racer/index.js:835`, metadata at `:267`).
-   - [ ] TODO(verify): what racer publishes on `reset` and sync while the timer runs, so a reset does not leave a stale start time.
-3. [ ] None: TCF tab shows "no start time" instead of numbers. Never guess.
+1. [x] Manual override: PUT handler `navigation.racing.nemesis.setStartTime` `{startTime: RFC 3339 | null}`, persisted atomically. Wins when set.
+2. [x] signalk-racer `navigation.racing.startTime` (RFC 3339 UTC; `reset` publishes null, verified with racer running in a 2.30.0 server). Our copy is persisted, because racer loses its start time on a server restart (checked: the path is 404 after restart).
+3. [x] None, or older than `maxRaceHours` (default 96): snapshot `start` is null. TCF must then show "no start time".
+- [ ] signalk-racer itself should persist its start time across restarts (a racer change, not this plugin).
 - [ ] Webapp control to set/clear the override (e.g. "start was at hh:mm:ss", or "now").
 
 ### Next waypoint (Up = Waypoint, DTG, VMC, Should)

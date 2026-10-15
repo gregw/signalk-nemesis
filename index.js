@@ -5,10 +5,11 @@
  * Layers (keep them distinct):
  *  - Data model paths consumed: other vessels' navigation.position,
  *    courseOverGroundTrue, speedOverGround, name; our own position, COG, SOG,
- *    headingTrue; navigation.courseRhumbline.nextPoint.position (waypoint seam).
+ *    headingTrue; navigation.courseRhumbline.nextPoint.position (waypoint seam);
+ *    navigation.racing.startTime from signalk-racer (start time seam).
  *  - Data model paths published: none yet (brief section 8, Greg's call).
  *  - REST endpoints (read only): /plugins/<id>/* and /signalk/v1/api/nemesis/*.
- *  - PUT handlers (writes): navigation.racing.nemesis.setNemesis and .setTcf.
+ *  - PUT handlers (writes): navigation.racing.nemesis.setNemesis, .setTcf, .setStartTime.
  *  - Internal plugin state: TrackStore, OwnState, UserState.
  *
  * The webapp in public/ is served by the server at /<package name>/
@@ -21,13 +22,15 @@ const {AisSourceAdapter, OwnAdapter} = require('./lib/ais-adapter');
 const {makeWaypointSource} = require('./lib/waypoint');
 const {UserState, validTcf} = require('./lib/user-state');
 const {buildSnapshot, buildTracks} = require('./lib/snapshot');
+const {StartTime, RacerStartAdapter} = require('./lib/start-time');
 
 const PLUGIN_ID = 'signalk-nemesis';
 const API_PREFIX = '/nemesis';
 // PUT handler paths, under our own name within signalk-racer's navigation.racing group.
 const PUT_PATHS = {
     setNemesis: 'navigation.racing.nemesis.setNemesis',
-    setTcf: 'navigation.racing.nemesis.setTcf'
+    setTcf: 'navigation.racing.nemesis.setTcf',
+    setStartTime: 'navigation.racing.nemesis.setStartTime'
 };
 const MAX_PERIOD_MS = 24 * 3600e3;
 
@@ -65,6 +68,13 @@ const schema = {
             default: 1,
             minimum: 0.1
         },
+        maxRaceHours: {
+            type: 'number',
+            title: 'Ignore a start time older than this (hours)',
+            description: "Stops a previous race's start time feeding the TCF numbers of the next race",
+            default: 96,
+            minimum: 1
+        },
         waypoint: {
             type: 'object',
             title: 'Fallback waypoint, used when the course API has no next point',
@@ -101,6 +111,12 @@ module.exports = function (app) {
             (id, name) => store.setName(id, name)
         );
         const ownAdapter = new OwnAdapter(app, (s) => own.add(s));
+        const startTime = new StartTime({
+            dataDir: app.getDataDirPath(),
+            maxRaceMs: cfg.maxRaceHours * 3600e3,
+            onError: (e) => app.error(`Saving start time failed: ${e.message}`)
+        });
+        const racerStart = new RacerStartAdapter(app, startTime);
 
         state = {
             cfg,
@@ -110,11 +126,14 @@ module.exports = function (app) {
             waypoint: makeWaypointSource(app, cfg),
             ais,
             ownAdapter,
+            startTime,
+            racerStart,
             // Live clock. The replay harness shifts recorded times to wall-clock time.
             clock: () => Date.now()
         };
         ais.start();
         ownAdapter.start();
+        racerStart.start();
         registerPutHandlers();
         app.setPluginStatus('Started');
     };
@@ -126,10 +145,12 @@ module.exports = function (app) {
         } catch (e) {
             app.debug(e);
         }
-        try {
-            state.ownAdapter.stop();
-        } catch (e) {
-            app.debug(e);
+        for (const a of [state.ownAdapter, state.racerStart]) {
+            try {
+                a.stop();
+            } catch (e) {
+                app.debug(e);
+            }
         }
         state = null;
     };
@@ -154,6 +175,17 @@ module.exports = function (app) {
                 if (!value || typeof value.id !== 'string' || !validTcf(value.tcf))
                     return complete(400, 'value must be {id: string, tcf: number in (0, 3]}');
                 return state.userState.setTcf(value.id, value.tcf).then(() => complete(200, 'OK'));
+            })
+        );
+        // value {startTime: RFC 3339 string} sets the override; {startTime: null} clears it.
+        app.registerPutHandler('vessels.self', PUT_PATHS.setStartTime, (ctx, path, value) =>
+            command(() => {
+                if (!value || !('startTime' in value)) return complete(400, 'value must be {startTime: string|null}');
+                try {
+                    return state.startTime.setOverride(value.startTime).then(() => complete(200, 'OK'));
+                } catch (e) {
+                    return complete(400, e.message);
+                }
             })
         );
     }
@@ -208,6 +240,7 @@ module.exports = function (app) {
                     own: s.own,
                     userState: s.userState,
                     waypoint: s.waypoint(),
+                    start: s.startTime.get(),
                     staleMs: s.cfg.staleSeconds * 1000,
                     now: s.clock()
                 })
@@ -249,6 +282,7 @@ function withDefaults(options) {
         maxReportsPerBoat: d('maxReportsPerBoat'),
         maxBoats: d('maxBoats'),
         ownSampleSeconds: d('ownSampleSeconds'),
+        maxRaceHours: d('maxRaceHours'),
         waypoint: o.waypoint || null
     };
 }

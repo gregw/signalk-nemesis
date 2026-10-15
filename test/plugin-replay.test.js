@@ -78,3 +78,19 @@ test('nemesis and TCF PUT handlers validate and persist', async () => {
     assert.deepEqual((await app.call('GET', API + '/user')).body.nemesis, ['1']);
     plugin.stop();
 });
+
+test('start time: PUT override shows in the snapshot and survives restart', async () => {
+    const {app, plugin} = await replayTo(3);
+    assert.equal((await app.call('GET', API + '/snapshot')).body.start, null);
+    assert.equal((await app.put(PUT_PATHS.setStartTime, {})).status, 400);
+    assert.equal((await app.put(PUT_PATHS.setStartTime, {startTime: 'soon'})).status, 400);
+    const iso = new Date(Date.now() - 3 * 3600e3).toISOString();
+    assert.equal((await app.put(PUT_PATHS.setStartTime, {startTime: iso})).status, 200);
+    assert.deepEqual((await app.call('GET', API + '/snapshot')).body.start, {t: Date.parse(iso), src: 'override'});
+    plugin.stop();
+    plugin.start({});
+    assert.equal((await app.call('GET', API + '/snapshot')).body.start.src, 'override');
+    assert.equal((await app.put(PUT_PATHS.setStartTime, {startTime: null})).status, 200);
+    assert.equal((await app.call('GET', API + '/snapshot')).body.start, null);
+    plugin.stop();
+});
