@@ -125,6 +125,39 @@ const DRAW = (() => {
         return null;
     }
 
+    /** [min, max] of the finite values in a chart series. */
+    function extent(pts) {
+        let a = Infinity;
+        let z = -Infinity;
+        for (const p of pts) {
+            if (p.v == null || !Number.isFinite(p.v)) continue;
+            if (p.v < a) a = p.v;
+            if (p.v > z) z = p.v;
+        }
+        return [a, z];
+    }
+
+    /** A window of the given height centred on a series' extent. */
+    function centred(mm, span) {
+        if (!(mm[1] >= mm[0])) return [-span / 2, span / 2];
+        const mid = (mm[0] + mm[1]) / 2;
+        return [mid - span / 2, mid + span / 2];
+    }
+
+    /** The value label over a chart's latest dot (p from latestPos). */
+    function chip(p, fmt, cls = '') {
+        if (!p) return '';
+        const tx = p.xf < 0.15 ? '0%' : p.xf > 0.85 ? '-100%' : '-50%';
+        // Above the dot, or below it when the dot is near the top, so it stays inside the row.
+        const ty = p.yf < 0.45 ? '4px' : 'calc(-100% - 3px)';
+        return `<span class="cv ${cls}" style="left:${(p.xf * 100).toFixed(1)}%;top:${(p.yf * 100).toFixed(1)}%;transform:translate(${tx},${ty})">${fmt(p.v)}</span>`;
+    }
+
+    /** Column header text for a shared chart height. */
+    function fmtSpan(v, u) {
+        return `&#8597; ${v < 1 ? v.toFixed(2) : v < 10 ? v.toFixed(1) : Math.round(v)} ${u}`;
+    }
+
     function esc(s) {
         return String(s).replace(
             /[&<>"']/g,
@@ -139,5 +172,19 @@ const DRAW = (() => {
         return (r > 0 ? '+' : r < 0 ? '&minus;' : '') + Math.abs(r).toFixed(digits);
     }
 
-    return {US_COLOR, colorFor, boatIcon, listIcon, taper, spark, latestPos, esc, signed};
+    return {
+        US_COLOR,
+        colorFor,
+        boatIcon,
+        listIcon,
+        taper,
+        spark,
+        latestPos,
+        extent,
+        centred,
+        chip,
+        fmtSpan,
+        esc,
+        signed
+    };
 })();

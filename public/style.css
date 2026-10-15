@@ -618,8 +618,8 @@ svg .hi {
     min-width: 60px;
 }
 .thead .th-tcf {
-    flex: 0 0 64px;
-    width: 64px;
+    flex: 0 0 74px;
+    width: 74px;
     text-align: center;
 }
 .thead .th-n {
@@ -645,8 +645,8 @@ svg .hi {
     min-width: 60px;
 }
 .tcfin {
-    flex: 0 0 64px;
-    width: 64px;
+    flex: 0 0 74px;
+    width: 74px;
     font-family: var(--mono);
     font-size: 14px;
     padding: 4px;
@@ -664,15 +664,26 @@ svg .hi {
     font-size: 15px;
     color: var(--steel);
 }
-.tn.net {
-    font-weight: 700;
-    color: var(--ink);
+.thead .th-chart {
+    flex: 2 1 0;
+    min-width: 90px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    overflow: hidden;
 }
-.tn.net.pos {
+.chart.net {
+    flex: 2 1 0;
+    min-width: 90px;
+    margin-left: 6px;
+}
+.chart .cv.pos {
     color: var(--fast);
+    font-weight: 700;
 }
-.tn.net.neg {
+.chart .cv.neg {
     color: var(--slow);
+    font-weight: 700;
 }
 
 /* ---------- details popup ---------- */

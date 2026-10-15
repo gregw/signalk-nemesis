@@ -2,7 +2,10 @@
 /* global ND, UNITS, GEO, DERIVE, DRAW */
 /*
  * TCF tab (wiki section 3.6): time-on-time handicap against us. A TCF box per boat
- * (saved on the server, PUT setTcf), then Should, Actual and Net in nm, sorted by Net.
+ * (saved on the server, PUT setTcf), then Should and Actual in nm at the boat's latest
+ * report, and Net (the TCF corrected lead) as a strip chart over the period like the
+ * Boats tab, so a boat whose latest report is a little old still shows its trend.
+ * Sorted by the latest Net.
  * Also the race start time (signalk-racer or a manual override, PUT setStartTime) and
  * where the course distance D comes from.
  * Inputs are never re-rendered while focused (prototype lesson).
@@ -14,7 +17,6 @@
 
     const nm = (m) => UNITS.nm(m);
     const fmt = (m) => DRAW.signed(nm(m), 1);
-    const cls = (m) => (m == null ? '' : m > 0.05 * 1852 ? 'pos' : m < -0.05 * 1852 ? 'neg' : '');
 
     function focusedInput() {
         const a = document.activeElement;
@@ -71,10 +73,8 @@
         const us = view.all.find((b) => b.isUs);
         const startT = view.snap.start ? view.snap.start.t : null;
         let reason = null;
-        const rows = view.visible.map((b) => {
-            if (b.isUs) return {b, net: 0};
-            const s = b.cur;
-            const r = DERIVE.tcfRow({
+        const tcfAt = (b, s) =>
+            DERIVE.tcfRow({
                 s,
                 u: s ? view.usAt(s.t) : null,
                 frame: view.frame,
@@ -84,11 +84,25 @@
                 tcfUs: us.tcf,
                 tcfBoat: b.tcf
             });
+        const rows = view.visible.map((b) => {
+            if (b.isUs) return {b, net: 0, series: []};
+            const r = tcfAt(b, b.cur);
             if (r.reason && r.reason !== 'no data' && !reason) reason = r.reason;
-            return {b, ...r};
+            const series = ND.inWindow(b.series, view).map((s) => ({t: s.t, v: nm(tcfAt(b, s).net)}));
+            return {b, ...r, series};
         });
         // Handicap standing: most ahead of us on corrected time first; us at 0; no data last.
         rows.sort((x, y) => (y.net ?? -1e12) - (x.net ?? -1e12));
+
+        // One chart height for the column (largest range in any row), each chart centred on its own data.
+        let span = 0;
+        for (const r of rows) {
+            r.ext = DRAW.extent(r.series);
+            if (r.ext[1] >= r.ext[0]) span = Math.max(span, r.ext[1] - r.ext[0]);
+        }
+        span = Math.max(span, 0.05);
+        const fmtNet = (v) => DRAW.signed(v, Math.abs(v) < 10 ? 1 : 0);
+        const chipCls = (v) => (v > 0.05 ? 'pos' : v < -0.05 ? 'neg' : '');
 
         const caveat = view.frame === 'waypoint' ? '' : ' (Should is along the course: compare with Up = Waypoint)';
         $('tcfNote').innerHTML =
@@ -98,21 +112,25 @@
             `<span class="th-tcf"><b>TCF</b></span>` +
             `<span class="th-n"><b>Should</b><span class="bh-sub">nm</span></span>` +
             `<span class="th-n"><b>Actual</b><span class="bh-sub">nm</span></span>` +
-            `<span class="th-n"><b>Net</b><span class="bh-sub">+ beats us</span></span>`;
+            `<span class="th-chart"><b>Net</b><span class="bh-sub">+ beats us</span><span class="bh-sub">${DRAW.fmtSpan(span, 'nm')}</span></span>`;
         const scroll = list.scrollTop;
         list.innerHTML = rows
-            .map(
-                (
-                    r
-                ) => `<div class="brow trow2 ${r.b.isUs ? 'us' : ''} ${r.b.isUs || r.b.cur ? '' : 'gone'}${view.sel === r.b.id ? ' hi' : ''}" data-id="${DRAW.esc(r.b.id)}">
+            .map((r) => {
+                const [lo, hi] = DRAW.centred(r.ext, span);
+                const p = DRAW.latestPos(r.series, lo, hi, view.now, view.periodMs);
+                const chart = r.b.isUs
+                    ? ''
+                    : DRAW.chip(p, fmtNet, p ? chipCls(p.v) : '') +
+                      `<span class="spkwrap">${DRAW.spark(r.series, r.b.color, lo, hi, view.now, view.periodMs, view.staleMs)}</span>`;
+                return `<div class="brow trow2 ${r.b.isUs ? 'us' : ''} ${r.b.isUs || r.b.cur ? '' : 'gone'}${view.sel === r.b.id ? ' hi' : ''}" data-id="${DRAW.esc(r.b.id)}">
       <span class="sw" style="background:${r.b.color}"></span>
       <span class="bn ${r.b.isUs ? 'ref' : ''}" data-sel="${DRAW.esc(r.b.id)}" data-hit="1">${DRAW.esc(r.b.name)}</span>
       <input class="tcfin" type="number" inputmode="decimal" step="0.001" min="0.3" max="3" value="${r.b.tcf.toFixed(3)}" data-id="${DRAW.esc(r.b.id)}" aria-label="TCF ${DRAW.esc(r.b.name)}">
       <span class="tn">${r.b.isUs ? '&ndash;' : fmt(r.should)}</span>
       <span class="tn">${r.b.isUs ? '&ndash;' : fmt(r.actual)}</span>
-      <span class="tn net ${r.b.isUs ? '' : cls(r.net)}">${r.b.isUs ? '0.0' : fmt(r.net)}</span>
-    </div>`
-            )
+      <div class="chart net">${chart}</div>
+    </div>`;
+            })
             .join('');
         list.scrollTop = scroll;
     }

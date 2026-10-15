@@ -90,7 +90,7 @@ All in `public/derive.js`, pure and loaded by both the webapp and `test/derive.t
 - [x] Boats tab: basic list, nemesis toggle, SOG/COG, range, age.
 - [x] Boats tab: sort by Near, Waypoint, VMG, A-Z (us included); strip charts (newest left, x by time, age taper, shared window height per column, value over latest dot). Sign: + = they are doing better than us in every frame (wiki §8).
 - [x] Vectors tab (brief 3.7), auto-fit, selected boat's dashed true velocity shafts, taps hit-tested in code.
-- [x] TCF tab: entry box per boat and for us (PUT setTcf, id `self` for us; not re-rendered under focus), Should/Actual/Net sorted by Net, reason shown when Should can't be computed, course distance source shown.
+- [x] TCF tab: entry box per boat and for us (PUT setTcf, id `self` for us; not re-rendered under focus), Should and Actual at the latest report, Net (TCF corrected lead) as a strip chart over the period like the Boats tab so a slightly old report still shows its trend, sorted by latest Net, reason shown when Should can't be computed, course distance source shown.
 - [x] Geo tab: Web Mercator rotated to Up, White/OSM/Sea basemaps, pan/pinch per the prototype lessons, follows us until a gesture, Fit. Offline: White is the default; tiles load only when OSM or Sea is chosen, and only when the view changes (not on every poll).
 - [x] Time popup: look back through the server's history (slider, 10 min back/forward, Live), Period 10 to 240 min, Stale after.
 - [x] Selection popup clamped to viewport; selection highlighted on every tab.

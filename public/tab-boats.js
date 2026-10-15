@@ -49,28 +49,7 @@
         };
     }
 
-    function extent(pts) {
-        let a = Infinity;
-        let z = -Infinity;
-        for (const p of pts) {
-            if (p.v == null || !Number.isFinite(p.v)) continue;
-            if (p.v < a) a = p.v;
-            if (p.v > z) z = p.v;
-        }
-        return [a, z];
-    }
-    const centred = (mm, span) => {
-        if (!(mm[1] >= mm[0])) return [-span / 2, span / 2];
-        const mid = (mm[0] + mm[1]) / 2;
-        return [mid - span / 2, mid + span / 2];
-    };
-    const fmtSpan = (v, u) => `&#8597; ${v < 1 ? v.toFixed(2) : v < 10 ? v.toFixed(1) : Math.round(v)} ${u}`;
-
-    function chip(p, fmt) {
-        if (!p) return '';
-        const tx = p.xf < 0.15 ? '0%' : p.xf > 0.85 ? '-100%' : '-50%';
-        return `<span class="cv" style="left:${(p.xf * 100).toFixed(1)}%;top:${(p.yf * 100).toFixed(1)}%;transform:translate(${tx},calc(-100% - 3px))">${fmt(p.v)}</span>`;
-    }
+    const {extent, centred, chip, fmtSpan} = DRAW;
 
     function render(view) {
         const list = $('blist');

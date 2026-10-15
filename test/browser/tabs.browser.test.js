@@ -79,6 +79,7 @@ test('every tab renders on phone and tablet, without errors or page scroll', asy
         await shot(page, `${name}-vectors`);
         await tab(page, 'tcf');
         assert.ok((await page.locator('#tcflist .tcfin').count()) > 10, 'TCF boxes');
+        assert.ok((await page.locator('#tcflist .spk .dot').count()) > 10, 'Net strip charts');
         assert.match(await page.locator('#startVal').textContent(), /signalk-racer/);
         assert.match(await page.locator('#courseVal').textContent(), /Course 384\.6 nm from the configured course/);
         await noPageScroll(page);
@@ -113,6 +114,19 @@ test('sign convention: Boats lead chart agrees with TCF Actual (+ = they are ahe
     }
     assert.ok(compared > 10, `compared ${compared}`);
     assert.ok(ahead > 0 && ahead < compared, 'some boats ahead, some behind');
+
+    // The Net chart's latest value is Actual minus Should, with a TCF that makes Should matter.
+    const id = leads.find((l) => l.v != null).id;
+    await page.locator(`#tcflist .brow[data-id="${id}"] .tcfin`).fill('1.05');
+    await page.keyboard.press('Enter');
+    const row = page.locator(`#tcflist .brow[data-id="${id}"]`);
+    await waitFor(async () => num(await row.locator('.tn').first().textContent()) > 1, 'Should after TCF set');
+    const [should, act] = (await row.locator('.tn').allTextContents()).map(num);
+    const net = num(await row.locator('.chart.net .cv').textContent());
+    assert.ok(Math.abs(net - (act - should)) <= 0.15, `net ${net} = actual ${act} - should ${should}`);
+    await page.locator(`#tcflist .brow[data-id="${id}"] .tcfin`).fill('1');
+    await page.keyboard.press('Enter');
+    await waitFor(async () => [undefined, 1].includes((await srvUser()).tcf[id]), 'TCF reset');
     await ctx.close();
 });
 
