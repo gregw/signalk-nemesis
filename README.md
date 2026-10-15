@@ -49,7 +49,7 @@ PORT=3399 npx signalk-server -c ~/sk-dev/config
 To run on exactly the boat's Node version: `PORT=3399 npx -y -p node@22.22.2 node
 node_modules/.bin/signalk-server -c ~/sk-dev/config`.
 
-A fresh config has security off, which the data feed in step 3 needs. An
+A fresh config has security off (the data feed in step 3 also works with it on). An
 `EADDRINUSE :::10110` message only means another server already owns the NMEA 0183 TCP port;
 it is harmless here.
 
@@ -63,7 +63,8 @@ it is harmless here.
 ### 3. Feed it the recorded race
 
 With no boats around, feed the seeded AIS simulation of the Gold Coast 2026 race (our boat
-is Kanreki) into the server over its WebSocket:
+is Kanreki, MMSI 503029690; the other boats get made-up MMSIs) into the server over its
+WebSocket:
 
 ```text
 cd ~/src/signalk-nemesis
@@ -73,7 +74,13 @@ node test/sim/live-feed.js --url ws://127.0.0.1:3399 --hours 6 --live
 `--hours 6` puts "now" 6 hours into the race; that history is sent at once, then `--live`
 keeps sending in real time (Ctrl-C stops it). It sends the boat names, our own position
 and the finish as an NMEA RMB next waypoint, but no start time: set one on the TCF tab
-(**Now**, or a date and time) or run signalk-racer alongside. The feed needs security off.
+(**Now**, or a date and time) or run signalk-racer alongside.
+
+With security on, add `--user <name>` (a user with read/write or admin permission). It
+prompts for the password, logs in and sends with that token; the password can also be piped
+in (`echo pw | node test/sim/live-feed.js ... --user admin`). Without it a secured server
+silently drops the data. Only feed a test server: the feed sends our own position and a next
+waypoint, which on a boat would mix with the real instruments.
 
 ### 4. Edit, reload, repeat
 
@@ -98,8 +105,8 @@ then restart the server and enable the plugin in the admin UI. Caveats:
   `~/.signalk/package.json`, so an npm run in that directory (including installing or
   updating any plugin from the Appstore) may remove it as extraneous (not checked). Look
   with `readlink -f ~/.signalk/node_modules/signalk-nemesis` and recreate it if gone.
-- With security on, the simulated feed can't post data, and the webapp asks you to log in
-  (the "login needed" link goes to the server's login page).
+- With security on, feed with `--user` (step 3), and the webapp asks you to log in (the
+  "login needed" link goes to the server's login page).
 
 ### Without a Signal K server
 

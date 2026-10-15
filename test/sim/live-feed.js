@@ -2,32 +2,92 @@
 /*
  * Feeds the seeded AIS simulation of the GC2026 race into a running Signal K
  * server over its WebSocket stream, as Signal K deltas. The server accepts
- * client deltas when security is off (signalk-server dist/interfaces/ws.js
- * processUpdates).
+ * client deltas when security is off, or from a user with readwrite or admin
+ * permission (signalk-server 2.18 src/interfaces/ws.js processUpdates,
+ * src/tokensecurity.js shouldAllowWrite). With --user the password is prompted
+ * for (or read from piped stdin), a token is fetched from POST
+ * /signalk/v1/auth/login and passed as ?token= on the stream (tokensecurity.js
+ * authorizeWS). For a local test server only: it sends our own position and an
+ * RMB, which would mix with real instruments on a boat.
  *
  * Recorded times are shifted so that `hoursIn` after the start is now. History
  * up to now is sent as fast as the socket allows; with --live it then keeps
  * sending in real time.
  *
- *   node test/sim/live-feed.js [--url ws://127.0.0.1:3000] [--hours 6] [--live]
+ *   node test/sim/live-feed.js [--url ws://127.0.0.1:3000] [--hours 6] [--live] [--user name]
  *
  * The finish is sent as an RMB-style next point, as the nav PC would.
  * Names are sent the way N2K PGN 129809 maps them: path '' with value {name}
  * (n2k-signalk pgns/129809.js).
+ * Our boat is Kanreki (MMSI 503029690); its data goes to vessels.self, or --self.
  */
 
 const {simulate, toDelta, finishOf, rmbDelta} = require('./ais-sim');
 const data = require('../data/gc2026-tracks.json');
 
 function parseArgs(argv) {
-    const a = {url: 'ws://127.0.0.1:3000', hours: 6, live: false, selfContext: null};
+    const a = {url: 'ws://127.0.0.1:3000', hours: 6, live: false, selfContext: null, user: null};
     for (let i = 0; i < argv.length; i++) {
         if (argv[i] === '--url') a.url = argv[++i];
         else if (argv[i] === '--hours') a.hours = Number(argv[++i]);
         else if (argv[i] === '--live') a.live = true;
         else if (argv[i] === '--self') a.selfContext = argv[++i];
+        else if (argv[i] === '--user') a.user = argv[++i];
     }
     return a;
+}
+
+/** Reads a password: hidden typing on a terminal, else the first line of stdin. */
+function readPassword(prompt) {
+    if (!process.stdin.isTTY) {
+        return new Promise((resolve, reject) => {
+            let text = '';
+            process.stdin.setEncoding('utf8');
+            process.stdin.on('data', (c) => (text += c));
+            process.stdin.on('end', () => {
+                const line = text.split(/\r?\n/)[0];
+                if (line) resolve(line);
+                else reject(new Error('no password on stdin'));
+            });
+        });
+    }
+    process.stderr.write(prompt);
+    const stdin = process.stdin;
+    stdin.setRawMode(true);
+    stdin.resume();
+    stdin.setEncoding('utf8');
+    return new Promise((resolve, reject) => {
+        let pw = '';
+        const done = (fn) => {
+            stdin.setRawMode(false);
+            stdin.pause();
+            stdin.removeListener('data', onData);
+            process.stderr.write('\n');
+            fn();
+        };
+        const onData = (chunk) => {
+            for (const c of chunk) {
+                if (c === '\r' || c === '\n') return done(() => resolve(pw));
+                if (c === '\u0003') return done(() => reject(new Error('cancelled')));
+                if (c === '\u007f' || c === '\b') pw = pw.slice(0, -1);
+                else pw += c;
+            }
+        };
+        stdin.on('data', onData);
+    });
+}
+
+/** Logs in and returns a token (signalk-server tokensecurity.js POST /signalk/v1/auth/login). */
+async function login(wsUrl, username, password) {
+    const http = wsUrl.replace(/^ws/, 'http').replace(/\/$/, '');
+    const res = await fetch(http + '/signalk/v1/auth/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({username, password})
+    });
+    const body = await res.json().catch(() => ({}));
+    if (res.status !== 200 || !body.token) throw new Error(`login failed: ${res.status} ${body.message || ''}`.trim());
+    return body.token;
 }
 
 async function main() {
@@ -43,7 +103,13 @@ async function main() {
         ...sim.reports.map((r) => ({t: r.t, d: toDelta('vessels.urn:mrn:imo:mmsi:' + r.boatId, r)}))
     ].sort((a, b) => a.t - b.t);
 
-    const ws = new WebSocket(args.url.replace(/\/$/, '') + '/signalk/v1/stream?subscribe=none');
+    let query = 'subscribe=none';
+    if (args.user) {
+        const token = await login(args.url, args.user, await readPassword(`password for ${args.user}: `));
+        query += '&token=' + encodeURIComponent(token);
+        console.log(`logged in as ${args.user}`);
+    }
+    const ws = new WebSocket(args.url.replace(/\/$/, '') + '/signalk/v1/stream?' + query);
     await new Promise((resolve, reject) => {
         ws.onopen = resolve;
         ws.onerror = (e) => reject(new Error('WebSocket error ' + (e.message || '')));
@@ -62,6 +128,7 @@ async function main() {
     let i = 0;
     for (; i < events.length && events[i].t <= now; i++) send(events[i].d);
     console.log(`sent ${i} history deltas up to now`);
+    if (!args.user) console.log('nothing showing? with security on the server drops these: use --user');
 
     if (!args.live) {
         // Let the socket drain before closing.
@@ -79,7 +146,11 @@ async function main() {
     ws.close();
 }
 
-main().catch((e) => {
-    console.error(e.message);
-    process.exit(1);
-});
+if (require.main === module) {
+    main().catch((e) => {
+        console.error(e.message);
+        process.exit(1);
+    });
+}
+
+module.exports = {parseArgs, login};

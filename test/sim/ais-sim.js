@@ -83,11 +83,11 @@ const si = (t, s) => ({
 /**
  * @param {object} json tracks file (test/data schema)
  * @param {object} opts {receiverName, seed, keep=1/3, nearNm=8, farNm=20, shiftMs=0, fakeMmsi}
- * @returns {{own: object[], reports: object[], names: Map<string,string>}} reports sorted by t
+ * @returns {{own: object[], reports: object[], names: Map<string,string>, ownMmsi: string}} reports sorted by t
  */
 function simulate(json, opts) {
     const {receiverName, seed = 1, keep = 1 / 3, nearNm = 8, farNm = 20, shiftMs = 0} = opts;
-    const fakeMmsi = opts.fakeMmsi || ((b) => String(500000000 + b.id));
+    const fakeMmsi = opts.fakeMmsi || mmsiOf;
     const rand = rng(seed);
     const rx = json.boats.find((b) => b.name === receiverName);
     if (!rx) throw new Error(`receiver ${receiverName} not in data`);
@@ -109,7 +109,15 @@ function simulate(json, opts) {
         }
     }
     reports.sort((a, b) => a.t - b.t);
-    return {own, reports, names};
+    return {own, reports, names, ownMmsi: fakeMmsi(rx)};
+}
+
+/**
+ * A boat's MMSI: the real one where the data has it (Kanreki: 503029690), else a
+ * made-up 9 digit number from the tracker id (500000000 + id; never a real 503 one).
+ */
+function mmsiOf(b) {
+    return b.mmsi ? String(b.mmsi) : String(500000000 + b.id);
 }
 
 /** The finish: the position of the smallest DTG anywhere in the data (as the prototype does). */
@@ -156,4 +164,4 @@ function toDelta(context, r) {
     return {context, updates: [{timestamp: new Date(r.t).toISOString(), values}]};
 }
 
-module.exports = {rng, lerpDeg, perMinute, simulate, toDelta, finishOf, rmbDelta, KN, NM};
+module.exports = {rng, lerpDeg, perMinute, simulate, mmsiOf, toDelta, finishOf, rmbDelta, KN, NM};

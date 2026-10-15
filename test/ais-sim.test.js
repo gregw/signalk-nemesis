@@ -1,7 +1,9 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {simulate, lerpDeg, rng} = require('./sim/ais-sim');
+const http = require('node:http');
+const {simulate, lerpDeg, rng, mmsiOf} = require('./sim/ais-sim');
+const {parseArgs, login} = require('./sim/live-feed');
 const data = require('./data/gc2026-tracks.json');
 
 test('rng is deterministic per seed', () => {
@@ -40,4 +42,44 @@ test('simulated gaps look like AIS (GC2026 measured: median 2 min, p90 7 min)', 
     const q = (f) => gaps[Math.floor(f * (gaps.length - 1))];
     assert.ok(q(0.5) >= 1 && q(0.5) <= 3, `median ${q(0.5)}`);
     assert.ok(q(0.9) >= 4 && q(0.9) <= 10, `p90 ${q(0.9)}`);
+});
+
+test('MMSIs: Kanreki has its real one, the others a made-up 9 digits', () => {
+    const sim = simulate(data, {receiverName: 'Kanreki', seed: 11});
+    assert.equal(sim.ownMmsi, '503029690');
+    const ids = [...sim.names.keys()];
+    assert.ok(ids.length > 40);
+    for (const id of ids) assert.match(id, /^5000\d{5}$/);
+    assert.equal(new Set(data.boats.map(mmsiOf)).size, data.boats.length, 'unique');
+    // Kanreki as an AIS target when another boat is the receiver.
+    const other = simulate(data, {receiverName: 'Ambition', seed: 11});
+    assert.equal(other.names.get('503029690'), 'Kanreki');
+});
+
+test('live-feed --user: logs in with POST /signalk/v1/auth/login', async () => {
+    assert.equal(parseArgs(['--user', 'admin', '--live']).user, 'admin');
+    const seen = [];
+    const srv = http.createServer((req, res) => {
+        let body = '';
+        req.on('data', (c) => (body += c));
+        req.on('end', () => {
+            seen.push({url: req.url, type: req.headers['content-type'], body: JSON.parse(body)});
+            const ok = JSON.parse(body).password === 'pw';
+            res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json'});
+            res.end(JSON.stringify(ok ? {token: 'T'} : {message: 'Invalid username/password'}));
+        });
+    });
+    await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+    const url = `ws://127.0.0.1:${srv.address().port}/`;
+    try {
+        assert.equal(await login(url, 'admin', 'pw'), 'T');
+        assert.deepEqual(seen[0], {
+            url: '/signalk/v1/auth/login',
+            type: 'application/json',
+            body: {username: 'admin', password: 'pw'}
+        });
+        await assert.rejects(login(url, 'admin', 'bad'), /login failed: 401 Invalid username\/password/);
+    } finally {
+        srv.close();
+    }
 });
