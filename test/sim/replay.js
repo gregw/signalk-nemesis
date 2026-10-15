@@ -8,7 +8,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const {setTimeout: sleep} = require('node:timers/promises');
-const {simulate, toDelta} = require('./ais-sim');
+const {simulate, toDelta, finishOf, rmbDelta} = require('./ais-sim');
 const {fakeApp} = require('./fake-app');
 const createPlugin = require('../../index');
 const data = require('../data/gc2026-tracks.json');
@@ -42,6 +42,8 @@ async function replayTo(hoursIn, opts = {}) {
             .map((r) => ({t: r.t, d: toDelta('vessels.urn:mrn:imo:mmsi:' + r.boatId, r)}))
     ].sort((a, b) => a.t - b.t);
     for (const e of events) app.deliver(e.d);
+    // The nav PC's next point (the finish), as an RMB sentence, unless a test opts out.
+    if (opts.rmb !== false) app.deliver(rmbDelta(app.selfContext, finishOf(data), now));
     await sleep(300); // let the coalescer flush the last report per context
     return {app, plugin, sim, now, dataDir};
 }

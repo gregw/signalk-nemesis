@@ -11,11 +11,12 @@
  *
  *   node test/sim/live-feed.js [--url ws://127.0.0.1:3000] [--hours 6] [--live]
  *
+ * The finish is sent as an RMB-style next point, as the nav PC would.
  * Names are sent the way N2K PGN 129809 maps them: path '' with value {name}
  * (n2k-signalk pgns/129809.js).
  */
 
-const {simulate, toDelta} = require('./ais-sim');
+const {simulate, toDelta, finishOf, rmbDelta} = require('./ais-sim');
 const data = require('../data/gc2026-tracks.json');
 
 function parseArgs(argv) {
@@ -55,6 +56,9 @@ async function main() {
             updates: [{timestamp: new Date(now).toISOString(), values: [{path: '', value: {name}}]}]
         });
     }
+    // The nav PC's next point (the finish) as RMB, the way Expedition would send it.
+    const finish = finishOf(data);
+    send(rmbDelta(selfContext, finish, now));
     let i = 0;
     for (; i < events.length && events[i].t <= now; i++) send(events[i].d);
     console.log(`sent ${i} history deltas up to now`);
@@ -66,6 +70,7 @@ async function main() {
         return;
     }
     console.log('live: sending in real time, Ctrl-C to stop');
+    setInterval(() => send(rmbDelta(selfContext, finish, Date.now())), 2000);
     for (; i < events.length; i++) {
         const wait = events[i].t - Date.now();
         if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));

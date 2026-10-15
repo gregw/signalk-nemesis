@@ -19,6 +19,9 @@ test('snapshot after 6 h of simulated AIS', async () => {
     assert.ok(body.boats.length > 3, `boats ${body.boats.length}`);
     assert.ok(!body.boats.some((b) => b.id === app.selfId), 'self not listed as competitor');
 
+    // The nav PC's RMB next point is the waypoint (no Course API destination in the fake app).
+    assert.equal(body.waypoint.src, 'nmea');
+    assert.equal(body.waypoint.id, 'nmea:FINISH');
     const calibre = body.boats.find((b) => b.name === 'Calibre 12');
     assert.ok(calibre, 'Calibre 12 heard and named');
     assert.ok(

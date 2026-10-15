@@ -5,7 +5,8 @@
  * Layers (keep them distinct):
  *  - Data model paths consumed: other vessels' navigation.position,
  *    courseOverGroundTrue, speedOverGround, name; our own position, COG, SOG,
- *    headingTrue; navigation.courseRhumbline.nextPoint.position (waypoint seam);
+ *    headingTrue; navigation.courseRhumbline|courseGreatCircle.nextPoint.* (raw NMEA
+ *    next point); Course API getCourse() and waypoint/route resources (waypoint seam);
  *    navigation.racing.startTime from signalk-racer (start time seam).
  *  - Data model paths published: none yet (brief section 8, Greg's call).
  *  - REST endpoints (read only): /plugins/<id>/* and /signalk/v1/api/nemesis/*.
@@ -19,7 +20,7 @@
 const {TrackStore} = require('./lib/track-store');
 const {OwnState} = require('./lib/own-state');
 const {AisSourceAdapter, OwnAdapter} = require('./lib/ais-adapter');
-const {makeWaypointSource} = require('./lib/waypoint');
+const {WaypointSource} = require('./lib/waypoint');
 const {UserState, validTcf} = require('./lib/user-state');
 const {buildSnapshot, buildTracks} = require('./lib/snapshot');
 const {StartTime, RacerStartAdapter} = require('./lib/start-time');
@@ -75,9 +76,30 @@ const schema = {
             default: 96,
             minimum: 1
         },
+        waypointOrder: {
+            type: 'string',
+            title: 'Next waypoint: which source wins when both are available',
+            description:
+                'The Course API covers Signal K routes and destinations set in Freeboard-SK. ' +
+                'NMEA is the next point sent by the instruments or navigation software (RMB, BWC, PGN 129284).',
+            enum: ['course,nmea', 'nmea,course'],
+            enumNames: ['Course API, then NMEA', 'NMEA, then Course API'],
+            default: 'course,nmea'
+        },
+        nmeaWaypointStaleSeconds: {
+            type: 'number',
+            title: 'Ignore an NMEA next point not updated for this long (seconds)',
+            default: 30,
+            minimum: 1
+        },
+        waypointName: {
+            type: 'string',
+            title: 'Fallback waypoint name, looked up in the waypoint resources (e.g. one made in Freeboard-SK)',
+            default: ''
+        },
         waypoint: {
             type: 'object',
-            title: 'Fallback waypoint, used when the course API has no next point',
+            title: 'Last resort fixed waypoint, used when no other source has one',
             properties: {
                 lat: {type: 'number', title: 'Latitude (decimal degrees)'},
                 lon: {type: 'number', title: 'Longitude (decimal degrees)'}
@@ -123,7 +145,7 @@ module.exports = function (app) {
             store,
             own,
             userState,
-            waypoint: makeWaypointSource(app, cfg),
+            waypoints: new WaypointSource(app, cfg, {ownAt: (t) => own.at(t)}),
             ais,
             ownAdapter,
             startTime,
@@ -134,6 +156,7 @@ module.exports = function (app) {
         ais.start();
         ownAdapter.start();
         racerStart.start();
+        state.waypoints.start();
         registerPutHandlers();
         app.setPluginStatus('Started');
     };
@@ -145,7 +168,7 @@ module.exports = function (app) {
         } catch (e) {
             app.debug(e);
         }
-        for (const a of [state.ownAdapter, state.racerStart]) {
+        for (const a of [state.ownAdapter, state.racerStart, state.waypoints]) {
             try {
                 a.stop();
             } catch (e) {
@@ -239,7 +262,7 @@ module.exports = function (app) {
                     store: s.store,
                     own: s.own,
                     userState: s.userState,
-                    waypoint: s.waypoint(),
+                    waypoint: s.waypoints.get(),
                     start: s.startTime.get(),
                     staleMs: s.cfg.staleSeconds * 1000,
                     now: s.clock()
@@ -283,6 +306,9 @@ function withDefaults(options) {
         maxBoats: d('maxBoats'),
         ownSampleSeconds: d('ownSampleSeconds'),
         maxRaceHours: d('maxRaceHours'),
+        waypointOrder: o.waypointOrder === 'nmea,course' ? 'nmea,course' : 'course,nmea',
+        nmeaWaypointStaleSeconds: d('nmeaWaypointStaleSeconds'),
+        waypointName: typeof o.waypointName === 'string' ? o.waypointName : '',
         waypoint: o.waypoint || null
     };
 }

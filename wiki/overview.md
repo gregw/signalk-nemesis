@@ -197,7 +197,8 @@ Plain JS with no framework, built for phones and tablets first.
 ## 8. Open decisions (Greg's call)
 
 - Package name: `signalk-nemesis` (decided 2026-10-15; also the plugin id and URL path).
-- Course distance source for the TCF Should calculation when live.
+- Course distance source for the TCF Should calculation when live: decided 2026-10-15. With a Course API active route, route length minus our remaining distance along it; else distance from a named start waypoint to the waypoint minus our DTG; else a configured course distance minus our DTG.
+- Next waypoint precedence between the Course API and raw NMEA: decided 2026-10-15, configurable (`waypointOrder`), default Course API first.
 - Whether to keep our own state only at other boats' report times or continuously (the prototype keeps both).
 - Which derived values, if any, to publish into the Signal K data model for instrument displays.
 - How to map tracker-feed boat names to MMSIs.

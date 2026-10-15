@@ -112,6 +112,42 @@ function simulate(json, opts) {
     return {own, reports, names};
 }
 
+/** The finish: the position of the smallest DTG anywhere in the data (as the prototype does). */
+function finishOf(json) {
+    let best = Infinity;
+    let finish = null;
+    for (const b of json.boats) {
+        for (const x of b.samples) {
+            if (x[5] != null && x[5] < best) {
+                best = x[5];
+                finish = {lat: x[1], lon: x[2]};
+            }
+        }
+    }
+    return finish;
+}
+
+/** Our next point as nmea0183-signalk maps an RMB sentence from the nav PC. */
+function rmbDelta(context, wp, t) {
+    return {
+        context,
+        updates: [
+            {
+                $source: 'sim.EC',
+                source: {label: 'sim', type: 'NMEA0183', talker: 'EC', sentence: 'RMB'},
+                timestamp: new Date(t).toISOString(),
+                values: [
+                    {
+                        path: 'navigation.courseRhumbline.nextPoint.position',
+                        value: {latitude: wp.lat, longitude: wp.lon}
+                    },
+                    {path: 'navigation.courseRhumbline.nextPoint.ID', value: 'FINISH'}
+                ]
+            }
+        ]
+    };
+}
+
 /** Signal K delta for a report, in the shape the AIS parsers emit (one update, one timestamp). */
 function toDelta(context, r) {
     const values = [{path: 'navigation.position', value: {latitude: r.lat, longitude: r.lon}}];
@@ -120,4 +156,4 @@ function toDelta(context, r) {
     return {context, updates: [{timestamp: new Date(r.t).toISOString(), values}]};
 }
 
-module.exports = {rng, lerpDeg, perMinute, simulate, toDelta, KN, NM};
+module.exports = {rng, lerpDeg, perMinute, simulate, toDelta, finishOf, rmbDelta, KN, NM};

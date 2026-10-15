@@ -51,3 +51,14 @@ test('velocity components', () => {
     near(v.e, 5, 1e-12, 'east');
     near(v.n, 0, 1e-12, 'north');
 });
+
+test('destination: 1 degree east along the equator, and round trip', () => {
+    const p = geo.destination({lat: 0, lon: 0}, Math.PI / 2, (2 * Math.PI * geo.EARTH_RADIUS_M) / 360);
+    near(p.lat, 0, 1e-9, 'lat');
+    near(p.lon, 1, 1e-9, 'lon');
+    const a = {lat: -33.85, lon: 151.28};
+    const b = {lat: -27.96, lon: 153.44};
+    const q = geo.destination(a, geo.bearing(a, b), geo.distance(a, b));
+    near(q.lat, b.lat, 1e-9, 'round trip lat');
+    near(q.lon, b.lon, 1e-9, 'round trip lon');
+});

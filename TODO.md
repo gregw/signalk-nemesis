@@ -60,14 +60,16 @@ All three of your sources reach the server's Course API. Verified in signalk-ser
 - **Named waypoint set in Freeboard-SK:** Freeboard sets the Course API destination (with an `href` to the waypoint resource), which emits `nextPoint`. TODO(verify) against the Freeboard-SK version on HALPI2.
 - **NMEA from the nav PC (Expedition or H5000):** 0183 RMB and BWC, and N2K 129284, all publish `navigation.courseRhumbline|courseGreatCircle.nextPoint.position` (nmea0183-signalk `hooks/RMB.js:86`, `hooks/BWC.js:63`; n2k-signalk `pgns/129284.js:63`). The Course API subscribes to those and adopts them as the destination (`processV1DestinationDeltas`).
 
-So reading the Course API's next point covers all three, which is what `lib/waypoint.js` does now via the v1 path. Still to do:
-- [ ] Bearing and distance only (no position, e.g. 0183 APB or BWR, or a talker that leaves out lat/lon): derive the waypoint by projecting from our position at that time. Bearing true vs magnetic must be handled.
-- [ ] Freshness: an NMEA-sourced next point must expire if the nav PC stops sending, instead of being used forever.
-- [ ] Precedence when the Course API and a raw NMEA next point disagree (e.g. Expedition on a different mark from Freeboard). Proposal: Course API first, raw NMEA second, config last. Greg's call.
-- [ ] Configured fallback by waypoint **name**, looked up in the resources API (`resources.waypoints`), as well as by lat/lon. TODO(verify) the plugin-side resources API call.
+Implemented in `lib/waypoint.js` and checked on a real 2.30.0 server (NMEA RMB, Course API position destination, named waypoint, destination by href, active route and advancing it, both orders):
+- [x] Course API via `app.getCourse()` (polled every 2 s), with the active route's points loaded from the route resource.
+- [x] Raw NMEA next point (RMB/BWC/129284 paths), ignoring the Course API's own `courseApi` copies, expiring after `nmeaWaypointStaleSeconds` (default 30).
+- [x] Bearing and distance only: projected from our position at that time (true bearing only).
+- [x] Precedence configurable: `waypointOrder` `course,nmea` (default) or `nmea,course`. Then `waypointName` (resources API, polled every 30 s), then the fixed `waypoint`.
+- [x] The Course API keeps an adopted NMEA destination after the instruments stop (seen on 2.30.0). A Course API point with no href and no active route that sits on the last NMEA point now expires with the NMEA.
+- [x] Replay and live feed publish the GC2026 finish as an RMB next point.
+- [ ] Magnetic-only bearing (`bearingMagnetic` plus variation) is not handled.
 - [ ] Waypoint changes mid-race (rounding a mark): VMC and lead must not compare DTGs to different marks. Store the waypoint id with each derived value and break series at a change.
-- [ ] TCF Should uses D = DTG_start - DTG_now, which is only meaningful to a single finish. With legs, D needs route distance sailed (route length from the Course API, or race config). Ties into the open decision below.
-- [ ] Replay: the simulator has no waypoint, so it should publish the GC2026 finish as an RMB-style next point so the end-to-end test exercises this path.
+- [ ] TCF Should distance D (decided): with an active route, route length minus our remaining distance along it; else distance from a named start waypoint to the waypoint minus our DTG; else configured course distance minus our DTG.
 
 ## Phase 2: derivations (pure, unit tested)
 
@@ -116,7 +118,7 @@ So reading the Course API's next point covers all three, which is what `lib/wayp
 ## Open decisions (Greg's call)
 
 - [x] Package name: `signalk-nemesis` (plugin id and URL path).
-- [ ] Course distance source for TCF Should when live.
+- [x] Course distance source for TCF Should: route, then named start waypoint, then configured distance (see above).
 - [ ] Own state kept continuously (current choice) vs only at other boats' report times.
 - [ ] Which derived values, if any, to publish to the data model.
 - [ ] Mapping tracker-feed names to MMSIs.

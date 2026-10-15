@@ -26,6 +26,21 @@ function fakeApp({dataDir, selfId = 'urn:mrn:imo:mmsi:503999999', selfPaths = {}
             const m = /^vessels\.(.+)\.name$/.exec(p);
             return m ? names.get('vessels.' + m[1]) : undefined;
         },
+        // Course API and resources API stand-ins; tests assign course/resources directly.
+        course: null,
+        resources: {waypoints: {}, routes: {}},
+        getCourse: async () => {
+            if (app.course instanceof Error) throw app.course;
+            return app.course;
+        },
+        resourcesApi: {
+            listResources: async (type) => app.resources[type] || {},
+            getResource: async (type, id) => {
+                const r = (app.resources[type] || {})[id];
+                if (!r) throw new Error('not found');
+                return r;
+            }
+        },
         setPluginStatus: (m) => app.statusMessages.push(m),
         error: (m) => app.errors.push(m),
         debug: () => {},
