@@ -32,6 +32,16 @@ npm install signalk-server@2.30.0
 ln -s ~/src/signalk-nemesis ~/sk-dev/config/node_modules/signalk-nemesis
 ```
 
+In this layout npm puts the server's bundled plugins in `~/sk-dev/server/node_modules/@signalk/`,
+where the server does not look (it scans `<config dir>/node_modules/` and its own
+`node_modules/`, signalk-server `src/modules.ts` `getModulePaths`). Link any you need, e.g. the
+resources provider for waypoints such as the `nemesis` fallback:
+
+```text
+mkdir -p ~/sk-dev/config/node_modules/@signalk
+ln -s ~/sk-dev/server/node_modules/@signalk/resources-provider ~/sk-dev/config/node_modules/@signalk/
+```
+
 Enable the plugin before the first start (or do it later in the admin UI, see step 2):
 
 ```text
@@ -137,8 +147,8 @@ The first browser run on a machine needs `npm install` in the checkout and
 | Option                     | Meaning                                                                         | Default        |
 |----------------------------|---------------------------------------------------------------------------------|----------------|
 | `staleSeconds`             | A boat is stale (greyed, lines broken) after this long without a report         | 1800           |
-| `historySeconds`           | Track history kept in memory and on disk                                        | 432000 (5 d)   |
-| `recentSeconds`            | Full resolution window; older history is thinned                               | 21600 (6 h)    |
+| `historyHours`             | Track history kept in memory and on disk                                        | 120 (5 d)      |
+| `recentHours`              | Full resolution window; older history is thinned                               | 6              |
 | `thinSeconds`              | One report per boat per this interval in older history                          | 120            |
 | `maxReportsPerBoat`        | Hard cap per boat                                                               | 5000           |
 | `maxBoats`                 | Hard cap on boats tracked                                                       | 500            |
@@ -147,8 +157,7 @@ The first browser run on a machine needs `npm install` in the checkout and
 | `maxRaceHours`             | Ignore a start time older than this                                             | 96             |
 | `waypointOrder`            | Next waypoint: `course,nmea` (Course API first) or `nmea,course`                | `course,nmea`  |
 | `nmeaWaypointStaleSeconds` | Ignore an NMEA next point not updated for this long                             | 30             |
-| `waypointName`             | Fallback waypoint, by name in the waypoint resources                            | (none)         |
-| `waypoint`                 | Last resort fixed waypoint `{lat, lon}`                                         | (none)         |
+| `waypointName`             | Fallback waypoint, by name in the waypoint resources; empty for none           | `nemesis`      |
 
 ## Interfaces
 

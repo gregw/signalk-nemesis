@@ -31,11 +31,9 @@ function rmb(app, values, $source = 'nmea0183.EC') {
 }
 const pos = (p) => ({path: 'navigation.courseRhumbline.nextPoint.position', value: p});
 
-test('no source: null; fixed config: used as last resort', () => {
+test('no source: null (a configured lat/lon is no longer a source)', () => {
     assert.equal(setup().w.get(), null);
-    const {w} = setup({waypoint: {lat: -27.96, lon: 153.44}});
-    assert.equal(w.get().src, 'config');
-    assert.equal(setup({waypoint: {lat: 99, lon: 0}}).w.get(), null, 'invalid lat rejected');
+    assert.equal(setup({waypoint: {lat: -27.96, lon: 153.44}}).w.get(), null);
 });
 
 test('Course API next point, with href as id', async () => {
@@ -124,7 +122,7 @@ test('named waypoint from the resources API, below Course API', async () => {
 });
 
 test('Course API point adopted from NMEA expires with the NMEA source', async () => {
-    const {app, w, clock} = setup({nmeaWaypointStaleSeconds: 30, waypoint: {lat: 1, lon: 1}});
+    const {app, w, clock} = setup({nmeaWaypointStaleSeconds: 30});
     // The Course API adopted it: no href, same position, generic name.
     app.course = {nextPoint: {position: FINISH, name: 'DP', type: 'Location'}};
     await w._pollCourse();
@@ -133,7 +131,7 @@ test('Course API point adopted from NMEA expires with the NMEA source', async ()
     assert.equal(w.get().src, 'course');
     assert.equal(w.get().name, null, 'generic name dropped');
     clock.now += 31e3;
-    assert.equal(w.get().src, 'config', 'adopted point expired with the NMEA');
+    assert.equal(w.get(), null, 'adopted point expired with the NMEA');
     // A real destination (href) at the same place does not expire.
     app.course = {nextPoint: {position: FINISH, href: '/resources/waypoints/f', name: 'Finish'}};
     await new Promise((resolve) => setImmediate(resolve)); // let start()'s first poll finish

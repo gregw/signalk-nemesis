@@ -40,7 +40,7 @@ test('snapshot after 6 h of simulated AIS', async () => {
 });
 
 test('track history is bounded and in time order', async () => {
-    const {app, plugin} = await replayTo(12, {config: {historySeconds: 3600, maxReportsPerBoat: 15}});
+    const {app, plugin} = await replayTo(12, {config: {historyHours: 1, maxReportsPerBoat: 15}});
     const {body} = await app.call('GET', API + '/tracks', {query: {periodS: '86400'}});
     for (const [id, rs] of Object.entries(body.boats)) {
         assert.ok(rs.length <= 15, `${id} has ${rs.length}`);
@@ -169,4 +169,15 @@ test('tracks: window ending at toT, incremental sinceT, own track thinned', asyn
     assert.ok(backReports.length > 0 && backReports.every((r) => r.t <= now - 3 * 3600e3), 'history window');
     assert.equal((await app.call('GET', API + '/tracks', {query: {toT: 'x'}})).status, 400);
     plugin.stop();
+});
+
+test('config: history in hours, waypoint name defaults to nemesis', () => {
+    const {withDefaults} = require('../index');
+    const d = withDefaults({});
+    assert.equal(d.historyHours, 120);
+    assert.equal(d.recentHours, 6);
+    assert.equal(d.waypointName, 'nemesis');
+    assert.equal(d.waypoint, undefined, 'no fixed waypoint');
+    assert.equal(withDefaults({waypointName: ''}).waypointName, '', 'empty: no fallback');
+    assert.equal(withDefaults({historyHours: 2, recentHours: 6}).recentHours, 2, 'recent capped at history');
 });

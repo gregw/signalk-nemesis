@@ -48,21 +48,21 @@ const schema = {
             default: 1800,
             minimum: 60
         },
-        historySeconds: {
+        historyHours: {
             type: 'number',
-            title: 'Track history kept, in memory and on disk (seconds)',
+            title: 'Track history kept, in memory and on disk (hours)',
             description: 'Default 5 days, for long offshore races. Survives a restart.',
-            default: 432000,
-            minimum: 600
+            default: 120,
+            minimum: 1
         },
-        recentSeconds: {
+        recentHours: {
             type: 'number',
-            title: 'Full resolution window (seconds)',
+            title: 'Full resolution window (hours)',
             description:
                 'History newer than this keeps every report and our own state at full rate. ' +
                 'Older history is thinned to one report per boat per thinning interval.',
-            default: 21600,
-            minimum: 600
+            default: 6,
+            minimum: 0.25
         },
         thinSeconds: {
             type: 'number',
@@ -124,15 +124,10 @@ const schema = {
         waypointName: {
             type: 'string',
             title: 'Fallback waypoint name, looked up in the waypoint resources (e.g. one made in Freeboard-SK)',
-            default: ''
-        },
-        waypoint: {
-            type: 'object',
-            title: 'Last resort fixed waypoint, used when no other source has one',
-            properties: {
-                lat: {type: 'number', title: 'Latitude (decimal degrees)'},
-                lon: {type: 'number', title: 'Longitude (decimal degrees)'}
-            }
+            description:
+                'Used when neither the Course API nor NMEA has a next point. Empty: no fallback, and ' +
+                'without a waypoint the waypoint based values (Up = Waypoint, VMC, TCF Should) are not shown.',
+            default: 'nemesis'
         }
     }
 };
@@ -151,14 +146,14 @@ module.exports = function (app) {
         const cfg = withDefaults(options);
         const store = new TrackStore({
             maxReportsPerBoat: cfg.maxReportsPerBoat,
-            maxSpanMs: cfg.historySeconds * 1000,
+            maxSpanMs: cfg.historyHours * 3600e3,
             maxBoats: cfg.maxBoats
         });
-        const own = new OwnState({minIntervalMs: cfg.ownSampleSeconds * 1000, maxSpanMs: cfg.recentSeconds * 1000});
+        const own = new OwnState({minIntervalMs: cfg.ownSampleSeconds * 1000, maxSpanMs: cfg.recentHours * 3600e3});
         const journal = new Journal({
             dir: path.join(app.getDataDirPath(), 'journal'),
-            retainMs: cfg.historySeconds * 1000,
-            recentMs: cfg.recentSeconds * 1000,
+            retainMs: cfg.historyHours * 3600e3,
+            recentMs: cfg.recentHours * 3600e3,
             thinMs: cfg.thinSeconds * 1000,
             onError: (e) => app.error(`Track journal: ${e.message}`)
         });
@@ -223,10 +218,10 @@ module.exports = function (app) {
             )
             .then((n) => {
                 if (state !== mine) return;
-                store.thin(mine.clock(), cfg.recentSeconds * 1000, cfg.thinSeconds * 1000);
+                store.thin(mine.clock(), cfg.recentHours * 3600e3, cfg.thinSeconds * 1000);
                 journal.start();
                 mine.thinTimer = setInterval(
-                    () => store.thin(mine.clock(), cfg.recentSeconds * 1000, cfg.thinSeconds * 1000),
+                    () => store.thin(mine.clock(), cfg.recentHours * 3600e3, cfg.thinSeconds * 1000),
                     60e3
                 );
                 mine.thinTimer.unref?.();
@@ -406,18 +401,17 @@ function withDefaults(options) {
     const d = (k) => (Number.isFinite(o[k]) ? o[k] : schema.properties[k].default);
     return {
         staleSeconds: d('staleSeconds'),
-        historySeconds: d('historySeconds'),
+        historyHours: d('historyHours'),
         maxReportsPerBoat: d('maxReportsPerBoat'),
         maxBoats: d('maxBoats'),
         ownSampleSeconds: d('ownSampleSeconds'),
-        recentSeconds: Math.min(d('recentSeconds'), d('historySeconds')),
+        recentHours: Math.min(d('recentHours'), d('historyHours')),
         thinSeconds: d('thinSeconds'),
         maxRaceHours: d('maxRaceHours'),
         tcfVmgSeconds: d('tcfVmgSeconds'),
         waypointOrder: o.waypointOrder === 'nmea,course' ? 'nmea,course' : 'course,nmea',
         nmeaWaypointStaleSeconds: d('nmeaWaypointStaleSeconds'),
-        waypointName: typeof o.waypointName === 'string' ? o.waypointName : '',
-        waypoint: o.waypoint || null
+        waypointName: typeof o.waypointName === 'string' ? o.waypointName : schema.properties.waypointName.default
     };
 }
 

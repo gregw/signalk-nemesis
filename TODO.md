@@ -65,7 +65,7 @@ Implemented in `lib/waypoint.js` and checked on a real 2.30.0 server (NMEA RMB, 
 - [x] Course API via `app.getCourse()` (polled every 2 s), with the active route's points loaded from the route resource.
 - [x] Raw NMEA next point (RMB/BWC/129284 paths), ignoring the Course API's own `courseApi` copies, expiring after `nmeaWaypointStaleSeconds` (default 30).
 - [x] Bearing and distance only: projected from our position at that time (true bearing only).
-- [x] Precedence configurable: `waypointOrder` `course,nmea` (default) or `nmea,course`. Then `waypointName` (resources API, polled every 30 s), then the fixed `waypoint`.
+- [x] Precedence configurable: `waypointOrder` `course,nmea` (default) or `nmea,course`. Then `waypointName` (resources API, polled every 30 s, default `nemesis`). No fixed lat/lon fallback (removed 2026-10-16): with no waypoint the waypoint based values are not shown.
 - [x] The Course API keeps an adopted NMEA destination after the instruments stop (seen on 2.30.0). A Course API point with no href and no active route that sits on the last NMEA point now expires with the NMEA.
 - [x] Replay and live feed publish the GC2026 finish as an RMB next point.
 - [ ] Magnetic-only bearing (`bearingMagnetic` plus variation) is not handled.
@@ -108,7 +108,7 @@ All in `public/derive.js`, pure and loaded by both the webapp and `test/derive.t
 ## Phase 4: persistence and robustness
 
 - [ ] Settings (Show, Up, Mode) server-side or per device? Currently per device in localStorage.
-- [x] Track history persistence (decided: append-only log, 5 day default): `lib/journal.js` journals reports, own state and names to `<data dir>/journal/` in 10 min segments, fdatasync every second; older than `recentSeconds` (6 h) compacted to one report per boat per `thinSeconds` (2 min) and own state dropped (each report carries our state at its time); older than `historySeconds` (5 d) deleted; loaded in chunks on start. Worst case measured on Node 22 (100 boats, 30 s cadence, 5 d): 80 MB on disk, 0.7 s load, max 8 ms event-loop stall, 136 MB heap. Verified across a real 2.30.0 restart.
+- [x] Track history persistence (decided: append-only log, 5 day default): `lib/journal.js` journals reports, own state and names to `<data dir>/journal/` in 10 min segments, fdatasync every second; older than `recentHours` (6) compacted to one report per boat per `thinSeconds` (2 min) and own state dropped (each report carries our state at its time); older than `historyHours` (120, 5 d) deleted; loaded in chunks on start. Worst case measured on Node 22 (100 boats, 30 s cadence, 5 d): 80 MB on disk, 0.7 s load, max 8 ms event-loop stall, 136 MB heap. Verified across a real 2.30.0 restart.
 - [ ] Memory: 136 MB worst case is mostly per-report objects (with the embedded own state). If the HALPI2 feels it, store old history as compact typed arrays.
 - [ ] Post-race replay from the journal (phase 5).
 - [x] Restart test (journal), torn last line, clock jump into a compacted segment.

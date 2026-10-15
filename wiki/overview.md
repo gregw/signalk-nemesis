@@ -70,7 +70,7 @@ The user picks what "up" means; it drives the vector plot rotation, the map rota
 | North | true north | done |
 | Wind | true wind direction | needs wind data; disabled in prototype |
 
-The waypoint must come from a single `waypoint()` seam. The prototype has `waypoint(){ return FINISH; }`; the plugin should read the active course next point and fall back to configuration.
+The waypoint must come from a single `waypoint()` seam. The prototype has `waypoint(){ return FINISH; }`; the plugin reads the active course next point (Course API or NMEA), then a waypoint resource named in the configuration (default `nemesis`). With none, there is no waypoint and the waypoint based values are not shown (decided 2026-10-16: no fixed lat/lon fallback).
 
 ### 3.2 VMG toward Up
 
