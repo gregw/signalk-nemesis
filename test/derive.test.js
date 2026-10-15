@@ -43,9 +43,25 @@ test('vmcOver: smoothed over the window, shorter for a boat first heard recently
     assert.ok(D.vmcOver(t, 30 * 60e3, WP, 600e3, 1800e3) / KN > 3, 'smoothed through the tack');
     assert.ok(D.vmc(t[29], t[30], WP, 1800e3) < 0, 'while the last interval is negative');
     near(D.vmcOver(s, 5 * 60e3, WP, 600e3, 1800e3) / KN, 6, 0.01, 'from the first report');
-    assert.equal(D.vmcOver(s, 0, WP, 600e3, 1800e3), null, 'one report: no interval');
+    near(D.vmcOver(s, 0, WP, 600e3, 1800e3) / KN, 6, 1e-6, 'one report: instant from SOG and COG');
     assert.equal(D.vmcOver(s, 30 * 60e3 + 1801e3, WP, 600e3, 1800e3), null, 'stale at t');
     assert.equal(D.vmcOver(s, 30 * 60e3, null, 600e3, 1800e3), null, 'no waypoint');
+});
+
+test('instant VMC: SOG x cos(COG - the boat own bearing to the mark), for a first report', () => {
+    near(D.vmcInstant(at(0, 0, 0, 60, 8), WP) / KN, 4, 1e-6, 'mark due north, COG 060');
+    // The boat's own bearing, not ours: a boat 1 deg east of the mark's meridian, heading at it.
+    const off = {lat: 0, lon: 1};
+    const brg = geo.bearing(off, WP) / DEG;
+    near(D.vmcInstant(at(0, off.lat, off.lon, brg, 8), WP) / KN, 8, 1e-6, 'heading straight at it');
+    near(D.vmcInstant(at(0, 0, 0, 180, 5), WP) / KN, -5, 1e-6, 'sailing away (e.g. rounded): negative');
+    assert.equal(D.vmcInstant({t: 0, lat: 0, lon: 0, cogRad: null, sogMs: 3}, WP), null, 'no COG');
+    assert.equal(D.vmcInstant(at(0, 0, 0), null), null, 'no waypoint');
+    // Relative: theirs instant, so ours is instant at their time too (like with like).
+    const us = [at(0, 0, 0.01, 0, 5)];
+    near(D.vmgToward([at(0, 0, 0, 0, 7)], 0, ctxOf('waypoint', us), 'rel') / KN, 2, 1e-3, 'rel from instants');
+    // Our own first sample.
+    near(D.ownVmgAbs(us, 0, ctxOf('waypoint', us)) / KN, 5, 1e-3, 'own: instant without a minute of history');
 });
 
 test('upDir per frame', () => {
@@ -61,8 +77,9 @@ test('upDir per frame', () => {
 test('VMC from the boat own previous report, ignoring long gaps', () => {
     const r = [at(0, 0, 0), at(1800e3, north(3), 0)];
     near(D.vmgAbs(r, 1, ctxOf('waypoint', [])) / KN, 6, 0.01, '3 nm closer in 30 min');
-    assert.equal(D.vmgAbs(r, 0, ctxOf('waypoint', [])), null, 'no previous report');
-    assert.equal(D.vmgAbs(r, 1, ctxOf('waypoint', [], {staleMs: 1800e3 - 1})), null, 'gap over stale');
+    near(D.vmgAbs(r, 0, ctxOf('waypoint', [])) / KN, 6, 1e-6, 'no previous report: instant');
+    const slow = [at(0, 0, 0), at(1800e3, north(3), 0, 60, 4)];
+    near(D.vmgAbs(slow, 1, ctxOf('waypoint', [], {staleMs: 1800e3 - 1})) / KN, 2, 1e-3, 'gap over stale: instant');
     near(D.vmc(r[1], at(3600e3, 0, 0), WP, 1e9) / KN, -6, 0.01, 'opening is negative');
 });
 
@@ -89,7 +106,7 @@ test('relative VMG is theirs minus ours over the same interval', () => {
 test('own VMC spans at least a minute of our samples', () => {
     const us = [at(0, 0, 0), at(30e3, north(0.05), 0), at(60e3, north(0.1), 0), at(61e3, north(0.1), 0)];
     near(D.ownVmgAbs(us, 3, ctxOf('waypoint', us)) / KN, 6 * (60 / 61), 0.05, 'from the sample 61 s back');
-    assert.equal(D.ownVmgAbs(us, 1, ctxOf('waypoint', us)), null, 'less than a minute of history');
+    near(D.ownVmgAbs(us, 1, ctxOf('waypoint', us)) / KN, 6, 0.01, 'less than a minute of history: instant');
     near(D.ownVmgAbs(us, 0, ctxOf('course', us)) / KN, 6, 1e-9, 'course: our SOG');
 });
 
@@ -152,8 +169,9 @@ test('TCF row: Should from elapsed time and the smoothed VMG at their report tim
     assert.equal(row({startT: null}).reason, 'no start time');
     assert.equal(row({startT: T + 1}).reason, 'before start');
     assert.equal(row({wp: null}).reason, 'no waypoint');
-    assert.equal(row({usSeries: [u]}).reason, 'no VMG (ours)');
-    assert.equal(row({tcfUs: 1.1, tcfBoat: 1, series: [s]}).reason, 'no VMG (theirs)');
+    near(row({usSeries: [u]}).should / NM, 3.6, 0.01, 'one sample of ours: instant VMG');
+    assert.equal(row({usSeries: []}).reason, 'no VMG (ours)');
+    assert.equal(row({tcfUs: 1.1, tcfBoat: 1, series: [{...s, cogRad: null}]}).reason, 'no VMG (theirs)');
     assert.equal(row({tcfBoat: 1, usSeries: []}).should, 0, 'equal TCF needs no VMG');
     assert.equal(row({s: null}).net, null);
 });

@@ -74,7 +74,7 @@ The waypoint must come from a single `waypoint()` seam. The prototype has `waypo
 
 ### 3.2 VMG toward Up
 
-- Waypoint: VMC, the rate of change of the boat's distance to the waypoint between its own consecutive reports, positive when closing. Use the boat's own previous report, not a timeline step, and ignore gaps longer than the stale threshold.
+- Waypoint: VMC, the rate of change of the boat's distance to the waypoint between its own consecutive reports, positive when closing. Use the boat's own previous report, not a timeline step, and ignore gaps longer than the stale threshold. With no usable previous report (first report, or a longer gap), use that report's `SOG x cos(COG - the boat's own bearing to the waypoint)`, and ours the same way in Relative mode (decided 2026-10-16). A negative VMC usually means the boat has rounded the mark; until the whole course is known, that is left to show as it is.
 - Course: `SOG x cos(COG_boat - COG_us)`, with our COG taken at their report time.
 - North: `SOG x cos(COG)`.
 - Wind: `SOG x cos(COG - TWD)` (to do).

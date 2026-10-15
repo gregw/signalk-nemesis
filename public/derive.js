@@ -71,17 +71,31 @@
     }
 
     /**
+     * Instant VMC (m/s, + closing) from one report: SOG x cos(COG - that boat's own
+     * bearing to the waypoint). The fallback when there is no usable previous report
+     * (first report, or a gap over stale). Over ground like the positional VMC, but
+     * not averaged over the report interval. Null without SOG, COG or waypoint.
+     */
+    function vmcInstant(s, wp) {
+        if (!s || !wp || !fin(s.sogMs) || !fin(s.cogRad)) return null;
+        return s.sogMs * Math.cos(s.cogRad - G.bearing(s, wp));
+    }
+
+    /**
      * Absolute VMG toward Up of the report at index i of a boat's series.
      * ctx: {frame, wp, us (our series), staleMs, usGapMs}
-     * Waypoint: VMC from the boat's own previous report (section 3.2).
+     * Waypoint: VMC from the boat's own previous report (section 3.2), else from this
+     * report's SOG and COG (vmcInstant).
      * Course: SOG x cos(COG - our COG at their report time).
      */
     function vmgAbs(reports, i, ctx) {
         const s = reports[i];
         if (!s) return null;
         switch (ctx.frame) {
-            case 'waypoint':
-                return vmc(reports[i - 1], s, ctx.wp, ctx.staleMs);
+            case 'waypoint': {
+                const v = vmc(reports[i - 1], s, ctx.wp, ctx.staleMs);
+                return v != null ? v : vmcInstant(s, ctx.wp);
+            }
             case 'north':
                 return fin(s.sogMs) && fin(s.cogRad) ? s.sogMs * Math.cos(s.cogRad) : null;
             case 'course': {
@@ -95,7 +109,8 @@
 
     /**
      * Our VMG toward Up matched to the boat report at index i: for the Waypoint frame over
-     * the same interval as their VMC, so theirs minus ours compares like with like.
+     * the same interval as their VMC, so theirs minus ours compares like with like; when
+     * theirs is instant (no usable previous report), ours is instant too.
      */
     function ourVmgFor(reports, i, ctx) {
         const s = reports[i];
@@ -105,7 +120,7 @@
         switch (ctx.frame) {
             case 'waypoint': {
                 const p = reports[i - 1];
-                if (!p) return null;
+                if (vmc(p, s, ctx.wp, ctx.staleMs) == null) return vmcInstant(u, ctx.wp);
                 const u0 = stateAt(ctx.us, p.t, ctx.usGapMs);
                 return u0 && u0 !== u ? vmc(u0, u, ctx.wp, ctx.staleMs) : null;
             }
@@ -133,7 +148,8 @@
             case 'waypoint': {
                 let k = j - 1;
                 while (k >= 0 && u.t - us[k].t < OWN_VMC_MIN_MS) k--;
-                return k >= 0 ? vmc(us[k], u, ctx.wp, ctx.staleMs) : null;
+                const v = k >= 0 ? vmc(us[k], u, ctx.wp, ctx.staleMs) : null;
+                return v != null ? v : vmcInstant(u, ctx.wp);
             }
             case 'north':
                 return fin(u.sogMs) && fin(u.cogRad) ? u.sogMs * Math.cos(u.cogRad) : null;
@@ -174,8 +190,9 @@
      * Smoothed VMC toward the waypoint (m/s, + closing) of a series at time t: from the
      * latest item at or before t - windowMs to the latest at or before t. Uses the oldest
      * item after t - windowMs when there is none before it, so a boat first heard
-     * recently still has a value. Null if the interval is not in (0, windowMs + maxGapMs]
-     * or the end item is older than maxGapMs at t.
+     * recently still has a value. With no usable interval (one report, or a gap over
+     * windowMs + maxGapMs), the instant VMC of the latest item. Null if the latest item
+     * is older than maxGapMs at t.
      */
     function vmcOver(series, t, wp, windowMs, maxGapMs) {
         if (!wp || !series || !series.length) return null;
@@ -183,7 +200,8 @@
         if (j < 0 || t - series[j].t > maxGapMs) return null;
         let i = indexAtOrBefore(series, t - windowMs);
         if (i < 0) i = 0;
-        return vmc(series[i], series[j], wp, windowMs + maxGapMs);
+        const v = vmc(series[i], series[j], wp, windowMs + maxGapMs);
+        return v != null ? v : vmcInstant(series[j], wp);
     }
 
     /**
@@ -254,6 +272,7 @@
         upDir,
         dtg,
         vmc,
+        vmcInstant,
         vmgAbs,
         ourVmgFor,
         vmgToward,
