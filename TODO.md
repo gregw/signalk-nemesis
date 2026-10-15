@@ -4,8 +4,9 @@ Phases follow `wiki/overview.md` section 7. `[x]` = in the skeleton with tests.
 
 ## Housekeeping
 
-- [ ] `signalk-nemesis-delta/` holds identical copies of `CLAUDE.md` and `wiki/overview.md`. Delete it or explain why it is there.
-- [ ] First commit (nothing is committed yet).
+- [x] Deleted the duplicate `signalk-nemesis-delta/` folder.
+- [x] Code style matches signalk-racer (4-space indent, semicolons, single quotes). `npm run format` applies `.prettierrc.json`.
+- [x] First commit.
 - [ ] Get a Node 22 runtime locally (only Node 24 here) and run the suite on it.
 - [x] Playwright + headless Chromium (`npm run test:browser`; first time on a machine: `npx playwright install chromium`). Stand-in server: `node test/sim/dev-server.js [port] [hoursIn]`.
 - [ ] Browser tests in CI or a pre-commit script, so they actually get run.

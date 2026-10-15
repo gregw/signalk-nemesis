@@ -1,54 +1,88 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Nemesis Delta</title>
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-<header class="topbar">
-  <div class="brand"><div class="name">NEMESIS<span> DELTA</span></div><div class="sub" id="conn">connecting</div></div>
-  <div class="ctl-group"><span class="ctl-label">Mode</span>
-    <select id="modeSel"><option value="abs">Absolute</option><option value="rel">Relative</option></select></div>
-  <div class="ctl-group"><span class="ctl-label">Up</span>
-    <select id="upSel">
-      <option value="waypoint">Waypoint</option><option value="course">Course</option>
-      <option value="north">North</option><option value="wind" disabled>Wind</option>
-    </select></div>
-  <div class="ctl-group"><span class="ctl-label">Period</span>
-    <select id="periodSel"><option value="15">15m</option><option value="30">30m</option><option value="60">60m</option>
-      <option value="120">2h</option><option value="240">4h</option></select></div>
-</header>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        <title>Nemesis Delta</title>
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <header class="topbar">
+            <div class="brand">
+                <div class="name">NEMESIS<span> DELTA</span></div>
+                <div class="sub" id="conn">connecting</div>
+            </div>
+            <div class="ctl-group">
+                <span class="ctl-label">Mode</span>
+                <select id="modeSel">
+                    <option value="abs">Absolute</option>
+                    <option value="rel">Relative</option>
+                </select>
+            </div>
+            <div class="ctl-group">
+                <span class="ctl-label">Up</span>
+                <select id="upSel">
+                    <option value="waypoint">Waypoint</option>
+                    <option value="course">Course</option>
+                    <option value="north">North</option>
+                    <option value="wind" disabled>Wind</option>
+                </select>
+            </div>
+            <div class="ctl-group">
+                <span class="ctl-label">Period</span>
+                <select id="periodSel">
+                    <option value="15">15m</option>
+                    <option value="30">30m</option>
+                    <option value="60">60m</option>
+                    <option value="120">2h</option>
+                    <option value="240">4h</option>
+                </select>
+            </div>
+        </header>
 
-<div class="selbar">
-  <div class="ctl-group"><span class="ctl-label">Show</span>
-    <select id="showSel">
-      <option value="nemesi">Nemesi</option><option value="all">All</option>
-      <option value="inrange">In range</option><option value="none">None</option>
-    </select></div>
-  <span class="fleetc"><b>Boats</b> <span id="fleetCount">0/0</span></span>
-</div>
+        <div class="selbar">
+            <div class="ctl-group">
+                <span class="ctl-label">Show</span>
+                <select id="showSel">
+                    <option value="nemesi">Nemesi</option>
+                    <option value="all">All</option>
+                    <option value="inrange">In range</option>
+                    <option value="none">None</option>
+                </select>
+            </div>
+            <span class="fleetc"><b>Boats</b> <span id="fleetCount">0/0</span></span>
+        </div>
 
-<nav class="tabbar" id="tabbar">
-  <button data-tab="boats">Boats</button>
-  <button data-tab="vectors">Vectors</button>
-  <button data-tab="tcf">TCF</button>
-  <button data-tab="geo">Geo</button>
-</nav>
+        <nav class="tabbar" id="tabbar">
+            <button data-tab="boats">Boats</button>
+            <button data-tab="vectors">Vectors</button>
+            <button data-tab="tcf">TCF</button>
+            <button data-tab="geo">Geo</button>
+        </nav>
 
-<main class="stage">
-  <section class="tabpane" id="pane-boats">
-    <div class="sorthead"><span class="ctl-label">Sort</span>
-      <select id="sortSel"><option value="near">Near</option><option value="alpha">A-Z</option></select></div>
-    <div class="blist" id="blist"></div>
-  </section>
-  <section class="tabpane hidden" id="pane-vectors"><p class="todo">Vectors: not yet ported from the prototype.</p></section>
-  <section class="tabpane hidden" id="pane-tcf"><p class="todo">TCF: not yet ported from the prototype.</p></section>
-  <section class="tabpane hidden" id="pane-geo"><p class="todo">Geo: not yet ported from the prototype.</p></section>
-</main>
+        <main class="stage">
+            <section class="tabpane" id="pane-boats">
+                <div class="sorthead">
+                    <span class="ctl-label">Sort</span>
+                    <select id="sortSel">
+                        <option value="near">Near</option>
+                        <option value="alpha">A-Z</option>
+                    </select>
+                </div>
+                <div class="blist" id="blist"></div>
+            </section>
+            <section class="tabpane hidden" id="pane-vectors">
+                <p class="todo">Vectors: not yet ported from the prototype.</p>
+            </section>
+            <section class="tabpane hidden" id="pane-tcf">
+                <p class="todo">TCF: not yet ported from the prototype.</p>
+            </section>
+            <section class="tabpane hidden" id="pane-geo">
+                <p class="todo">Geo: not yet ported from the prototype.</p>
+            </section>
+        </main>
 
-<script src="units.js"></script>
-<script src="app.js"></script>
-</body>
+        <script src="units.js"></script>
+        <script src="app.js"></script>
+    </body>
 </html>
