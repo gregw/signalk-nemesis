@@ -18,7 +18,8 @@ Phases follow `wiki/overview.md` section 7. `[x]` = in the skeleton with tests.
 - [x] Router mount, webapp mount and per-path subscription delivery confirmed on 2.30.0.
 - [x] AIS names: N2K sends path `''` with `{name}` and a subscription to `name` never delivers it (checked on 2.30.0). Names are now read with `app.getPath(<context>.name)`, throttled.
 - [ ] Course next point: v1 `navigation.courseRhumbline.nextPoint.position` (used now) vs v2 `navigation.course.nextPoint`.
-- [ ] Which security permission is enforced on `PUT /plugins/<id>/...` when security is enabled, and how the webapp should handle 401/403.
+- [x] Security (checked on 2.30.0 with security on): all of `/plugins/*` is admin only, so reads are also mounted at `/signalk/v1/api/nemesis/*` (read access is enough) and writes are Signal K PUT handlers `navigation.racing.nemesis.setNemesis|setTcf` (need readwrite). Webapp shows "login needed" on 401/403.
+- [ ] Webapp: a login link or prompt when "login needed" (server login is `/admin/#/login`; the session cookie is then used by the webapp's fetches).
 - [ ] Whether the subscription manager delivers our own `vessels.self` values when `selfContext` changes (MMSI configured after start).
 
 ## Phase 1: skeleton
@@ -31,7 +32,7 @@ Phases follow `wiki/overview.md` section 7. `[x]` = in the skeleton with tests.
 - [x] Staleness (`currentReport`), configurable stale threshold.
 - [x] Waypoint seam: course API, then config fallback.
 - [x] Atomic persistence; nemesis list and TCFs in the data dir.
-- [x] REST: `GET /snapshot`, `GET /tracks`, `GET /user`, `PUT /nemesis/:id`, `PUT /tcf/:id`.
+- [x] REST (read): `GET snapshot`, `tracks`, `user` at `/signalk/v1/api/nemesis/` and `/plugins/signalk-nemesis/`. PUT handlers (write): `navigation.racing.nemesis.setNemesis` `{id, nemesis}`, `.setTcf` `{id, tcf}`.
 - [x] Seeded AIS simulator over GC2026, end-to-end replay test through a fake app.
 - [ ] Debounce `JsonStore.save` (currently writes on every edit; fine for taps, not for a slider).
 - [ ] OwnState interpolation between bracketing samples (currently nearest earlier within 10 s).
@@ -91,7 +92,7 @@ So reading the Course API's next point covers all three, which is what `lib/wayp
 - [ ] Time popup: Period, Stale after. Decide whether live mode needs a race-time slider for scrubbing history.
 - [ ] Selection popup clamped to viewport.
 - [ ] WebSocket stream (or SK stream subscription) for updates, poll kept as resync.
-- [ ] Optimistic nemesis toggle can flicker if a poll started before the PUT returns. Track a pending-edit set and ignore stale values for it.
+- [x] Optimistic nemesis toggle: pending edits are re-applied over snapshots until the PUT completes, so a poll can't flicker it back.
 - [x] Playwright tests: phone and tablet layout (no horizontal or page scroll), nemesis tap persists across reload, scroll survives polling re-renders, outage shows stale and recovers.
 - [ ] Playwright tests still to add: pinch and pan (Geo, Vectors), popups clamped to the viewport, TCF input not re-rendered under focus.
 - [ ] While stale, per-boat ages freeze at the last snapshot. Age them on the client from `snapshot.now` plus elapsed wall time.

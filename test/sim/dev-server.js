@@ -2,8 +2,10 @@
 /*
  * Minimal HTTP server standing in for signalk-server in browser tests:
  *  - serves public/ at /signalk-nemesis/ (as src/interfaces/webapps.js does)
- *  - dispatches /plugins/signalk-nemesis/* to the plugin's registered routes
- * `setDown(true)` makes every request fail with 503, to simulate a server restart.
+ *  - dispatches GET /plugins/signalk-nemesis/* and /signalk/v1/api/* to the plugin's routes
+ *  - dispatches PUT /signalk/v1/api/vessels/self/<path> to the plugin's PUT handlers
+ * `setFail(503)` makes every request fail with that status (503: server restarting,
+ * 401: security on and not logged in); `setFail(null)` restores service.
  *
  * Run standalone for manual poking: node test/sim/dev-server.js [port] [hoursIn]
  */
@@ -21,62 +23,28 @@ const TYPES = {
     '.svg': 'image/svg+xml'
 };
 
-function matchRoute(app, method, p) {
-    for (const key of app.routeKeys()) {
-        const [m, pattern] = key.split(' ');
-        if (m !== method) continue;
-        const names = [];
-        const re = new RegExp(
-            '^' +
-                pattern.replace(/:(\w+)/g, (_, n) => {
-                    names.push(n);
-                    return '([^/]+)';
-                }) +
-                '$'
-        );
-        const hit = re.exec(p);
-        if (hit) return {pattern, params: Object.fromEntries(names.map((n, i) => [n, decodeURIComponent(hit[i + 1])]))};
-    }
-    return null;
-}
-
 async function startDevServer({port = 0, hoursIn = 6, replay} = {}) {
     const r = replay || (await replayTo(hoursIn));
-    let down = false;
+    let failWith = null; // HTTP status every request fails with, or null
     const server = http.createServer((req, res) => {
         const url = new URL(req.url, 'http://x');
-        if (down) {
-            res.writeHead(503);
+        if (failWith) {
+            res.writeHead(failWith);
             return res.end();
         }
-        if (url.pathname.startsWith('/plugins/signalk-nemesis/')) {
-            const sub = url.pathname.slice('/plugins/signalk-nemesis'.length);
-            const route = matchRoute(r.app, req.method, sub);
-            if (!route) {
-                res.writeHead(404);
-                return res.end();
-            }
-            let raw = '';
-            req.on('data', (c) => {
-                raw += c;
+        const PUT_PREFIX = '/signalk/v1/api/vessels/self/';
+        if (req.method === 'PUT' && url.pathname.startsWith(PUT_PREFIX)) {
+            return readBody(req, res, async (body) => {
+                // As dist/put.js: body must carry {value}; reply status is reply.statusCode.
+                if (!body || body.value === undefined) return send(res, 400, 'input is missing a value');
+                const out = await r.app.put(url.pathname.slice(PUT_PREFIX.length).replace(/\//g, '.'), body.value);
+                send(res, out.status, out.body);
             });
-            req.on('end', async () => {
-                let body;
-                try {
-                    body = raw ? JSON.parse(raw) : undefined;
-                } catch (e) {
-                    res.writeHead(400);
-                    return res.end();
-                }
-                const out = await r.app.call(req.method, route.pattern, {
-                    params: route.params,
-                    query: Object.fromEntries(url.searchParams),
-                    body
-                });
-                res.writeHead(out.status, {'Content-Type': 'application/json'});
-                res.end(JSON.stringify(out.body));
-            });
-            return;
+        }
+        if (req.method === 'GET' && (url.pathname.startsWith('/plugins/') || url.pathname.startsWith('/signalk/'))) {
+            return r.app
+                .call('GET', url.pathname, {query: Object.fromEntries(url.searchParams)})
+                .then((out) => send(res, out.status, out.body));
         }
         if (url.pathname.startsWith('/signalk-nemesis/')) {
             let rel = url.pathname.slice('/signalk-nemesis/'.length) || 'index.html';
@@ -101,14 +69,36 @@ async function startDevServer({port = 0, hoursIn = 6, replay} = {}) {
     return {
         ...r,
         url: `http://127.0.0.1:${server.address().port}/signalk-nemesis/`,
-        setDown(v) {
-            down = v;
+        setFail(status) {
+            failWith = status;
         },
         async close() {
             r.plugin.stop();
             await new Promise((resolve) => server.close(resolve));
         }
     };
+}
+
+function readBody(req, res, cb) {
+    let raw = '';
+    req.on('data', (c) => {
+        raw += c;
+    });
+    req.on('end', () => {
+        let body;
+        try {
+            body = raw ? JSON.parse(raw) : undefined;
+        } catch (e) {
+            return send(res, 400, 'bad JSON');
+        }
+        cb(body);
+    });
+}
+
+function send(res, status, body) {
+    const json = typeof body !== 'string';
+    res.writeHead(status, {'Content-Type': json ? 'application/json' : 'text/plain'});
+    res.end(json ? JSON.stringify(body) : body);
 }
 
 module.exports = {startDevServer};

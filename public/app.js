@@ -10,7 +10,10 @@
  * TODO: WebSocket stream for low-latency updates, with this poll as the resync path.
  */
 
-const API = '/plugins/signalk-nemesis';
+// Reads: the plugin's routes on the Signal K API mount, which ordinary (non-admin)
+// accounts can read when security is on. Writes: Signal K PUT handlers.
+const API = '/signalk/v1/api/nemesis';
+const PUT_BASE = '/signalk/v1/api/vessels/self/navigation/racing/nemesis/';
 // ?poll=<ms> overrides the interval (used by browser tests; floor of 200 ms).
 const POLL_MS = Math.max(200, Number(new URLSearchParams(location.search).get('poll')) || 5000);
 const TIMEOUT_MS = 8000;
@@ -29,6 +32,10 @@ let lastOkAt = 0; // wall time of last good fetch
 let failures = 0;
 let pollTimer = null;
 let inFlight = false;
+let authNeeded = false; // last failure was 401/403
+// Optimistic nemesis edits not yet confirmed by the server: id -> wanted value.
+// Re-applied over every snapshot so a poll that started before the PUT can't flicker it back.
+const pendingNemesis = new Map();
 
 /* ---------- prefs (per-viewer convenience only; server holds real state) ---------- */
 function loadPrefs() {
@@ -52,7 +59,11 @@ async function fetchJson(url, opts = {}) {
     const timer = setTimeout(() => ac.abort(), TIMEOUT_MS);
     try {
         const r = await fetch(url, {...opts, signal: ac.signal, cache: 'no-store'});
-        if (!r.ok) throw new Error('HTTP ' + r.status);
+        if (!r.ok) {
+            const e = new Error('HTTP ' + r.status);
+            e.status = r.status;
+            throw e;
+        }
         return await r.json();
     } finally {
         clearTimeout(timer);
@@ -63,11 +74,13 @@ async function poll() {
     if (inFlight) return;
     inFlight = true;
     try {
-        snapshot = await fetchJson(API + '/snapshot');
+        snapshot = applyPending(await fetchJson(API + '/snapshot'));
         lastOkAt = Date.now();
         failures = 0;
+        authNeeded = false;
     } catch (e) {
         failures++;
+        authNeeded = e.status === 401 || e.status === 403;
     } finally {
         inFlight = false;
     }
@@ -87,20 +100,36 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('online', () => poll());
 
+function applyPending(snap) {
+    for (const b of snap.boats) if (pendingNemesis.has(b.id)) b.nemesis = pendingNemesis.get(b.id);
+    return snap;
+}
+
+/** Signal K PUT: body {value}; the reply's statusCode is the outcome. */
+function put(command, value) {
+    return fetchJson(PUT_BASE + command, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({value})
+    });
+}
+
 async function toggleNemesis(id) {
     const b = snapshot && snapshot.boats.find((x) => x.id === id);
     if (!b) return;
     const want = !b.nemesis;
-    b.nemesis = want; // optimistic
+    pendingNemesis.set(id, want);
+    applyPending(snapshot);
     render();
     try {
-        await fetchJson(API + '/nemesis/' + encodeURIComponent(id), {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({nemesis: want})
-        });
+        await put('setNemesis', {id, nemesis: want});
     } catch (e) {
-        b.nemesis = !want; // revert; the next poll is authoritative anyway
+        if (e.status === 401 || e.status === 403) authNeeded = true;
+        // Revert locally; the next poll is authoritative.
+        const cur = snapshot && snapshot.boats.find((x) => x.id === id);
+        if (cur && pendingNemesis.get(id) === want) cur.nemesis = !want;
+    } finally {
+        if (pendingNemesis.get(id) === want) pendingNemesis.delete(id);
         render();
     }
 }
@@ -116,8 +145,14 @@ function render() {
 function renderConn() {
     const el = $('conn');
     const age = lastOkAt ? Date.now() - lastOkAt : null;
-    el.className = 'sub ' + (!lastOkAt ? 'bad' : failures ? 'warn' : 'ok');
-    el.textContent = !lastOkAt ? 'no data' : failures ? 'stale ' + UNITS.fmtAge(age) : 'live';
+    el.className = 'sub ' + (authNeeded || !lastOkAt ? 'bad' : failures ? 'warn' : 'ok');
+    el.textContent = authNeeded
+        ? 'login needed'
+        : !lastOkAt
+          ? 'no data'
+          : failures
+            ? 'stale ' + UNITS.fmtAge(age)
+            : 'live';
 }
 
 function visibleBoats() {

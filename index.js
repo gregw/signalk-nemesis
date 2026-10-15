@@ -7,8 +7,8 @@
  *    courseOverGroundTrue, speedOverGround, name; our own position, COG, SOG,
  *    headingTrue; navigation.courseRhumbline.nextPoint.position (waypoint seam).
  *  - Data model paths published: none yet (brief section 8, Greg's call).
- *  - REST endpoints: mounted by the server at /plugins/<id>
- *    (signalk-server packages/server-api/src/plugin.ts registerWithRouter).
+ *  - REST endpoints (read only): /plugins/<id>/* and /signalk/v1/api/nemesis/*.
+ *  - PUT handlers (writes): navigation.racing.nemesis.setNemesis and .setTcf.
  *  - Internal plugin state: TrackStore, OwnState, UserState.
  *
  * The webapp in public/ is served by the server at /<package name>/
@@ -23,6 +23,12 @@ const {UserState, validTcf} = require('./lib/user-state');
 const {buildSnapshot, buildTracks} = require('./lib/snapshot');
 
 const PLUGIN_ID = 'signalk-nemesis';
+const API_PREFIX = '/nemesis';
+// PUT handler paths, under our own name within signalk-racer's navigation.racing group.
+const PUT_PATHS = {
+    setNemesis: 'navigation.racing.nemesis.setNemesis',
+    setTcf: 'navigation.racing.nemesis.setTcf'
+};
 const MAX_PERIOD_MS = 24 * 3600e3;
 
 const schema = {
@@ -109,6 +115,7 @@ module.exports = function (app) {
         };
         ais.start();
         ownAdapter.start();
+        registerPutHandlers();
         app.setPluginStatus('Started');
     };
 
@@ -127,7 +134,64 @@ module.exports = function (app) {
         state = null;
     };
 
+    /*
+     * Writes are Signal K PUT handlers, as in signalk-racer: reachable over the
+     * WebSocket or as REST PUT /signalk/v1/api/vessels/self/<path> with body {value}.
+     * The server checks write permission (signalk-server 2.30.0 dist/put.js
+     * shouldAllowPut). A plugin router PUT under /signalk/v1/api cannot work: the
+     * server's own data model PUT route is registered first and answers 400.
+     */
+    function registerPutHandlers() {
+        app.registerPutHandler('vessels.self', PUT_PATHS.setNemesis, (ctx, path, value) =>
+            command(() => {
+                if (!value || typeof value.id !== 'string' || typeof value.nemesis !== 'boolean')
+                    return complete(400, 'value must be {id: string, nemesis: boolean}');
+                return state.userState.setNemesis(value.id, value.nemesis).then(() => complete(200, 'OK'));
+            })
+        );
+        app.registerPutHandler('vessels.self', PUT_PATHS.setTcf, (ctx, path, value) =>
+            command(() => {
+                if (!value || typeof value.id !== 'string' || !validTcf(value.tcf))
+                    return complete(400, 'value must be {id: string, tcf: number in (0, 3]}');
+                return state.userState.setTcf(value.id, value.tcf).then(() => complete(200, 'OK'));
+            })
+        );
+    }
+
+    // Runs a PUT command; never throws into the server, and refuses when stopped.
+    function command(fn) {
+        if (!state) return complete(503, 'plugin not running');
+        try {
+            return Promise.resolve(fn()).catch((e) => complete(500, e.message));
+        } catch (e) {
+            return complete(500, e.message);
+        }
+    }
+
+    function complete(statusCode, message) {
+        return {state: 'COMPLETED', statusCode, message};
+    }
+
+    /*
+     * Read-only REST handlers are mounted twice:
+     *  - /plugins/signalk-nemesis/* via registerWithRouter. With security on, the server
+     *    puts all of /plugins behind admin-only middleware (signalk-server 2.30.0
+     *    dist/tokensecurity.js, app.use('/plugins', adminAuthenticationMiddleware)).
+     *  - /signalk/v1/api/nemesis/* via signalKApiRoutes (dist/interfaces/plugins.js).
+     *    There GET needs read access and PUT needs readwrite (tokensecurity.js
+     *    app.put('/signalk/v1/*', writeAuthenticationMiddleware)), so crew devices
+     *    with ordinary accounts can use the webapp.
+     */
     plugin.registerWithRouter = function (router) {
+        addRoutes(router, '');
+    };
+
+    plugin.signalKApiRoutes = function (router) {
+        addRoutes(router, API_PREFIX);
+        return router;
+    };
+
+    function addRoutes(router, prefix) {
         // Handlers read `state` on each request: the router outlives start/stop cycles.
         const running = (res) => {
             if (state) return state;
@@ -135,7 +199,7 @@ module.exports = function (app) {
             return null;
         };
 
-        router.get('/snapshot', (req, res) => {
+        router.get(prefix + '/snapshot', (req, res) => {
             const s = running(res);
             if (!s) return;
             res.json(
@@ -150,7 +214,7 @@ module.exports = function (app) {
             );
         });
 
-        router.get('/tracks', (req, res) => {
+        router.get(prefix + '/tracks', (req, res) => {
             const s = running(res);
             if (!s) return;
             const periodS = Number(req.query.periodS ?? 3600);
@@ -167,30 +231,11 @@ module.exports = function (app) {
             );
         });
 
-        router.get('/user', (req, res) => {
+        router.get(prefix + '/user', (req, res) => {
             const s = running(res);
             if (s) res.json(s.userState.toJSON());
         });
-
-        // TODO(verify): which security permission the server enforces on PUT under /plugins/<id>.
-        router.put('/nemesis/:id', async (req, res) => {
-            const s = running(res);
-            if (!s) return;
-            const on = req.body && req.body.nemesis;
-            if (typeof on !== 'boolean') return res.status(400).json({error: 'body must be {"nemesis": true|false}'});
-            await s.userState.setNemesis(String(req.params.id), on);
-            res.json({id: req.params.id, nemesis: on});
-        });
-
-        router.put('/tcf/:id', async (req, res) => {
-            const s = running(res);
-            if (!s) return;
-            const v = req.body && req.body.tcf;
-            if (!validTcf(v)) return res.status(400).json({error: 'body must be {"tcf": number in (0, 3]}'});
-            await s.userState.setTcf(String(req.params.id), v);
-            res.json({id: req.params.id, tcf: v});
-        });
-    };
+    }
 
     return plugin;
 };
@@ -209,4 +254,6 @@ function withDefaults(options) {
 }
 
 module.exports.PLUGIN_ID = PLUGIN_ID;
+module.exports.API_PREFIX = API_PREFIX;
+module.exports.PUT_PATHS = PUT_PATHS;
 module.exports.withDefaults = withDefaults;

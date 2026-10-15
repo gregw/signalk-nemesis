@@ -22,7 +22,8 @@ async function replayTo(hoursIn, opts = {}) {
     const dataDir = opts.dataDir || fs.mkdtempSync(path.join(os.tmpdir(), 'nemesis-'));
     const app = fakeApp({dataDir});
     const plugin = createPlugin(app);
-    plugin.registerWithRouter(app.router);
+    plugin.registerWithRouter(app.pluginRouter);
+    plugin.signalKApiRoutes(app.apiRouter);
     plugin.start(opts.config || {});
 
     // Static data first, in the N2K PGN 129809 form (path '' with value {name}).

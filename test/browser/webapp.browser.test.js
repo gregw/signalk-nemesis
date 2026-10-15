@@ -144,20 +144,30 @@ test('server outage shows stale, keeps last data, and recovers', async () => {
     await page.locator('#blist .brow[data-id]').first().waitFor();
     const before = await page.locator('#blist .brow[data-id]').count();
 
-    srv.setDown(true);
+    srv.setFail(503);
     await page.locator('#conn', {hasText: 'stale'}).waitFor();
     assert.equal(await page.locator('#blist .brow[data-id]').count(), before, 'last data still shown');
     await shot(page, 'phone-stale');
 
-    srv.setDown(false);
+    srv.setFail(null);
     // Backoff is short with a 300 ms poll, so recovery is quick.
+    await page.locator('#conn', {hasText: 'live'}).waitFor({timeout: 10000});
+    await ctx.close();
+});
+
+test('401 from the server (security on, not logged in) shows login needed, then recovers', async () => {
+    const {ctx, page} = await open(PHONE);
+    srv.setFail(401);
+    await page.locator('#conn', {hasText: 'login needed'}).waitFor();
+    await shot(page, 'phone-login');
+    srv.setFail(null);
     await page.locator('#conn', {hasText: 'live'}).waitFor({timeout: 10000});
     await ctx.close();
 });
 
 /** User state read through the plugin's own REST handler, as the webapp would. */
 async function srvUser() {
-    return (await srv.app.call('GET', '/user')).body;
+    return (await srv.app.call('GET', '/signalk/v1/api/nemesis/user')).body;
 }
 
 async function waitFor(cond, what, timeoutMs = 3000) {

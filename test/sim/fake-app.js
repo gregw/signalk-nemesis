@@ -7,7 +7,12 @@
 
 function fakeApp({dataDir, selfId = 'urn:mrn:imo:mmsi:503999999', selfPaths = {}}) {
     const subs = [];
-    const routes = {};
+    const routes = []; // {method, path, handler}
+    const putHandlers = new Map();
+    const mount = (prefix) => ({
+        get: (p, h) => routes.push({method: 'GET', path: prefix + p, handler: h}),
+        put: (p, h) => routes.push({method: 'PUT', path: prefix + p, handler: h})
+    });
     const names = new Map(); // context -> name, as the full data model would hold it
     const app = {
         selfId,
@@ -49,18 +54,26 @@ function fakeApp({dataDir, selfId = 'urn:mrn:imo:mmsi:503999999', selfPaths = {}
                 }
             }
         },
-        router: {
-            get: (p, h) => {
-                routes['GET ' + p] = h;
-            },
-            put: (p, h) => {
-                routes['PUT ' + p] = h;
-            }
+        // The two mounts the real server gives a plugin (dist/interfaces/plugins.js).
+        pluginRouter: mount('/plugins/signalk-nemesis'),
+        apiRouter: mount('/signalk/v1/api'),
+        registerPutHandler(context, path, handler) {
+            putHandlers.set(context + '/' + path, handler);
         },
-        /** Invoke a registered route; resolves with {status, body}. */
-        async call(method, p, {params = {}, query = {}, body} = {}) {
-            const h = routes[method + ' ' + p];
-            if (!h) throw new Error('no route ' + method + ' ' + p);
+        /**
+         * A PUT as the server's REST route makes it: PUT /signalk/v1/api/vessels/self/<path>
+         * with body {value} (dist/put.js). Resolves with {status, body: reply}.
+         */
+        async put(path, value) {
+            const h = putHandlers.get('vessels.self/' + path);
+            if (!h) return {status: 405, body: {state: 'COMPLETED', statusCode: 405}};
+            const reply = await h('vessels.self', path, value, () => {});
+            return {status: reply.statusCode, body: reply};
+        },
+        /** Invoke a GET route by full path; resolves with {status, body}. */
+        async call(method, fullPath, {query = {}, body} = {}) {
+            const r = matchRoute(routes, method, fullPath);
+            if (!r) return {status: 404, body: {error: 'no route ' + method + ' ' + fullPath}};
             return new Promise((resolve) => {
                 const res = {
                     statusCode: 200,
@@ -72,15 +85,35 @@ function fakeApp({dataDir, selfId = 'urn:mrn:imo:mmsi:503999999', selfPaths = {}
                         resolve({status: this.statusCode, body: b});
                     }
                 };
-                Promise.resolve(h({params, query, body}, res)).catch((e) =>
+                Promise.resolve(r.handler({params: r.params, query, body}, res)).catch((e) =>
                     resolve({status: 500, body: {error: e.message}})
                 );
             });
         },
-        subscriptionCount: () => subs.length,
-        routeKeys: () => Object.keys(routes)
+        subscriptionCount: () => subs.length
     };
     return app;
+}
+
+function matchRoute(routes, method, fullPath) {
+    for (const r of routes) {
+        if (r.method !== method) continue;
+        const names = [];
+        const re = new RegExp(
+            '^' +
+                r.path.replace(/:(\w+)/g, (_, n) => {
+                    names.push(n);
+                    return '([^/]+)';
+                }) +
+                '$'
+        );
+        const hit = re.exec(fullPath);
+        if (hit) {
+            const params = Object.fromEntries(names.map((n, i) => [n, decodeURIComponent(hit[i + 1])]));
+            return {handler: r.handler, params};
+        }
+    }
+    return null;
 }
 
 module.exports = {fakeApp};
