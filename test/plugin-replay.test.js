@@ -6,7 +6,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {NM} = require('./sim/ais-sim');
-const {replayTo} = require('./sim/replay');
+const {replayTo, COURSE_NM} = require('./sim/replay');
 const {PUT_PATHS} = require('../index');
 
 const API = '/signalk/v1/api/nemesis';
@@ -83,7 +83,7 @@ test('nemesis and TCF PUT handlers validate and persist', async () => {
 });
 
 test('start time: PUT override shows in the snapshot and survives restart', async () => {
-    const {app, plugin} = await replayTo(3);
+    const {app, plugin} = await replayTo(3, {racerStart: false});
     assert.equal((await app.call('GET', API + '/snapshot')).body.start, null);
     assert.equal((await app.put(PUT_PATHS.setStartTime, {})).status, 400);
     assert.equal((await app.put(PUT_PATHS.setStartTime, {startTime: 'soon'})).status, 400);
@@ -130,4 +130,43 @@ test('track history survives a plugin restart (journal)', async () => {
         assert.equal(tracksAfter.boats[id].length, rs.length, `track length ${id}`);
     }
     plugin2.stop();
+});
+
+test('snapshot carries course distance, racer start and oldest history time', async () => {
+    const {app, plugin, now} = await replayTo(6);
+    const s = (await app.call('GET', API + '/snapshot')).body;
+    assert.deepEqual(s.course, {totalM: COURSE_NM * NM, afterM: 0, src: 'config'});
+    assert.equal(s.start.src, 'racer');
+    assert.ok(Math.abs(s.start.t - (now - 6 * 3600e3)) < 1000, 'start 6 h ago');
+    assert.ok(s.oldestT <= now - 5 * 3600e3, 'history goes back toward the start');
+    assert.equal(s.tcfUs, 1);
+    assert.equal((await app.put(PUT_PATHS.setTcf, {id: 'self', tcf: 1.05})).status, 200);
+    assert.equal((await app.call('GET', API + '/snapshot')).body.tcfUs, 1.05);
+    plugin.stop();
+});
+
+test('tracks: window ending at toT, incremental sinceT, own track thinned', async () => {
+    const {app, plugin, now} = await replayTo(6);
+    const get = async (query) => (await app.call('GET', API + '/tracks', {query})).body;
+    const all = await get({periodS: '3600'});
+    const reports = Object.values(all.boats).flat();
+    assert.ok(reports.length > 50, `reports ${reports.length}`);
+    assert.ok(reports.every((r) => r.t >= all.fromT && r.t <= all.toT));
+    assert.ok(
+        all.own.length >= 55 && all.own.length <= 121,
+        `own samples ${all.own.length} (sim: 1 per min; at most 1 per 30 s)`
+    );
+    assert.ok(all.ownAtReports.length > 0);
+
+    const maxT = Math.max(...reports.map((r) => r.t));
+    const inc = await get({periodS: '3600', sinceT: String(maxT - 600e3)});
+    const incReports = Object.values(inc.boats).flat();
+    assert.ok(incReports.length > 0 && incReports.every((r) => r.t > maxT - 600e3), 'only newer');
+    assert.ok(incReports.length < reports.length);
+
+    const back = await get({periodS: '3600', toT: String(now - 3 * 3600e3)});
+    const backReports = Object.values(back.boats).flat();
+    assert.ok(backReports.length > 0 && backReports.every((r) => r.t <= now - 3 * 3600e3), 'history window');
+    assert.equal((await app.call('GET', API + '/tracks', {query: {toT: 'x'}})).status, 400);
+    plugin.stop();
 });

@@ -27,6 +27,9 @@ const {UserState, validTcf} = require('./lib/user-state');
 const {buildSnapshot, buildTracks} = require('./lib/snapshot');
 const {StartTime, RacerStartAdapter} = require('./lib/start-time');
 const {Journal} = require('./lib/journal');
+const {courseDistance} = require('./lib/course-distance');
+
+const M_PER_NM = 1852;
 
 const PLUGIN_ID = 'signalk-nemesis';
 const API_PREFIX = '/nemesis';
@@ -116,6 +119,21 @@ const schema = {
             type: 'string',
             title: 'Fallback waypoint name, looked up in the waypoint resources (e.g. one made in Freeboard-SK)',
             default: ''
+        },
+        startWaypointName: {
+            type: 'string',
+            title: 'Start waypoint name (TCF course distance), looked up in the waypoint resources',
+            description:
+                'Used for the handicap Should distance when no Signal K route is active: ' +
+                'course distance = start waypoint to the next waypoint.',
+            default: ''
+        },
+        courseDistanceNm: {
+            type: 'number',
+            title: 'Course distance (nm), when there is no active route or start waypoint',
+            description: 'Total race distance, for the handicap Should distance. 0 = not set.',
+            default: 0,
+            minimum: 0
         },
         waypoint: {
             type: 'object',
@@ -341,13 +359,20 @@ module.exports = function (app) {
         router.get(prefix + '/snapshot', (req, res) => {
             const s = running(res);
             if (!s) return;
+            const waypoint = s.waypoints.get();
             res.json(
                 buildSnapshot({
                     store: s.store,
                     own: s.own,
                     userState: s.userState,
-                    waypoint: s.waypoints.get(),
+                    waypoint,
                     start: s.startTime.get(),
+                    course: courseDistance({
+                        waypoint,
+                        course: s.waypoints.courseInfo(),
+                        startPoint: s.waypoints.startPoint(),
+                        configuredM: s.cfg.courseDistanceNm * M_PER_NM
+                    }),
                     staleMs: s.cfg.staleSeconds * 1000,
                     now: s.clock()
                 })
@@ -360,12 +385,22 @@ module.exports = function (app) {
             const periodS = Number(req.query.periodS ?? 3600);
             if (!Number.isFinite(periodS) || periodS < 0) return res.status(400).json({error: 'bad periodS'});
             const ids = typeof req.query.ids === 'string' && req.query.ids ? new Set(req.query.ids.split(',')) : null;
+            // toT: end of the window (epoch ms, default now), for looking back in history.
+            // sinceT: only reports newer than this (incremental polling).
+            const optT = (k) => (req.query[k] == null || req.query[k] === '' ? null : Number(req.query[k]));
+            const toT = optT('toT');
+            const sinceT = optT('sinceT');
+            if ((toT != null && !Number.isFinite(toT)) || (sinceT != null && !Number.isFinite(sinceT)))
+                return res.status(400).json({error: 'bad toT or sinceT'});
+            const now = s.clock();
             res.json(
                 buildTracks({
                     store: s.store,
                     own: s.own,
-                    now: s.clock(),
+                    now,
                     periodMs: Math.min(periodS * 1000, MAX_PERIOD_MS),
+                    toT: toT ?? now,
+                    sinceT,
                     ids
                 })
             );
@@ -395,6 +430,8 @@ function withDefaults(options) {
         waypointOrder: o.waypointOrder === 'nmea,course' ? 'nmea,course' : 'course,nmea',
         nmeaWaypointStaleSeconds: d('nmeaWaypointStaleSeconds'),
         waypointName: typeof o.waypointName === 'string' ? o.waypointName : '',
+        startWaypointName: typeof o.startWaypointName === 'string' ? o.startWaypointName : '',
+        courseDistanceNm: d('courseDistanceNm'),
         waypoint: o.waypoint || null
     };
 }

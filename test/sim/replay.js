@@ -14,6 +14,8 @@ const createPlugin = require('../../index');
 const data = require('../data/gc2026-tracks.json');
 
 const RACE_START = Date.parse(data.race.start);
+// The receiver's distance to go at the start, as the race's course distance (GC2026: 384.6 nm).
+const COURSE_NM = data.boats.find((b) => b.name === 'Kanreki').samples[0][5];
 
 async function replayTo(hoursIn, opts = {}) {
     const now = Date.now();
@@ -24,7 +26,7 @@ async function replayTo(hoursIn, opts = {}) {
     const plugin = createPlugin(app);
     plugin.registerWithRouter(app.pluginRouter);
     plugin.signalKApiRoutes(app.apiRouter);
-    plugin.start(opts.config || {});
+    plugin.start(opts.config || {courseDistanceNm: COURSE_NM});
 
     // Static data first, in the N2K PGN 129809 form (path '' with value {name}).
     for (const [id, name] of sim.names) {
@@ -44,8 +46,20 @@ async function replayTo(hoursIn, opts = {}) {
     for (const e of events) app.deliver(e.d);
     // The nav PC's next point (the finish), as an RMB sentence, unless a test opts out.
     if (opts.rmb !== false) app.deliver(rmbDelta(app.selfContext, finishOf(data), now));
+    // signalk-racer's start time, unless a test opts out.
+    if (opts.racerStart !== false) {
+        app.deliver({
+            context: app.selfContext,
+            updates: [
+                {
+                    timestamp: new Date(now).toISOString(),
+                    values: [{path: 'navigation.racing.startTime', value: new Date(RACE_START + shiftMs).toISOString()}]
+                }
+            ]
+        });
+    }
     await sleep(300); // let the coalescer flush the last report per context
     return {app, plugin, sim, now, dataDir};
 }
 
-module.exports = {replayTo};
+module.exports = {replayTo, COURSE_NM};
