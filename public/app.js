@@ -305,6 +305,7 @@ const ND = (() => {
             all.push({
                 id: b.id,
                 name: b.name || b.id,
+                aisName: b.aisName && b.aisName !== b.name ? b.aisName : null, // configured name differs
                 isUs: false,
                 nemesis: b.nemesis,
                 tcf: b.tcf || 1,
@@ -472,7 +473,9 @@ const ND = (() => {
         const el = tip();
         el.innerHTML =
             `<span class="tipx" id="tipClose">&times;</span>` +
-            `<b>${DRAW.esc(b.name)}</b>${b.nemesis ? ' &#9876;' : ''}<br>` +
+            `<b>${DRAW.esc(b.name)}</b>${b.nemesis ? ' &#9876;' : ''}` +
+            (b.aisName ? ` <span class="tipt">AIS: ${DRAW.esc(b.aisName)}</span>` : '') +
+            '<br>' +
             `SOG ${UNITS.fmt(UNITS.kn(s.sogMs), 1)}kn  COG ${pad3(UNITS.deg(s.cogRad))}&deg;<br>` +
             `VMC ${UNITS.fmt(UNITS.kn(vmc), 1)}kn  DTG ${UNITS.fmt(UNITS.nm(dtg), 1)}nm<br>` +
             rel +

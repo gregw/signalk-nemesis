@@ -21,7 +21,8 @@ let srv;
 
 test.before(async () => {
     browser = await chromium.launch();
-    srv = await startDevServer({hoursIn: 6});
+    // One boat entered in advance under another name (AIS name Ambition).
+    srv = await startDevServer({hoursIn: 6, config: {boats: [{mmsi: '500018921', name: 'Nemo'}]}});
 });
 test.after(async () => {
     await browser?.close();
@@ -304,3 +305,18 @@ async function waitFor(cond, what, timeoutMs = 4000) {
     }
     assert.fail('timed out waiting for ' + what);
 }
+
+test('configured boat: its configured name everywhere, the AIS name in the popup', async () => {
+    const {ctx, page, errors} = await open(PHONE, 'nemesi');
+    await tab(page, 'boats');
+    const row = page.locator('#blist .brow[data-id="500018921"]');
+    assert.equal((await row.locator('.bn').textContent()).trim(), 'Nemo');
+    await row.locator('.bn').click();
+    await page.locator('#tip').waitFor({state: 'visible'});
+    assert.match(await page.locator('#tip').textContent(), /Nemo.*AIS: Ambition/);
+    await tab(page, 'tcf');
+    assert.equal((await page.locator('#tcflist .brow[data-id="500018921"] .bn').textContent()).trim(), 'Nemo');
+    await shot(page, 'phone-configured');
+    assert.deepEqual(errors, []);
+    await ctx.close();
+});

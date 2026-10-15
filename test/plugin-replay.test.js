@@ -181,3 +181,30 @@ test('config: history in hours, waypoint name defaults to nemesis', () => {
     assert.equal(withDefaults({waypointName: ''}).waypointName, '', 'empty: no fallback');
     assert.equal(withDefaults({historyHours: 2, recentHours: 6}).recentHours, 2, 'recent capped at history');
 });
+
+test('configured boats: name used in the snapshot for that MMSI only, nemesis and TCF seeded', async () => {
+    const {withDefaults} = require('../index');
+    const c = withDefaults({
+        boats: [
+            {mmsi: ' 500018921 ', name: ' Nemo ', tcf: 1.1},
+            {mmsi: '500018921', name: 'dup'},
+            {mmsi: '12345', name: 'bad'},
+            {mmsi: '500018866'}
+        ]
+    });
+    assert.deepEqual(c.boats, [
+        {mmsi: '500018921', name: 'Nemo', tcf: 1.1},
+        {mmsi: '500018866', name: null, tcf: null}
+    ]);
+    assert.deepEqual([...c.names], [['500018921', 'Nemo']]);
+
+    const {app, plugin} = await replayTo(6, {config: {boats: [{mmsi: '500018921', name: 'Nemo', tcf: 1.1}]}});
+    const s = (await app.call('GET', API + '/snapshot')).body;
+    const b = s.boats.find((x) => x.id === '500018921');
+    assert.deepEqual([b.name, b.aisName, b.nemesis, b.tcf], ['Nemo', 'Ambition', true, 1.1]);
+    const other = s.boats.find((x) => x.id === '500018866');
+    assert.equal(other.name, other.aisName, 'other boats keep their AIS name');
+    assert.equal(other.nemesis, false);
+    assert.equal(app.getPath('vessels.urn:mrn:imo:mmsi:500018921.name'), 'Ambition', 'Signal K data unchanged');
+    plugin.stop();
+});

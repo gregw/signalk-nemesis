@@ -128,4 +128,6 @@ All in `public/derive.js`, pure and loaded by both the webapp and `test/derive.t
 - [ ] Own state kept continuously (current choice) vs only at other boats' report times.
 - [ ] Which derived values, if any, to publish to the data model.
 - [ ] Mapping tracker-feed names to MMSIs.
+- [x] Boats entered in advance in the plugin config (`boats`: MMSI, name, TCF): seed the nemesis list and TCFs when added or when the configured TCF changes (applied values remembered in nemesis-state.json, so restarts keep webapp edits); configured name shown in the plugin only, AIS name in the popup.
+- [ ] Configured boats not yet heard are not listed (could show them greyed in Boats and TCF).
 - [ ] Division filter for Show: AIS has no division, so it needs a per-boat division entered like TCF.

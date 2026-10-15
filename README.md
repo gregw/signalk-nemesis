@@ -146,6 +146,7 @@ The first browser run on a machine needs `npm install` in the checkout and
 
 | Option                     | Meaning                                                                         | Default        |
 |----------------------------|---------------------------------------------------------------------------------|----------------|
+| `boats`                    | Nemesis boats entered in advance: `{mmsi, name, tcf}`. See below                | none           |
 | `staleSeconds`             | A boat is stale (greyed, lines broken) after this long without a report         | 1800           |
 | `historyHours`             | Track history kept in memory and on disk                                        | 120 (5 d)      |
 | `recentHours`              | Full resolution window; older history is thinned                               | 6              |
@@ -158,6 +159,13 @@ The first browser run on a machine needs `npm install` in the checkout and
 | `waypointOrder`            | Next waypoint: `course,nmea` (Course API first) or `nmea,course`                | `course,nmea`  |
 | `nmeaWaypointStaleSeconds` | Ignore an NMEA next point not updated for this long                             | 30             |
 | `waypointName`             | Fallback waypoint, by name in the waypoint resources; empty for none           | `nemesis`      |
+
+Boats entered in advance (`boats`) are made nemeses with their TCF when they are added, and
+their TCF is set again when it is changed in the configuration. What was applied is
+remembered, so a restart (or a brownout) with the same configuration never undoes changes
+made in the webapp since. Removing a boat from the list leaves it as it is. A configured name
+is shown in this plugin instead of the name the boat sends over AIS (the snapshot's `aisName`
+keeps that, and the boat popup shows it); the Signal K data model is not changed.
 
 ## Interfaces
 

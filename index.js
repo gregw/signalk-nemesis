@@ -42,6 +42,23 @@ const schema = {
     title: 'Nemesis Delta',
     type: 'object',
     properties: {
+        boats: {
+            type: 'array',
+            title: 'Nemesis boats, entered in advance',
+            description:
+                'Each is made a nemesis with its TCF when added, or when its TCF here changes; webapp edits ' +
+                'are kept across restarts. The name replaces the AIS name in this plugin only.',
+            default: [],
+            items: {
+                type: 'object',
+                required: ['mmsi'],
+                properties: {
+                    mmsi: {type: 'string', title: 'MMSI', pattern: '^[0-9]{9}$'},
+                    name: {type: 'string', title: 'Name'},
+                    tcf: {type: 'number', title: 'TCF', exclusiveMinimum: 0, maximum: 3}
+                }
+            }
+        },
         staleSeconds: {
             type: 'number',
             title: 'Stale after (seconds without a report)',
@@ -158,6 +175,7 @@ module.exports = function (app) {
             onError: (e) => app.error(`Track journal: ${e.message}`)
         });
         const userState = new UserState(app.getDataDirPath(), (e) => app.error(`Saving state failed: ${e.message}`));
+        userState.applyConfig(cfg.boats);
         const ais = new AisSourceAdapter(
             app,
             (r) => {
@@ -353,6 +371,7 @@ module.exports = function (app) {
                     userState: s.userState,
                     waypoint,
                     start: s.startTime.get(),
+                    names: s.cfg.names,
                     tcfVmgMs: s.cfg.tcfVmgSeconds * 1000,
                     staleMs: s.cfg.staleSeconds * 1000,
                     now: s.clock()
@@ -411,8 +430,29 @@ function withDefaults(options) {
         tcfVmgSeconds: d('tcfVmgSeconds'),
         waypointOrder: o.waypointOrder === 'nmea,course' ? 'nmea,course' : 'course,nmea',
         nmeaWaypointStaleSeconds: d('nmeaWaypointStaleSeconds'),
-        waypointName: typeof o.waypointName === 'string' ? o.waypointName : schema.properties.waypointName.default
+        waypointName: typeof o.waypointName === 'string' ? o.waypointName : schema.properties.waypointName.default,
+        ...configuredBoats(o.boats)
     };
+}
+
+/**
+ * Configured boats, invalid entries dropped, later duplicates ignored.
+ * @returns {{boats: {mmsi, name, tcf}[], names: Map<string, string>}} names: mmsi -> configured name
+ */
+function configuredBoats(list) {
+    const boats = [];
+    const names = new Map();
+    const seen = new Set();
+    for (const b of Array.isArray(list) ? list : []) {
+        const mmsi = b && String(b.mmsi ?? '').trim();
+        if (!/^[0-9]{9}$/.test(mmsi) || seen.has(mmsi)) continue;
+        seen.add(mmsi);
+        const name = typeof b.name === 'string' && b.name.trim() ? b.name.trim() : null;
+        const tcf = validTcf(b.tcf) ? b.tcf : null;
+        boats.push({mmsi, name, tcf});
+        if (name) names.set(mmsi, name);
+    }
+    return {boats, names};
 }
 
 module.exports.PLUGIN_ID = PLUGIN_ID;
