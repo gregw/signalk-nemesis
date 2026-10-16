@@ -384,6 +384,8 @@ test('Up = Course: each boat toward its own next mark of the named waypoints; CO
     const {ctx, page, errors} = await open(PHONE);
     const opts = await page.$$eval('#upSel option', (os) => os.map((o) => o.value));
     assert.deepEqual(opts.slice(0, 5), ['waypoint', 'course', 'cog', 'north', 'wind']);
+    await tab(page, 'boats');
+    assert.equal(await page.locator('#blist .rd.nm').count(), 0, 'no next mark unless Up = Course');
     await page.selectOption('#upSel', 'course');
     await tab(page, 'vectors');
     // The course is Mark A then Cape Byron ("Gone" is configured but not found).
@@ -393,6 +395,10 @@ test('Up = Course: each boat toward its own next mark of the named waypoints; CO
     assert.match(head, /VMG→crs/);
     assert.doesNotMatch(head, /no course/);
     assert.ok((await page.locator('#blist .spk .dot').count()) > 5, 'charts along the course');
+    const nexts = await page.locator('#blist .brow[data-id] .rd.nm').allTextContents();
+    assert.ok(nexts.length > 10, 'next mark on every row with a fix');
+    for (const n of nexts) assert.match(n, /^→ (Mark A|Cape Byron Lighthouse Northern Approach)$/);
+    await shot(page, 'phone-course-boats');
     await page.locator('#blist .brow[data-id]:not(.us) .bn').first().click();
     await page.locator('#tip').waitFor({state: 'visible'});
     assert.match(await page.locator('#tip').textContent(), /DTF \d+\.\dnm.*next (Mark A|Cape Byron)/);

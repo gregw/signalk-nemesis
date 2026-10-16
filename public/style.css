@@ -537,6 +537,10 @@ svg .hi {
     color: var(--steel);
     white-space: nowrap;
 }
+.brow .rd.nm {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 .rd .fast {
     color: var(--fast);
 }

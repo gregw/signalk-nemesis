@@ -102,6 +102,11 @@
                 const dC = ((((UNITS.deg(s.cogRad) - UNITS.deg(r.u.cogRad)) % 360) + 540) % 360) - 180;
                 hdr = `<span class="${dS >= 0 ? 'fast' : 'slow'}">${DRAW.signed(dS, 1)}kn</span> ${DRAW.signed(dC, 0)}&deg;`;
             }
+            // Up = Course: the mark this boat's latest report is sailing to (its own pick).
+            const next =
+                s && view.wp && view.wp.isCourse
+                    ? `<span class="rd nm" title="next mark">&#8594; ${DRAW.esc(view.wp.marks[view.wp.mark(s)].name || '?')}</span>`
+                    : '';
             const [vLo, vHi] = centred(r.vExt, vSpan);
             const [dLo, dHi] = centred(r.dExt, dSpan);
             const vChart = DRAW.spark(r.vmg, b.color, vLo, vHi, view.now, view.periodMs, view.staleMs);
@@ -115,7 +120,7 @@
         ${icon}
         <div class="idcol" data-sel="${DRAW.esc(b.id)}" data-hit="1">
           <span class="bn ${b.isUs ? 'ref' : ''}">${DRAW.esc(b.name)}</span>
-          <span class="rd">${hdr}</span>
+          <span class="rd">${hdr}</span>${next}
         </div>
         <div class="chart">${vCv}<span class="spkwrap">${vChart}</span></div>
         <div class="chart">${dCv}<span class="spkwrap">${dChart}</span></div>
