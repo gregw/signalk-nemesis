@@ -136,7 +136,7 @@ it is recorded in that folder's `package.json` and survives later Appstore insta
 3. In a Command Prompt in that folder:
 
    ```text
-   npm install signalk-nemesis-0.2.0.tgz
+   npm install signalk-nemesis-0.2.1.tgz
    ```
 
    `npm` must be the one belonging to the Node.js the server runs on (TODO(verify): how the
