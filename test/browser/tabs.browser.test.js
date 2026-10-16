@@ -439,7 +439,8 @@ test('Show = Sailing: hides known non sailing types and moored boats, keeps neme
     const extra = [
         ['600000001', 'Big Tanker', 80, near(0.02, 1, 6)],
         ['600000002', 'Moored Yacht', 37, near(0.01, 0, 0.1)],
-        ['600000003', 'Cruising Yacht', 37, near(-0.01, 2, 3)],
+        ['600000003', 'Racing Yacht', 36, near(-0.01, 2, 3)],
+        ['600000005', 'Motor Cruiser', 37, near(-0.015, 2, 3)],
         ['600000004', 'No Type Yet', null, near(-0.02, 3, 3)]
     ];
     for (const [mmsi, name, type, r] of extra) {
@@ -454,7 +455,8 @@ test('Show = Sailing: hides known non sailing types and moored boats, keeps neme
     const ids = async () => page.locator('#blist .brow[data-id]').evaluateAll((es) => es.map((e) => e.dataset.id));
     await page.locator('#blist .brow[data-id="600000003"]').waitFor();
     const shown = new Set(await ids());
-    assert.ok(shown.has('600000003'), 'moving pleasure craft');
+    assert.ok(shown.has('600000003'), 'moving sailing yacht');
+    assert.ok(!shown.has('600000005'), 'pleasure craft hidden');
     assert.ok(shown.has('600000004'), 'no ship type yet');
     assert.ok(!shown.has('600000001'), 'tanker hidden');
     assert.ok(!shown.has('600000002'), 'moored yacht hidden');

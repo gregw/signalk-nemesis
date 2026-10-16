@@ -31,9 +31,10 @@ const ND = (() => {
     const OVERLAP_MS = 120e3; // incremental fetch re-asks this far back, for late reports
     const US_GAP_MS = 60e3; // our state counts as "at" a time if sampled within this
     const STEP_MS = 10 * 60e3; // the Time popup's back and forward buttons
-    // Show = Sailing: AIS ship types kept (36 Sailing, 37 Pleasure; signalk-schema design.json)
+    // Show = Sailing: AIS ship types kept (36 Sailing; signalk-schema design.json; 37 Pleasure
+    // is hidden: decided 2026-10-16)
     // and the speed below which a boat counts as moored.
-    const SAILING_TYPES = new Set([36, 37]);
+    const SAILING_TYPES = new Set([36]);
     const MOORED_SOG_MS = (0.5 * 1852) / 3600;
     const PREFS_KEY = 'nd_prefs';
     const OWN_ID = 'self';

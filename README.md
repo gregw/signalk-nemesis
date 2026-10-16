@@ -207,9 +207,9 @@ is shown in this plugin instead of the name the boat sends over AIS (the snapsho
 keeps that, and the boat popup shows it); the Signal K data model is not changed.
 
 The webapp's **Show** filter has a **Sailing** choice for busy harbours: it hides boats whose
-AIS ship type is known and is neither Sailing (36) nor Pleasure (37), boats under 0.5 kn and boats out of range,
-but always shows nemesis and configured boats. A boat that has not sent a ship type yet is
-shown.
+AIS ship type is known and is not Sailing (36), so Pleasure (37) too, boats under 0.5 kn and
+boats out of range, but always shows nemesis and configured boats. A boat that has not sent a
+ship type yet is shown.
 
 ## Interfaces
 
