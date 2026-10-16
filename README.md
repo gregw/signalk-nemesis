@@ -125,9 +125,10 @@ The plugin is not on npm yet, so it is not in the Appstore. Install it from a pa
 instead, the same way the Appstore installs plugins (npm in the server's config folder), so
 it is recorded in that folder's `package.json` and survives later Appstore installs.
 
-1. Build the package on a development machine: `npm run pack` makes
-   `dist/signalk-nemesis-<version>.tgz` (about 100 kB: the plugin and webapp only, no tests or
-   test data).
+1. Download `signalk-nemesis-<version>.tgz` from the
+   [GitHub releases](https://github.com/gregw/signalk-nemesis/releases), or build it on a
+   development machine: `npm run pack` makes `dist/signalk-nemesis-<version>.tgz` (about
+   100 kB: the plugin and webapp only, no tests or test data).
 2. Copy it to the boat computer, into the Signal K config folder: the one holding
    `settings.json`, `package.json` and `plugin-config-data`. On a plain Node install that is
    `%USERPROFILE%\.signalk`; the Signal K Windows installer may put it elsewhere
@@ -135,7 +136,7 @@ it is recorded in that folder's `package.json` and survives later Appstore insta
 3. In a Command Prompt in that folder:
 
    ```text
-   npm install signalk-nemesis-0.1.0.tgz
+   npm install signalk-nemesis-0.2.0.tgz
    ```
 
    `npm` must be the one belonging to the Node.js the server runs on (TODO(verify): how the
