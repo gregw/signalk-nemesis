@@ -104,6 +104,7 @@ The course is the configured named waypoints (`waypointNames`) found in the wayp
 
 - There is a single list: the boats we care about. It is the only per-boat selection.
 - What is displayed is a separate filter, **Show**: Nemesi (default), All, In range, Div (our division), or None (just us). Our own boat is always shown.
+- Show **Sailing** (decided 2026-10-16, after a busy harbour): nemesis and configured boats always; others when in range, moving at least 0.5 kn at the view time, and not of a known non sailing AIS ship type. Data model path `design.aisShipType`, value `{id, name}`; 36 Sailing and 37 Pleasure are kept, and a boat with no type yet counts as sailing (Class B static data comes only every few minutes).
 - Persist the list server-side in plugin config or the data dir, keyed by MMSI with the name as fallback, so it survives restarts and new races.
 
 ### 3.6 Handicap (TCF, time-on-time)

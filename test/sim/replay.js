@@ -27,11 +27,20 @@ async function replayTo(hoursIn, opts = {}) {
     plugin.signalKApiRoutes(app.apiRouter);
     plugin.start(opts.config || {});
 
-    // Static data first, in the N2K PGN 129809 form (path '' with value {name}).
+    // Static data first, the name in the N2K PGN 129809 form (path '' with value {name}),
+    // and the ship type as PGN 129810 maps it (design.aisShipType {id, name}): all sailing.
     for (const [id, name] of sim.names) {
         app.deliver({
             context: 'vessels.urn:mrn:imo:mmsi:' + id,
-            updates: [{timestamp: new Date(now).toISOString(), values: [{path: '', value: {name}}]}]
+            updates: [
+                {
+                    timestamp: new Date(now).toISOString(),
+                    values: [
+                        {path: '', value: {name}},
+                        {path: 'design.aisShipType', value: {id: 36, name: 'Sailing'}}
+                    ]
+                }
+            ]
         });
     }
 

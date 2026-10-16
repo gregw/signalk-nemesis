@@ -87,13 +87,20 @@ test('old segments are compacted: reports thinned per boat, own state dropped, n
         j.append({k: 'o', t: T0 + m * MIN, lat: -33, lon: 151});
     }
     j.append({k: 'n', id: 'a', name: 'Alpha'});
+    j.append({k: 'n', id: 'a', shipType: 36});
     await j.flush();
     clock.now = T0 + 7 * H;
     await j.maintain();
     assert.deepEqual(fs.readdirSync(dir), [`seg-${T0}.thin.jsonl`]);
     const recs = await loadAll(j);
     assert.equal(recs.filter((r) => r.k === 'o').length, 0);
-    assert.equal(recs.filter((r) => r.k === 'n').length, 1);
+    assert.equal(recs.filter((r) => r.k === 'n').length, 2);
+    // Names and types after the reports: replay needs the boat before its name.
+    const firstN = recs.findIndex((r) => r.k === 'n');
+    assert.ok(
+        recs.slice(firstN).every((r) => r.k === 'n'),
+        'name records last'
+    );
     const a = recs.filter((r) => r.boatId === 'a').map((r) => (r.t - T0) / MIN);
     assert.deepEqual(a, [0, 2, 4, 6, 8]);
     assert.equal(recs.filter((r) => r.boatId === 'b').length, 5);

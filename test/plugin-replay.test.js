@@ -28,6 +28,10 @@ test('snapshot after 6 h of simulated AIS', async () => {
         body.boats.every((b) => b.name),
         'every boat named'
     );
+    assert.ok(
+        body.boats.every((b) => b.shipType === 36),
+        'every boat has its AIS ship type'
+    );
 
     for (const b of body.boats) {
         assert.equal(b.current, b.ageMs <= body.staleMs, `${b.name} current flag`);
@@ -118,6 +122,7 @@ test('track history survives a plugin restart (journal)', async () => {
         const a = after.boats.find((x) => x.id === b.id);
         assert.ok(a, b.name);
         assert.equal(a.name, b.name);
+        assert.equal(a.shipType, b.shipType, `${b.name} ship type`);
         assert.deepEqual(a.latest, b.latest);
         assert.equal(a.rangeM, b.rangeM, `${b.name} range`);
     }
@@ -203,10 +208,11 @@ test('configured boats: name used in the snapshot for that MMSI only, nemesis an
     const {app, plugin} = await replayTo(6, {config: {boats: [{mmsi: '500018921', name: 'Nemo', tcf: 1.1}]}});
     const s = (await app.call('GET', API + '/snapshot')).body;
     const b = s.boats.find((x) => x.id === '500018921');
-    assert.deepEqual([b.name, b.aisName, b.nemesis, b.tcf], ['Nemo', 'Ambition', true, 1.1]);
+    assert.deepEqual([b.name, b.aisName, b.nemesis, b.tcf, b.configured], ['Nemo', 'Ambition', true, 1.1, true]);
     const other = s.boats.find((x) => x.id === '500018866');
     assert.equal(other.name, other.aisName, 'other boats keep their AIS name');
     assert.equal(other.nemesis, false);
+    assert.equal(other.configured, false);
     assert.equal(app.getPath('vessels.urn:mrn:imo:mmsi:500018921.name'), 'Ambition', 'Signal K data unchanged');
     plugin.stop();
 });

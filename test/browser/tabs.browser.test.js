@@ -424,3 +424,47 @@ test('Up = Course: each boat toward its own next mark of the named waypoints; CO
     assert.deepEqual(errors, []);
     await ctx.close();
 });
+
+test('Show = Sailing: hides known non sailing types and moored boats, keeps nemesis', async () => {
+    const {toDelta} = require('../sim/ais-sim');
+    const snap = (await srv.app.call('GET', '/signalk/v1/api/nemesis/snapshot')).body;
+    const near = (dLat, cogRad, sogMs) => ({
+        t: Date.now(),
+        lat: snap.own.lat + dLat,
+        lon: snap.own.lon,
+        cogRad,
+        sogMs
+    });
+    // [mmsi, name, ship type id or null, report]
+    const extra = [
+        ['600000001', 'Big Tanker', 80, near(0.02, 1, 6)],
+        ['600000002', 'Moored Yacht', 37, near(0.01, 0, 0.1)],
+        ['600000003', 'Cruising Yacht', 37, near(-0.01, 2, 3)],
+        ['600000004', 'No Type Yet', null, near(-0.02, 3, 3)]
+    ];
+    for (const [mmsi, name, type, r] of extra) {
+        const context = 'vessels.urn:mrn:imo:mmsi:' + mmsi;
+        const values = [{path: '', value: {name}}];
+        if (type) values.push({path: 'design.aisShipType', value: {id: type, name: 'x'}});
+        srv.app.deliver({context, updates: [{timestamp: new Date().toISOString(), values}]});
+        srv.app.deliver(toDelta(context, r));
+    }
+    const {ctx, page, errors} = await open(PHONE, 'sailing');
+    await tab(page, 'boats');
+    const ids = async () => page.locator('#blist .brow[data-id]').evaluateAll((es) => es.map((e) => e.dataset.id));
+    await page.locator('#blist .brow[data-id="600000003"]').waitFor();
+    const shown = new Set(await ids());
+    assert.ok(shown.has('600000003'), 'moving pleasure craft');
+    assert.ok(shown.has('600000004'), 'no ship type yet');
+    assert.ok(!shown.has('600000001'), 'tanker hidden');
+    assert.ok(!shown.has('600000002'), 'moored yacht hidden');
+    assert.ok(shown.has('500018921'), 'configured nemesis boat');
+    await shot(page, 'phone-show-sailing');
+    await page.selectOption('#showSel', 'all');
+    await page.locator('#blist .brow[data-id="600000001"]').waitFor();
+    const all = new Set(await ids());
+    assert.ok(all.has('600000002'), 'All still shows everything');
+    assert.ok(all.size > shown.size);
+    assert.deepEqual(errors, []);
+    await ctx.close();
+});

@@ -14,6 +14,7 @@ function fakeApp({dataDir, selfId = 'urn:mrn:imo:mmsi:503999999', selfPaths = {}
         put: (p, h) => routes.push({method: 'PUT', path: prefix + p, handler: h})
     });
     const names = new Map(); // context -> name, as the full data model would hold it
+    const shipTypes = new Map(); // context -> {id, name}
     const app = {
         selfId,
         selfContext: 'vessels.' + selfId,
@@ -21,10 +22,13 @@ function fakeApp({dataDir, selfId = 'urn:mrn:imo:mmsi:503999999', selfPaths = {}
         errors: [],
         getDataDirPath: () => dataDir,
         getSelfPath: (p) => selfPaths[p],
-        // Only vessel names are modelled: enough for the AIS adapter's name lookup.
+        // Only vessel names and AIS ship types are modelled: enough for the AIS adapter's lookup.
         getPath: (p) => {
             const m = /^vessels\.(.+)\.name$/.exec(p);
-            return m ? names.get('vessels.' + m[1]) : undefined;
+            if (m) return names.get('vessels.' + m[1]);
+            const t = /^(vessels\..+)\.design\.aisShipType$/.exec(p);
+            // A leaf as the full model holds it: {value, $source, timestamp}.
+            return t && shipTypes.has(t[1]) ? {value: shipTypes.get(t[1])} : undefined;
         },
         // Course API and resources API stand-ins; tests assign course/resources directly.
         course: null,
@@ -60,6 +64,7 @@ function fakeApp({dataDir, selfId = 'urn:mrn:imo:mmsi:503999999', selfPaths = {}
                 for (const v of u.values) {
                     if (v.path === 'name' && typeof v.value === 'string') names.set(ctx, v.value);
                     if (v.path === '' && v.value && typeof v.value.name === 'string') names.set(ctx, v.value.name);
+                    if (v.path === 'design.aisShipType' && v.value) shipTypes.set(ctx, v.value);
                     const one = {context: ctx, updates: [{...u, values: [v]}]};
                     for (const s of subs) {
                         const ctxOk =

@@ -194,6 +194,11 @@ module.exports = function (app) {
             (id, name) => {
                 store.setName(id, name);
                 journal.append({k: 'n', id, name});
+            },
+            Date.now,
+            (id, shipType) => {
+                store.setShipType(id, shipType);
+                journal.append({k: 'n', id, shipType});
             }
         );
         const ownAdapter = new OwnAdapter(app, (s) => {
@@ -261,7 +266,8 @@ module.exports = function (app) {
             const {k, ...o} = rec;
             s.own.add(o);
         } else if (rec.k === 'n' && typeof rec.id === 'string') {
-            s.store.setName(rec.id, rec.name);
+            if (rec.name !== undefined) s.store.setName(rec.id, rec.name);
+            if (rec.shipType !== undefined) s.store.setShipType(rec.id, rec.shipType);
         }
     }
 
@@ -374,6 +380,7 @@ module.exports = function (app) {
                     waypoint,
                     start: s.startTime.get(),
                     names: s.cfg.names,
+                    configured: s.cfg.configuredIds,
                     namedWaypoints: s.waypoints.namedList(),
                     waypointNames: s.cfg.waypointNames,
                     tcfVmgMs: s.cfg.tcfVmgSeconds * 1000,
@@ -454,7 +461,7 @@ function waypointNames(o) {
 
 /**
  * Configured boats, invalid entries dropped, later duplicates ignored.
- * @returns {{boats: {mmsi, name, tcf}[], names: Map<string, string>}} names: mmsi -> configured name
+ * @returns {{boats: {mmsi, name, tcf}[], names: Map<string, string>, configuredIds: Set<string>}} names: mmsi -> configured name
  */
 function configuredBoats(list) {
     const boats = [];
@@ -469,7 +476,7 @@ function configuredBoats(list) {
         boats.push({mmsi, name, tcf});
         if (name) names.set(mmsi, name);
     }
-    return {boats, names};
+    return {boats, names, configuredIds: seen};
 }
 
 module.exports.PLUGIN_ID = PLUGIN_ID;

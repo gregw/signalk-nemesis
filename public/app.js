@@ -31,6 +31,10 @@ const ND = (() => {
     const OVERLAP_MS = 120e3; // incremental fetch re-asks this far back, for late reports
     const US_GAP_MS = 60e3; // our state counts as "at" a time if sampled within this
     const STEP_MS = 10 * 60e3; // the Time popup's back and forward buttons
+    // Show = Sailing: AIS ship types kept (36 Sailing, 37 Pleasure; signalk-schema design.json)
+    // and the speed below which a boat counts as moored.
+    const SAILING_TYPES = new Set([36, 37]);
+    const MOORED_SOG_MS = (0.5 * 1852) / 3600;
     const PREFS_KEY = 'nd_prefs';
     const OWN_ID = 'self';
 
@@ -286,6 +290,18 @@ const ND = (() => {
     }
 
     /* ---------- the view: everything a tab needs for one render ---------- */
+    /*
+     * Show = Sailing: nemesis and configured boats always; others when in range, not
+     * known to be a non sailing type (no type yet counts as sailing: Class B static data
+     * comes only every few minutes) and moving at least MOORED_SOG_MS at the view time.
+     */
+    function isSailing(b) {
+        if (b.nemesis || b.configured) return true;
+        if (!b.cur) return false;
+        if (b.shipType != null && !SAILING_TYPES.has(b.shipType)) return false;
+        return Number.isFinite(b.cur.sogMs) && b.cur.sogMs >= MOORED_SOG_MS;
+    }
+
     function buildView() {
         const s = M.snap;
         const now = nowT();
@@ -323,6 +339,8 @@ const ND = (() => {
                 isUs: false,
                 nemesis: b.nemesis,
                 tcf: b.tcf || 1,
+                configured: !!b.configured,
+                shipType: b.shipType == null ? null : b.shipType,
                 color: DRAW.colorFor(b.id),
                 series,
                 cur: DERIVE.stateAt(series, now, st)
@@ -335,6 +353,8 @@ const ND = (() => {
                     return true;
                 case 'inrange':
                     return !!b.cur;
+                case 'sailing':
+                    return isSailing(b);
                 case 'none':
                     return false;
                 default:

@@ -96,7 +96,7 @@ test('AIS adapter looks names up in the data model, throttled', () => {
     const model = {};
     const app = {
         getPath: (p) => {
-            lookups++;
+            if (p.endsWith('.name')) lookups++;
             return model[p];
         },
         debug: () => {}
@@ -118,7 +118,48 @@ test('AIS adapter looks names up in the data model, throttled', () => {
     t = 31e3;
     a._lookupName(ctx, '503000001');
     assert.deepEqual(names, [['503000001', 'Calibre 12']]);
+    model[ctx + '.design.aisShipType'] = {value: {id: 36, name: 'Sailing'}};
+    t = 62e3; // named but no ship type yet: still the retry interval
+    a._lookupName(ctx, '503000001');
+    assert.equal(lookups, 3);
     t = 100e3;
-    a._lookupName(ctx, '503000001'); // named: refresh interval is longer
-    assert.equal(lookups, 2);
+    a._lookupName(ctx, '503000001'); // named and typed: refresh interval is longer
+    assert.equal(lookups, 3);
+});
+
+test('AIS adapter reads the ship type from the data model, as a leaf or a bare value', () => {
+    const {AisSourceAdapter} = require('../lib/ais-adapter');
+    let t = 0;
+    const model = {};
+    const app = {getPath: (p) => model[p], debug: () => {}};
+    const types = [];
+    const a = new AisSourceAdapter(
+        app,
+        () => {},
+        () => {},
+        () => t,
+        (id, st) => types.push([id, st])
+    );
+    const ctx = 'vessels.urn:mrn:imo:mmsi:503000001';
+    model[ctx + '.name'] = 'Calibre 12';
+    a._lookupName(ctx, '503000001');
+    assert.deepEqual(types, [], 'no type yet');
+    model[ctx + '.design.aisShipType'] = {value: {id: 36, name: 'Sailing'}, $source: 'x'};
+    t = 31e3; // no type yet: retried at the short interval although named
+    a._lookupName(ctx, '503000001');
+    assert.deepEqual(types, [['503000001', 36]]);
+    model[ctx + '.design.aisShipType'] = {id: 70, name: 'Cargo'};
+    t = 100e3; // complete: not looked up again before the refresh interval
+    a._lookupName(ctx, '503000001');
+    assert.deepEqual(types, [['503000001', 36]]);
+    t = 700e3;
+    a._lookupName(ctx, '503000001');
+    assert.deepEqual(types, [
+        ['503000001', 36],
+        ['503000001', 70]
+    ]);
+    delete model[ctx + '.design.aisShipType'];
+    t = 1400e3; // gone from the model (server restart): the known type is kept
+    a._lookupName(ctx, '503000001');
+    assert.equal(types.length, 2);
 });
