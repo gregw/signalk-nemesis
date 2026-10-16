@@ -66,7 +66,8 @@ The user picks what "up" means; it drives the vector plot rotation, the map rota
 | Frame | Up direction | Status |
 |---|---|---|
 | Waypoint | bearing from our position to the active waypoint | in prototype the waypoint is the finish (min-DTG fix); live: course API next point, `TODO(verify)` path |
-| Course | our COG | done |
+| Course | bearing from us to our next mark of the course (decided 2026-10-16) | done |
+| COG | our COG (called Course before 2026-10-16) | done |
 | North | true north | done |
 | Wind | true wind direction | needs wind data; disabled in prototype |
 
@@ -75,7 +76,8 @@ The waypoint must come from a single `waypoint()` seam. The prototype has `waypo
 ### 3.2 VMG toward Up
 
 - Waypoint: VMC, the rate of change of the boat's distance to the waypoint between its own consecutive reports, positive when closing. Use the boat's own previous report, not a timeline step, and ignore gaps longer than the stale threshold. With no usable previous report (first report, or a longer gap), use that report's `SOG x cos(COG - the boat's own bearing to the waypoint)`, and ours the same way in Relative mode (decided 2026-10-16). A negative VMC usually means the boat has rounded the mark; until the whole course is known, that is left to show as it is.
-- Course: `SOG x cos(COG_boat - COG_us)`, with our COG taken at their report time.
+- Course: as Waypoint, toward the boat's own next mark of the course (below).
+- COG: `SOG x cos(COG_boat - COG_us)`, with our COG taken at their report time.
 - North: `SOG x cos(COG)`.
 - Wind: `SOG x cos(COG - TWD)` (to do).
 - Relative mode shows the boat's VMG minus ours at the same time.
@@ -83,8 +85,13 @@ The waypoint must come from a single `waypoint()` seam. The prototype has `waypo
 ### 3.3 Lead toward Up (+ = they are ahead)
 
 - Waypoint: `DTG_us - DTG_boat`, with both measured to the same waypoint at their report time.
-- Course: the displacement from us to them projected on our COG.
+- Course: `DTF_us - DTF_boat`, each boat's own distance to finish along the course.
+- COG: the displacement from us to them projected on our COG.
 - North: the northward displacement.
+
+### 3.3a The course (Up = Course)
+
+The course is the configured named waypoints (`waypointNames`) found in the waypoint resources, in configured order, the last being the finish. Each report picks its own next mark: the closest mark it has positive instant VMC toward (`SOG x cos(COG - bearing to the mark)`), else the closest mark. Marks are picked per report, so a boat can switch back (decided 2026-10-16: a forward-only leg would take drifting backwards for a rounding). DTF = distance to that mark plus the legs from it to the finish. VMC between two reports is measured toward the newer report's mark for both, so a switch does not show as a leg-sized jump. Known weakness: a boat drifting or sailing away from its true next mark may pick a later mark that happens to lie that way, and briefly show a much smaller DTF.
 
 ### 3.4 Staleness and reception
 

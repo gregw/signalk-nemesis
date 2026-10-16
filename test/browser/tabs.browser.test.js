@@ -379,3 +379,42 @@ test('Up: a named waypoint picked by hand; one no longer found stays picked and 
     assert.deepEqual(errors, []);
     await ctx.close();
 });
+
+test('Up = Course: each boat toward its own next mark of the named waypoints; COG and North kept', async () => {
+    const {ctx, page, errors} = await open(PHONE);
+    const opts = await page.$$eval('#upSel option', (os) => os.map((o) => o.value));
+    assert.deepEqual(opts.slice(0, 5), ['waypoint', 'course', 'cog', 'north', 'wind']);
+    await page.selectOption('#upSel', 'course');
+    await tab(page, 'vectors');
+    // The course is Mark A then Cape Byron ("Gone" is configured but not found).
+    assert.match(await page.locator('#modeLine').textContent(), /course → Mark A \(not found: Gone\) up$/);
+    await tab(page, 'boats');
+    const head = await page.locator('#bhead').textContent();
+    assert.match(head, /VMG→crs/);
+    assert.doesNotMatch(head, /no course/);
+    assert.ok((await page.locator('#blist .spk .dot').count()) > 5, 'charts along the course');
+    await page.locator('#blist .brow[data-id]:not(.us) .bn').first().click();
+    await page.locator('#tip').waitFor({state: 'visible'});
+    assert.match(await page.locator('#tip').textContent(), /DTF \d+\.\dnm.*next (Mark A|Cape Byron)/);
+    await page.locator('#tipClose').click();
+    await tab(page, 'geo');
+    assert.equal(await page.locator('#mapcontent polyline[stroke-dasharray]').count(), 1, 'course line');
+    for (const n of ['Mark A', 'Cape Byron Lighthouse Northern Approach'])
+        assert.equal(await page.locator('#mapcontent text', {hasText: n}).count(), 1, n);
+    await shot(page, 'phone-course');
+    await tab(page, 'tcf');
+    assert.match(await page.locator('#tcfNote').textContent(), /toward course → Mark A/);
+    assert.doesNotMatch(await page.locator('#tcfNote').textContent(), /compare with Up/);
+
+    // A stored Up of 'course' from before means COG.
+    await page.evaluate(() => {
+        const p = JSON.parse(localStorage.getItem('nd_prefs') || '{}');
+        delete p.upV;
+        localStorage.setItem('nd_prefs', JSON.stringify({...p, up: 'course'}));
+    });
+    await page.reload();
+    await page.locator('#conn', {hasText: 'live'}).waitFor();
+    assert.equal(await page.locator('#upSel').inputValue(), 'cog');
+    assert.deepEqual(errors, []);
+    await ctx.close();
+});

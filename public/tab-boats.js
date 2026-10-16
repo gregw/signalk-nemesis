@@ -10,8 +10,16 @@
     const $ = (id) => document.getElementById(id);
     const pad3 = (deg) => (deg == null ? '---' : String(Math.round(deg) % 360).padStart(3, '0'));
 
-    const VMG_LABEL = {waypoint: 'VMG&#8594;wpt', course: 'VMG&#8594;crs', north: 'VMG N', wind: 'VMG&#8594;wind'};
-    const LEAD_LABEL = {waypoint: 'Lead wpt', course: 'Lead crs', north: 'Lead N', wind: 'Lead wind'};
+    const VMG_LABEL = {
+        waypoint: 'VMG&#8594;wpt',
+        course: 'VMG&#8594;crs',
+        cog: 'VMG COG',
+        north: 'VMG N',
+        wind: 'VMG&#8594;wind'
+    };
+    const LEAD_LABEL = {waypoint: 'Lead wpt', course: 'Lead crs', cog: 'Lead COG', north: 'Lead N', wind: 'Lead wind'};
+    // Frames that need a waypoint or a course, and what to say when there is none.
+    const NO_TARGET = {waypoint: 'no waypoint', course: 'no course'};
 
     /** Chart series in display units (kn, nm) plus the values used for sorting. */
     function rowData(b, view) {
@@ -43,7 +51,7 @@
             vmg,
             lead,
             dist: b.isUs ? 0 : s && u ? GEO.distance(u, s) : Infinity,
-            dtg: s && view.wp ? GEO.distance(s, view.wp) : Infinity,
+            dtg: (s && DERIVE.dtg(s, view.wp)) ?? Infinity, // to the waypoint, or along the course
             // Absolute, so the ranking is the same in both modes; no value sorts last.
             vmgSort: vmgNow != null && Number.isFinite(vmgNow) ? vmgNow : -Infinity
         };
@@ -54,7 +62,7 @@
     function render(view) {
         const list = $('blist');
         if (!view.snap) {
-            const noWp = view.frame === 'waypoint' && !view.wp ? '<span class="err">no waypoint</span>' : null;
+            const noWp = NO_TARGET[view.frame] && !view.wp ? `<span class="err">${NO_TARGET[view.frame]}</span>` : null;
             $('bhead').innerHTML = '';
             list.innerHTML = '<div class="empty">Waiting for data from the plugin.</div>';
             return;
@@ -115,7 +123,7 @@
         });
         if (rows.length <= 1) html.push('<div class="empty">No other boats to show. Try Show: All.</div>');
 
-        const noWp = view.frame === 'waypoint' && !view.wp ? '<span class="err">no waypoint</span>' : null;
+        const noWp = NO_TARGET[view.frame] && !view.wp ? `<span class="err">${NO_TARGET[view.frame]}</span>` : null;
         $('bhead').innerHTML =
             `<span class="sp" style="width:30px"></span>` +
             `<span class="bh-id"><b>Boat</b><span class="bh-sub">${view.mode === 'rel' ? '&Delta;SOG/COG' : 'SOG/COG'}</span></span>` +

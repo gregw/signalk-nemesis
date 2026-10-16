@@ -98,7 +98,10 @@
         const fmtNet = (v) => DRAW.signed(v, Math.abs(v) < 10 ? 1 : 0);
         const chipCls = (v) => (v > 0.05 ? 'pos' : v < -0.05 ? 'neg' : '');
 
-        const caveat = view.frame === 'waypoint' ? '' : ' (Should is toward the waypoint: compare with Up = Waypoint)';
+        const caveat =
+            view.frame === 'waypoint' || view.frame === 'course'
+                ? ''
+                : ' (Should is toward the waypoint: compare with Up = Waypoint or Course)';
         $('tcfNote').innerHTML =
             ` &middot; vs us, toward ${DRAW.esc(view.upName)}${caveat}${reason ? ` &middot; <span class="err">Should: ${reason}</span>` : ''}`;
         $('tcfhead').innerHTML =

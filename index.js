@@ -375,6 +375,7 @@ module.exports = function (app) {
                     start: s.startTime.get(),
                     names: s.cfg.names,
                     namedWaypoints: s.waypoints.namedList(),
+                    waypointNames: s.cfg.waypointNames,
                     tcfVmgMs: s.cfg.tcfVmgSeconds * 1000,
                     staleMs: s.cfg.staleSeconds * 1000,
                     now: s.clock()

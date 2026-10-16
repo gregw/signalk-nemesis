@@ -49,6 +49,11 @@ const ND = (() => {
         },
         loadPrefs()
     );
+    // Up 'course' used to mean our COG (now 'cog'); 'course' is now the course of marks.
+    if (!prefs.upV) {
+        if (prefs.up === 'course') prefs.up = 'cog';
+        prefs.upV = 2;
+    }
 
     const M = {
         snap: null, // last good snapshot
@@ -286,9 +291,17 @@ const ND = (() => {
         const now = nowT();
         const live = M.viewT == null;
         const st = staleMs();
-        const {frame, wp, upName} = upChoice(s);
+        const {frame, wp} = upChoice(s);
+        let {upName} = upChoice(s);
         const ctx = {frame, wp, us: M.us, staleMs: st, usGapMs: US_GAP_MS};
         const usNow = live && s && s.own ? s.own : DERIVE.stateAt(M.us, now, st);
+        if (frame === 'course') {
+            // Our next mark, and any configured mark the server did not find (a gap in the course).
+            if (wp && usNow) upName += ' \u2192 ' + (wp.marks[wp.mark(usNow)].name || '?');
+            const found = new Set(((s && s.namedWaypoints) || []).map((w) => w.name));
+            const missing = ((s && s.waypointNames) || []).filter((n) => !found.has(n));
+            if (missing.length) upName += ` (not found: ${missing.join(', ')})`;
+        }
         const up = DERIVE.upDir(frame, usNow, wp);
         const all = [];
         all.push({
@@ -364,8 +377,19 @@ const ND = (() => {
             const wp = (s && (s.namedWaypoints || []).find((w) => w.name === name)) || null;
             return {frame: 'waypoint', wp, upName: name};
         }
-        return {frame: prefs.up, wp: s ? s.waypoint : null, upName: prefs.up};
+        if (prefs.up === 'course') {
+            // The course: the named waypoints found, in configured order (makeCourse).
+            const key = JSON.stringify((s && s.namedWaypoints) || []);
+            if (key !== courseKey) {
+                courseKey = key;
+                course = DERIVE.makeCourse((s && s.namedWaypoints) || []);
+            }
+            return {frame: 'course', wp: course, upName: 'course'};
+        }
+        return {frame: prefs.up, wp: s ? s.waypoint : null, upName: prefs.up === 'cog' ? 'COG' : prefs.up};
     }
+    let course = null; // rebuilt only when the marks change (it caches each report's mark)
+    let courseKey = null;
 
     // Up options: the fixed ones, then each named waypoint the server found, then a
     // picked one no longer found (so the choice is visible, not silently changed).
@@ -519,7 +543,9 @@ const ND = (() => {
             (b.aisName ? ` <span class="tipt">AIS: ${DRAW.esc(b.aisName)}</span>` : '') +
             '<br>' +
             `SOG ${UNITS.fmt(UNITS.kn(s.sogMs), 1)}kn  COG ${pad3(UNITS.deg(s.cogRad))}&deg;<br>` +
-            `VMC ${UNITS.fmt(UNITS.kn(vmc), 1)}kn  DTG ${UNITS.fmt(UNITS.nm(dtg), 1)}nm<br>` +
+            `VMC ${UNITS.fmt(UNITS.kn(vmc), 1)}kn  ${wp && wp.isCourse ? 'DTF' : 'DTG'} ${UNITS.fmt(UNITS.nm(dtg), 1)}nm<br>` +
+            // On a course, the mark this report is sailing to (its own pick).
+            (wp && wp.isCourse ? `next ${DRAW.esc(wp.marks[wp.mark(s)].name || '?')}<br>` : '') +
             rel +
             `<span class="tipt">${new Date(s.t).toLocaleTimeString()} (${UNITS.fmtAge(view.now - s.t)} ago)</span>`;
         el.style.display = 'block';

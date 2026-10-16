@@ -247,13 +247,28 @@
         renderTiles();
         let s = '';
         const upright = (x, y) => `transform="rotate(${rotDeg.toFixed(3)}, ${x.toFixed(1)}, ${y.toFixed(1)})"`;
-        if (view.wp) {
-            const [wx, wy] = projPx(mercX(view.wp.lon), mercY(view.wp.lat));
-            s +=
-                `<circle cx="${wx.toFixed(1)}" cy="${wy.toFixed(1)}" r="9" fill="none" stroke="#cc2033" stroke-width="2"/>` +
-                `<circle cx="${wx.toFixed(1)}" cy="${wy.toFixed(1)}" r="3.5" fill="#cc2033"/>` +
-                `<text ${upright(wx, wy)} x="${(wx + 13).toFixed(1)}" y="${(wy + 4).toFixed(1)}" font-family="${FONT}" font-size="11" font-weight="700" fill="#cc2033" stroke="#fff" stroke-width="3" paint-order="stroke">${DRAW.esc(view.wp.name || 'WPT')}</text>`;
-        }
+        const markAt = (m, strong) => {
+            const [wx, wy] = projPx(mercX(m.lon), mercY(m.lat));
+            const col = strong ? '#cc2033' : '#c77a85';
+            return (
+                `<circle cx="${wx.toFixed(1)}" cy="${wy.toFixed(1)}" r="9" fill="none" stroke="${col}" stroke-width="2"/>` +
+                `<circle cx="${wx.toFixed(1)}" cy="${wy.toFixed(1)}" r="3.5" fill="${col}"/>` +
+                `<text ${upright(wx, wy)} x="${(wx + 13).toFixed(1)}" y="${(wy + 4).toFixed(1)}" font-family="${FONT}" font-size="11" font-weight="700" fill="${col}" stroke="#fff" stroke-width="3" paint-order="stroke">${DRAW.esc(m.name || 'WPT')}</text>`
+            );
+        };
+        if (view.wp && view.wp.isCourse) {
+            // The course: a dashed line through the marks; our next mark is the strong one.
+            const ms = view.wp.marks;
+            const pts = ms.map((m) =>
+                projPx(mercX(m.lon), mercY(m.lat))
+                    .map((v) => v.toFixed(1))
+                    .join(',')
+            );
+            if (ms.length > 1)
+                s += `<polyline points="${pts.join(' ')}" fill="none" stroke="#c77a85" stroke-width="1.5" stroke-dasharray="6 5"/>`;
+            const ours = view.usNow ? view.wp.mark(view.usNow) : -1;
+            ms.forEach((m, k) => (s += markAt(m, k === ours)));
+        } else if (view.wp) s += markAt(view.wp, true);
         hits = [];
         const z = (x) => (x.b.id === view.sel ? 2 : x.b.isUs ? 1 : 0); // us, then the selection, on top
         boats.sort((a, b) => z(a) - z(b));

@@ -64,14 +64,49 @@ test('instant VMC: SOG x cos(COG - the boat own bearing to the mark), for a firs
     near(D.ownVmgAbs(us, 0, ctxOf('waypoint', us)) / KN, 5, 1e-3, 'own: instant without a minute of history');
 });
 
+test('course: each report picks its closest mark with positive VMC; DTF along the later marks', () => {
+    // North to A, east to B, south to the finish C.
+    const A = {lat: 0.5, lon: 0, name: 'A'};
+    const B = {lat: 0.5, lon: 0.5, name: 'B'};
+    const C = {lat: 0, lon: 0.5, name: 'C'};
+    const c = D.makeCourse([A, B, C]);
+    const AB = geo.distance(A, B);
+    const BC = geo.distance(B, C);
+    near(c.after[0], AB + BC, 1e-6, 'after A');
+    assert.equal(c.after[2], 0, 'after the finish');
+
+    const beat = at(0, 0.2, 0, 0, 6); // heading north to A; B is ahead too but further
+    assert.equal(c.mark(beat), 0);
+    near(D.dtg(beat, c), geo.distance(beat, A) + AB + BC, 1e-6, 'DTF from before A');
+    const reach = at(0, 0.5, 0.1, 90, 6); // rounded A, heading east: A is behind
+    assert.equal(c.mark(reach), 1);
+    near(D.dtg(reach, c), geo.distance(reach, B) + BC, 1e-6, 'DTF from after A');
+    assert.equal(c.mark({t: 0, lat: 0.45, lon: 0, cogRad: null, sogMs: null}), 0, 'no COG: the closest mark');
+    assert.equal(D.makeCourse([]), null);
+
+    // VMC across a mark switch uses the newer report's mark for both positions.
+    const before = at(0, 0.49, 0, 0, 6);
+    const after = at(600e3, 0.5, 0.02, 90, 6);
+    const v = D.vmc(before, after, c, 1800e3);
+    near(v, (geo.distance(before, B) - geo.distance(after, B)) / 600, 1e-9, 'toward B for both');
+    assert.ok(v > 0 && v < 10 * KN, 'no leg-sized jump');
+
+    // Lead: each boat's own DTF. A boat round A is well ahead of us on the beat.
+    const ctx = ctxOf('course', [], {wp: c});
+    assert.ok(D.lead(reach, beat, 'course', c) > 15 * NM, 'rounded boat ahead');
+    near(D.vmgAbs([reach], 0, ctx) / KN, 6 * Math.cos(geo.bearing(reach, B) - Math.PI / 2), 1e-6, 'instant toward B');
+    near(D.upDir('course', beat, c), 0, 1e-9, 'Up: our next mark (A, due north)');
+    near(D.upDir('course', reach, c), geo.bearing(reach, B), 1e-12, 'Up after our rounding: B');
+});
+
 test('upDir per frame', () => {
     const us = at(0, 0, 0, 45);
     assert.equal(D.upDir('north', us, WP), 0);
-    near(D.upDir('course', us, WP), 45 * DEG, 1e-12, 'course is our COG');
+    near(D.upDir('cog', us, WP), 45 * DEG, 1e-12, 'cog is our COG');
     near(D.upDir('waypoint', us, WP), 0, 1e-12, 'waypoint due north');
     near(D.upDir('waypoint', us, {lat: 0, lon: 1}), Math.PI / 2, 1e-12, 'waypoint due east');
     assert.equal(D.upDir('wind', us, WP), null);
-    assert.equal(D.upDir('course', null, WP), null);
+    assert.equal(D.upDir('cog', null, WP), null);
 });
 
 test('VMC from the boat own previous report, ignoring long gaps', () => {
@@ -83,13 +118,13 @@ test('VMC from the boat own previous report, ignoring long gaps', () => {
     near(D.vmc(r[1], at(3600e3, 0, 0), WP, 1e9) / KN, -6, 0.01, 'opening is negative');
 });
 
-test('VMG for North and Course frames', () => {
+test('VMG for North and COG frames', () => {
     const s = [at(1000, 0, 0, 60, 10)];
     near(D.vmgAbs(s, 0, ctxOf('north', [])) / KN, 5, 1e-9, 'SOG cos COG');
     const us = [at(1000, 0, 0.01, 90, 8)];
-    near(D.vmgAbs(s, 0, ctxOf('course', us)) / KN, 10 * Math.cos(30 * DEG), 1e-9, 'projected on our COG');
-    assert.equal(D.vmgAbs(s, 0, ctxOf('course', [])), null, 'no own state at their time');
-    assert.equal(D.vmgAbs(s, 0, ctxOf('course', [at(1000 - 11e3, 0, 0)])), null, 'own state too old');
+    near(D.vmgAbs(s, 0, ctxOf('cog', us)) / KN, 10 * Math.cos(30 * DEG), 1e-9, 'projected on our COG');
+    assert.equal(D.vmgAbs(s, 0, ctxOf('cog', [])), null, 'no own state at their time');
+    assert.equal(D.vmgAbs(s, 0, ctxOf('cog', [at(1000 - 11e3, 0, 0)])), null, 'own state too old');
 });
 
 test('relative VMG is theirs minus ours over the same interval', () => {
@@ -100,14 +135,14 @@ test('relative VMG is theirs minus ours over the same interval', () => {
     near(D.vmgToward(r, 1, ctxOf('waypoint', us), 'abs') / KN, 6, 0.02, 'absolute');
     // Course frame: ours is our SOG.
     const s = [at(5000, 0, 0, 0, 7)];
-    near(D.vmgToward(s, 0, ctxOf('course', [at(5000, 0, 0, 0, 9)]), 'rel') / KN, -2, 1e-9, 'slower than us');
+    near(D.vmgToward(s, 0, ctxOf('cog', [at(5000, 0, 0, 0, 9)]), 'rel') / KN, -2, 1e-9, 'slower than us');
 });
 
 test('own VMC spans at least a minute of our samples', () => {
     const us = [at(0, 0, 0), at(30e3, north(0.05), 0), at(60e3, north(0.1), 0), at(61e3, north(0.1), 0)];
     near(D.ownVmgAbs(us, 3, ctxOf('waypoint', us)) / KN, 6 * (60 / 61), 0.05, 'from the sample 61 s back');
     near(D.ownVmgAbs(us, 1, ctxOf('waypoint', us)) / KN, 6, 0.01, 'less than a minute of history: instant');
-    near(D.ownVmgAbs(us, 0, ctxOf('course', us)) / KN, 6, 1e-9, 'course: our SOG');
+    near(D.ownVmgAbs(us, 0, ctxOf('cog', us)) / KN, 6, 1e-9, 'cog: our SOG');
 });
 
 test('lead toward Up: + = they are ahead, in every frame', () => {
@@ -116,7 +151,7 @@ test('lead toward Up: + = they are ahead, in every frame', () => {
     near(D.lead(ahead, u, 'waypoint', WP) / NM, 1, 0.01, 'waypoint: DTG ours minus theirs');
     near(D.lead(ahead, u, 'north', WP) / NM, 1, 0.01, 'north: northward displacement');
     const eastNm = geo.displacement(u, ahead).e / NM;
-    near(D.lead(ahead, u, 'course', WP) / NM, eastNm, 1e-9, 'course: along our COG');
+    near(D.lead(ahead, u, 'cog', WP) / NM, eastNm, 1e-9, 'cog: along our COG');
     near(D.lead(u, ahead, 'waypoint', WP) / NM, -1, 0.01, 'behind is negative');
 });
 

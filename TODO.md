@@ -130,4 +130,6 @@ All in `public/derive.js`, pure and loaded by both the webapp and `test/derive.t
 - [ ] Mapping tracker-feed names to MMSIs.
 - [x] Boats entered in advance in the plugin config (`boats`: MMSI, name, TCF): seed the nemesis list and TCFs when added or when the configured TCF changes (applied values remembered in nemesis-state.json, so restarts keep webapp edits); configured name shown in the plugin only, AIS name in the popup.
 - [ ] Configured boats not yet heard are not listed (could show them greyed in Boats and TCF).
+- [x] Up = Course (2026-10-16): the named waypoints in order are the course; each report picks its own next mark (closest with positive instant VMC, else closest; switching allowed); Lead and VMG by distance to finish. Old Up = Course renamed COG (stored prefs migrated). North kept.
+- [ ] Course weakness: a boat drifting or sailing away from its true next mark can pick a later mark lying that way and show a much smaller DTF for a while.
 - [ ] Division filter for Show: AIS has no division, so it needs a per-boat division entered like TCF.

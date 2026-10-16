@@ -24,6 +24,68 @@
 
     const fin = (v) => typeof v === 'number' && Number.isFinite(v);
 
+    /*
+     * A target is what the Waypoint and Course frames measure progress toward:
+     *  - a point {lat, lon}: the waypoint;
+     *  - a course (makeCourse): marks in order. Each report picks its own next mark, the
+     *    closest one it has positive instant VMC toward (else the closest), so a boat can
+     *    switch marks from one report to the next (decided 2026-10-16: drifting backwards
+     *    must not count as a rounding). Its distance to go (DTF) is to that mark, then
+     *    along every later mark.
+     * mark(p) picks a handle for a position; dist(p, h) and brg(p, h) use it, so two
+     * positions can be measured toward the same mark (VMC across a mark switch).
+     */
+    const pointTargets = new WeakMap();
+    function target(wp) {
+        if (!wp) return null;
+        if (wp.isCourse) return wp;
+        let t = pointTargets.get(wp);
+        if (!t) {
+            t = {mark: () => 0, dist: (p) => G.distance(p, wp), brg: (p) => G.bearing(p, wp)};
+            pointTargets.set(wp, t);
+        }
+        return t;
+    }
+
+    /** A course target from marks [{lat, lon, name}] in course order, or null if none. */
+    function makeCourse(marks) {
+        const ms = (marks || []).filter((m) => m && fin(m.lat) && fin(m.lon));
+        if (!ms.length) return null;
+        const after = new Array(ms.length).fill(0); // distance from mark k to the last mark
+        for (let k = ms.length - 2; k >= 0; k--) after[k] = after[k + 1] + G.distance(ms[k], ms[k + 1]);
+        const picked = new WeakMap(); // report -> mark index (reports are immutable)
+        return {
+            isCourse: true,
+            marks: ms,
+            after,
+            mark(p) {
+                let k = picked.get(p);
+                if (k !== undefined) return k;
+                let best = -1;
+                let bestD = Infinity;
+                let near = 0;
+                let nearD = Infinity;
+                const moving = fin(p.sogMs) && fin(p.cogRad);
+                for (let i = 0; i < ms.length; i++) {
+                    const d = G.distance(p, ms[i]);
+                    if (d < nearD) {
+                        nearD = d;
+                        near = i;
+                    }
+                    if (moving && d < bestD && Math.cos(p.cogRad - G.bearing(p, ms[i])) * p.sogMs > 0) {
+                        bestD = d;
+                        best = i;
+                    }
+                }
+                k = best >= 0 ? best : near;
+                picked.set(p, k);
+                return k;
+            },
+            dist: (p, k) => G.distance(p, ms[k]) + after[k],
+            brg: (p, k) => G.bearing(p, ms[k])
+        };
+    }
+
     /** Index of the latest item with item.t <= t in a sorted series, or -1. */
     function indexAtOrBefore(series, t) {
         let lo = 0;
@@ -45,29 +107,41 @@
         return k >= 0 && t - series[k].t <= maxAgeMs ? series[k] : null;
     }
 
+    /** Frames measured toward a target (a waypoint or a course): VMC and distance to go. */
+    const toward = (frame) => frame === 'waypoint' || frame === 'course';
+
     /**
-     * Up direction (rad true): north 0, course = our COG, waypoint = bearing from us
-     * to the waypoint. Null when not known (wind: not yet).
+     * Up direction (rad true): north 0, cog = our COG, waypoint = bearing from us to the
+     * waypoint, course = bearing from us to our next mark. Null when not known (wind: not yet).
      */
     function upDir(frame, us, wp) {
         if (frame === 'north') return 0;
         if (!us) return null;
-        if (frame === 'course') return fin(us.cogRad) ? us.cogRad : null;
-        if (frame === 'waypoint') return wp ? G.bearing(us, wp) : null;
+        if (frame === 'cog') return fin(us.cogRad) ? us.cogRad : null;
+        if (toward(frame)) {
+            const T = target(wp);
+            return T ? T.brg(us, T.mark(us)) : null;
+        }
         return null;
     }
 
-    /** Distance to the waypoint (m), or null. */
+    /** Distance to go (m): to the waypoint, or along the course from this position's next mark; or null. */
     function dtg(p, wp) {
-        return p && wp ? G.distance(p, wp) : null;
+        const T = target(wp);
+        return p && T ? T.dist(p, T.mark(p)) : null;
     }
 
-    /** VMC (m/s, + closing) between two positions of one boat, or null if the gap is not in (0, maxGapMs]. */
-    function vmc(prev, cur, wp, maxGapMs) {
-        if (!prev || !cur || !wp) return null;
+    /**
+     * VMC (m/s, + closing) between two positions of one boat, toward cur's mark (or mark h)
+     * for both, or null if the gap is not in (0, maxGapMs].
+     */
+    function vmc(prev, cur, wp, maxGapMs, h) {
+        const T = target(wp);
+        if (!prev || !cur || !T) return null;
         const dtMs = cur.t - prev.t;
         if (!(dtMs > 0) || dtMs > maxGapMs) return null;
-        return (G.distance(prev, wp) - G.distance(cur, wp)) / (dtMs / 1000);
+        const k = h ?? T.mark(cur);
+        return (T.dist(prev, k) - T.dist(cur, k)) / (dtMs / 1000);
     }
 
     /**
@@ -77,8 +151,9 @@
      * not averaged over the report interval. Null without SOG, COG or waypoint.
      */
     function vmcInstant(s, wp) {
-        if (!s || !wp || !fin(s.sogMs) || !fin(s.cogRad)) return null;
-        return s.sogMs * Math.cos(s.cogRad - G.bearing(s, wp));
+        const T = target(wp);
+        if (!s || !T || !fin(s.sogMs) || !fin(s.cogRad)) return null;
+        return s.sogMs * Math.cos(s.cogRad - T.brg(s, T.mark(s)));
     }
 
     /**
@@ -86,19 +161,21 @@
      * ctx: {frame, wp, us (our series), staleMs, usGapMs}
      * Waypoint: VMC from the boat's own previous report (section 3.2), else from this
      * report's SOG and COG (vmcInstant).
-     * Course: SOG x cos(COG - our COG at their report time).
+     * Course: the same toward the boat's own next mark of the course.
+     * COG: SOG x cos(COG - our COG at their report time).
      */
     function vmgAbs(reports, i, ctx) {
         const s = reports[i];
         if (!s) return null;
         switch (ctx.frame) {
-            case 'waypoint': {
+            case 'waypoint':
+            case 'course': {
                 const v = vmc(reports[i - 1], s, ctx.wp, ctx.staleMs);
                 return v != null ? v : vmcInstant(s, ctx.wp);
             }
             case 'north':
                 return fin(s.sogMs) && fin(s.cogRad) ? s.sogMs * Math.cos(s.cogRad) : null;
-            case 'course': {
+            case 'cog': {
                 const u = stateAt(ctx.us, s.t, ctx.usGapMs);
                 if (!u || !fin(u.cogRad) || !fin(s.sogMs) || !fin(s.cogRad)) return null;
                 return s.sogMs * Math.cos(s.cogRad - u.cogRad);
@@ -118,7 +195,8 @@
         const u = stateAt(ctx.us, s.t, ctx.usGapMs);
         if (!u) return null;
         switch (ctx.frame) {
-            case 'waypoint': {
+            case 'waypoint':
+            case 'course': {
                 const p = reports[i - 1];
                 if (vmc(p, s, ctx.wp, ctx.staleMs) == null) return vmcInstant(u, ctx.wp);
                 const u0 = stateAt(ctx.us, p.t, ctx.usGapMs);
@@ -126,7 +204,7 @@
             }
             case 'north':
                 return fin(u.sogMs) && fin(u.cogRad) ? u.sogMs * Math.cos(u.cogRad) : null;
-            case 'course':
+            case 'cog':
                 return fin(u.sogMs) ? u.sogMs : null;
         }
         return null;
@@ -145,7 +223,8 @@
         const u = us[j];
         if (!u) return null;
         switch (ctx.frame) {
-            case 'waypoint': {
+            case 'waypoint':
+            case 'course': {
                 let k = j - 1;
                 while (k >= 0 && u.t - us[k].t < OWN_VMC_MIN_MS) k--;
                 const v = k >= 0 ? vmc(us[k], u, ctx.wp, ctx.staleMs) : null;
@@ -153,7 +232,7 @@
             }
             case 'north':
                 return fin(u.sogMs) && fin(u.cogRad) ? u.sogMs * Math.cos(u.cogRad) : null;
-            case 'course':
+            case 'cog':
                 return fin(u.sogMs) ? u.sogMs : null;
         }
         return null;
@@ -165,10 +244,14 @@
      */
     function lead(s, u, frame, wp) {
         if (!s || !u) return null;
-        if (frame === 'waypoint') return wp ? G.distance(u, wp) - G.distance(s, wp) : null;
+        if (toward(frame)) {
+            // Each boat's own distance to go (for a course: from its own next mark).
+            const T = target(wp);
+            return T ? T.dist(u, T.mark(u)) - T.dist(s, T.mark(s)) : null;
+        }
         const d = G.displacement(u, s);
         if (frame === 'north') return d.n;
-        if (frame === 'course') return fin(u.cogRad) ? d.e * Math.sin(u.cogRad) + d.n * Math.cos(u.cogRad) : null;
+        if (frame === 'cog') return fin(u.cogRad) ? d.e * Math.sin(u.cogRad) + d.n * Math.cos(u.cogRad) : null;
         return null;
     }
 
@@ -195,12 +278,14 @@
      * is older than maxGapMs at t.
      */
     function vmcOver(series, t, wp, windowMs, maxGapMs) {
-        if (!wp || !series || !series.length) return null;
+        const T = target(wp);
+        if (!T || !series || !series.length) return null;
         const j = indexAtOrBefore(series, t);
         if (j < 0 || t - series[j].t > maxGapMs) return null;
         let i = indexAtOrBefore(series, t - windowMs);
         if (i < 0) i = 0;
-        const v = vmc(series[i], series[j], wp, windowMs + maxGapMs);
+        // Toward the latest item's mark for the whole window (a course switches marks).
+        const v = vmc(series[i], series[j], wp, windowMs + maxGapMs, T.mark(series[j]));
         return v != null ? v : vmcInstant(series[j], wp);
     }
 
@@ -273,6 +358,7 @@
         dtg,
         vmc,
         vmcInstant,
+        makeCourse,
         vmgAbs,
         ourVmgFor,
         vmgToward,
