@@ -2,9 +2,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 const {Journal} = require('../lib/journal');
+const {tmpdir} = require('./sim/tmpdir');
 const {TrackStore} = require('../lib/track-store');
 const {thinReports} = require('../lib/thin');
 
@@ -13,7 +13,7 @@ const H = 3600e3;
 const T0 = Date.parse('2026-07-25T03:00:00Z'); // a segment boundary for 10 min segments
 
 function make(clock, extra = {}) {
-    const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'nemesis-j-')), 'journal');
+    const dir = path.join(tmpdir('nemesis-j-'), 'journal');
     const errors = [];
     const j = new Journal({
         dir,

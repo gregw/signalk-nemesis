@@ -1,15 +1,12 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
 const {StartTime, RacerStartAdapter, RACER_PATH} = require('../lib/start-time');
 const {fakeApp} = require('./sim/fake-app');
 
 const H = 3600e3;
 const T0 = Date.parse('2026-07-25T03:00:00Z');
-const tmpdir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'nemesis-'));
+const {tmpdir} = require('./sim/tmpdir');
 
 function make(dir, now = T0 + H) {
     const clock = {now};

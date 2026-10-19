@@ -4,12 +4,10 @@
  * deltas (split per path by the fake app) -> a running plugin instance.
  * Recorded times are shifted so that `hoursIn` after the start is wall-clock now.
  */
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
 const {setTimeout: sleep} = require('node:timers/promises');
 const {simulate, toDelta, finishOf, rmbDelta} = require('./ais-sim');
 const {fakeApp} = require('./fake-app');
+const {tmpdir} = require('./tmpdir');
 const createPlugin = require('../../index');
 const data = require('../data/gc2026-tracks.json');
 
@@ -19,7 +17,7 @@ async function replayTo(hoursIn, opts = {}) {
     const now = Date.now();
     const shiftMs = now - (RACE_START + hoursIn * 3600e3);
     const sim = simulate(data, {receiverName: 'Kanreki', seed: 11, shiftMs});
-    const dataDir = opts.dataDir || fs.mkdtempSync(path.join(os.tmpdir(), 'nemesis-'));
+    const dataDir = opts.dataDir || tmpdir();
     const app = fakeApp({dataDir});
     if (opts.resources) Object.assign(app.resources, opts.resources); // e.g. named waypoints
     const plugin = createPlugin(app);

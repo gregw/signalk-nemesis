@@ -2,12 +2,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 const {writeJsonAtomic, readJson, JsonStore} = require('../lib/persist');
 const {UserState} = require('../lib/user-state');
 
-const tmpdir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'nemesis-'));
+const {tmpdir} = require('./sim/tmpdir');
 
 test('atomic write leaves no temp file and round-trips', async () => {
     const d = tmpdir();

@@ -1,12 +1,10 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
 const {UserState} = require('../lib/user-state');
 
-const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'nemesis-us-'));
+const {tmpdir} = require('./sim/tmpdir');
+const tmp = () => tmpdir('nemesis-us-');
 
 test('configured boats seed the nemesis list and TCFs once; webapp edits survive a restart', async () => {
     const dir = tmp();
