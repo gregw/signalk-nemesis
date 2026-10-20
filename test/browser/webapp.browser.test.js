@@ -120,15 +120,27 @@ test('tapping the nemesis button persists on the server and survives reload', as
 
     await page.reload();
     await page.locator('#conn', {hasText: 'live'}).waitFor();
-    // Show filter was remembered (localStorage) and the default Nemesi view lists the boat.
-    await page.selectOption('#showSel', 'nemesi');
+    // Show filter was remembered (localStorage) and the default Nemeses view lists the boat.
+    await page.selectOption('#showSel', 'nemeses');
     await page.locator(`#blist .brow[data-id="${id}"] .bico.nem`).waitFor();
     assert.equal(await page.locator('#blist .brow[data-id]').count(), 2, 'us and the nemesis');
-    await shot(page, 'phone-nemesi');
+    await shot(page, 'phone-nemeses');
 
     // Untoggle so other tests start clean.
     await page.locator(`#blist .brow[data-id="${id}"] .bico`).tap();
     await waitFor(async () => !(await srvUser()).nemesis.includes(id), 'server cleared nemesis');
+    await ctx.close();
+});
+
+test("a stored Show value no longer offered (the old 'nemesi') falls back to Nemeses", async () => {
+    const ctx = await browser.newContext(PHONE);
+    await ctx.addInitScript(() => localStorage.setItem('nd_prefs', JSON.stringify({show: 'nemesi'})));
+    const page = await ctx.newPage();
+    await page.goto(srv.url + '?poll=' + POLL);
+    await page.locator('#conn', {hasText: 'live'}).waitFor();
+    assert.equal(await page.locator('#showSel').inputValue(), 'nemeses');
+    assert.equal(await page.locator('#showSel option:checked').textContent(), 'Nemeses');
+    assert.equal(await page.locator('#blist .brow[data-id]').count(), 1, 'just us: no nemeses yet');
     await ctx.close();
 });
 

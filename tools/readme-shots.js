@@ -55,7 +55,7 @@ async function main() {
             const srv = await serverAt(h);
             if (fresh || h === hoursIn) await setUp(srv);
             const ctx = await browser.newContext(PHONE);
-            const prefs = {tab: s.tab, periodMin: s.periodMin, show: 'nemesi', base: s.base || 'white'};
+            const prefs = {tab: s.tab, periodMin: s.periodMin, show: 'nemeses', base: s.base || 'white'};
             await ctx.addInitScript((p) => localStorage.setItem('nd_prefs', JSON.stringify(p)), prefs);
             const page = await ctx.newPage();
             await page.goto(srv.url);

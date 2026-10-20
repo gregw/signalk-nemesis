@@ -271,7 +271,7 @@
       <option value="inrange">In range</option>
       <option value="none">None</option>
       <option value="div">Div</option>
-      <option value="nemesi" selected>Nemesi</option>
+      <option value="nemeses" selected>Nemeses</option>
     </select></div>
   <div class="spacer"></div>
   <span class="fleetc"><b>Boats</b> <span id="fleetCount"></span></span>
@@ -378,7 +378,7 @@ let refId=null, mode='abs', frame='finish', nowIdx=0, periodMin=60;
 let keepPrimeInView=false;
 let hoverId=null;
 let activeTab='boats', _geoFitted=false;
-let showFilter='nemesi';               // all | none | div | nemesi : which boats are shown
+let showFilter='nemeses';               // all | none | div | nemeses : which boats are shown
 const visible=new Set(), expanded=new Set(), nemesis=new Set();
 const NEMESIS_NAMES=['calibre','kd1','mako','vixen','supernova'];
 let playing=false, playTimer=null, filterText='';
@@ -429,7 +429,7 @@ function init(json){
     if(NEMESIS_NAMES.some(t=>n.includes(t))) nemesis.add(b.id); }
 
   // default visible: the nemesis list + reference boat
-  showFilter='nemesi'; document.getElementById('selectSel').value='nemesi';
+  showFilter='nemeses'; document.getElementById('selectSel').value='nemeses';
   recomputeVisible();
 
   nowIdx=Math.floor((TIMELINE.length-1)*0.25);   // start a quarter into the race
@@ -1232,7 +1232,7 @@ document.getElementById('nextBtn').onclick=()=>stepToOwnSample(1);
 function recomputeVisible(){
   visible.clear(); const ref=BYID.get(refId);
   for(const b of BOATS){
-    if(b.id===refId || showFilter==='all' || (showFilter==='nemesi' && nemesis.has(b.id))
+    if(b.id===refId || showFilter==='all' || (showFilter==='nemeses' && nemesis.has(b.id))
        || (showFilter==='inrange' && TIMELINE.length && curSample(b,TIMELINE[nowIdx]))   // heard within STALE_MIN
        || (showFilter==='div' && ref && b.cat===ref.cat && b.div===ref.div)) visible.add(b.id);
   }
@@ -1371,7 +1371,7 @@ document.querySelectorAll('.grip').forEach(g=>{
 const INFO_TEXT={
   vectors:"Velocity vectors in the chosen frame. Each hull points the way that boat is moving; distance from the centre is speed. Centre = zero speed (Absolute) or your boat (Relative). Comet tails join consecutive positions over the period (thick = now). Hover a boat to draw its true velocity vectors from the centre.",
   geo:"Boats on the water, rotated so the selected frame (North / Course / Waypoint) is up; the waypoint is the ringed WPT marker. Absolute: drag to pan, wheel to zoom, White / OSM / Sea basemaps (Sea shows depth shading for the shelf). Relative: centred on you, auto-fit. Fit reframes. Tails taper with age.",
-  boats:"Fleet list. Tap a boat's icon to mark or unmark it as a nemesis (highlighted icon = nemesis). 'Show' in the bar above picks which boats appear on every view: Nemesi, All, In range (a report received within the 'Stale after' time, 30 min by default), your Div, or None (just you). Each row: speed/heading, plus VMG toward the frame and distance relative to you as age-tapered mini charts; all charts in a column share one height (shown under the column title) but each is centred on its own data.",
+  boats:"Fleet list. Tap a boat's icon to mark or unmark it as a nemesis (highlighted icon = nemesis). 'Show' in the bar above picks which boats appear on every view: Nemeses, All, In range (a report received within the 'Stale after' time, 30 min by default), your Div, or None (just you). Each row: speed/heading, plus VMG toward the frame and distance relative to you as age-tapered mini charts; all charts in a column share one height (shown under the column title) but each is centred on its own data.",
   irc:"Time-on-time handicap vs our boat. Enter each boat's TCF (default 1.000; saved in this browser). Corrected time = elapsed x TCF, elapsed measured from the first sample. Should = how far a boat must be ahead of us to be level on corrected time, from the corrected-time difference and our distance made good (start DTG minus current DTG): D x (1 - TCFus/TCFboat). Actual = how far it really is ahead toward the current Up (waypoint: DTG difference; course: along our heading; north: northward). Net = Actual - Should; positive (orange) means it is beating us on handicap. Sorted by Net."
 };
 const infoPop=document.getElementById('infoPop');

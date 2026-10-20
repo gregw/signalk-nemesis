@@ -326,7 +326,7 @@ async function waitFor(cond, what, timeoutMs = 4000) {
 }
 
 test('configured boat: its configured name everywhere, the AIS name in the popup', async () => {
-    const {ctx, page, errors} = await open(PHONE, 'nemesi');
+    const {ctx, page, errors} = await open(PHONE, 'nemeses');
     await tab(page, 'boats');
     const row = page.locator('#blist .brow[data-id="500018921"]');
     assert.equal((await row.locator('.bn').textContent()).trim(), 'Nemo');

@@ -21,6 +21,7 @@
    leg from the previous mark heads within 100 degrees of its COG. A mark can be listed twice
    (out and back). Before this, boats heading out on an out-and-back course could pick a mark
    meant for the way back and skip the whole out-and-back in their DTF.
+ + Show = Nemesi is now spelt Nemeses. A screen that had it picked starts on Nemeses, the default.
  + Tests leave no temporary directories behind.
 
 ## 0.2.1 Show = Sailing

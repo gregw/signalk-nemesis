@@ -48,12 +48,14 @@ const ND = (() => {
             up: 'waypoint',
             periodMin: 60,
             staleMin: 30,
-            show: 'nemesi',
+            show: 'nemeses',
             sort: 'near',
             base: 'white'
         },
         loadPrefs()
     );
+    // A stored Show value not offered (e.g. 'nemesi', the old misspelling) is ignored.
+    if (!['nemeses', 'sailing', 'all', 'inrange', 'none'].includes(prefs.show)) prefs.show = 'nemeses';
     // Up 'course' used to mean our COG (now 'cog'); 'course' is now the course of marks.
     if (!prefs.upV) {
         if (prefs.up === 'course') prefs.up = 'cog';
@@ -717,7 +719,7 @@ const ND = (() => {
     }
 
     const INFO_TEXT = {
-        boats: "Tap a boat's icon to mark or unmark it as a nemesis. Tap a name for details. 'Show' picks which boats appear on every view: Nemesi, All, In range (a report within the 'Stale after' time) or None (just us). Each row has two strip charts over the period, newest on the left: VMG toward Up, and lead toward Up (how far ahead of us they are; + = they are ahead). In Relative mode VMG is theirs minus ours, so + = they are faster. Every chart in a column shares one height, shown under the column title, but each is centred on its own data.",
+        boats: "Tap a boat's icon to mark or unmark it as a nemesis. Tap a name for details. 'Show' picks which boats appear on every view: Nemeses, Sailing, All, In range (a report within the 'Stale after' time) or None (just us). Each row has two strip charts over the period, newest on the left: VMG toward Up, and lead toward Up (how far ahead of us they are; + = they are ahead). In Relative mode VMG is theirs minus ours, so + = they are faster. Every chart in a column shares one height, shown under the column title, but each is centred on its own data.",
         vectors:
             'Velocity vectors with the chosen Up at the top. Each hull points the way that boat is moving; distance from the centre is speed. The centre is zero speed (Absolute) or our boat (Relative: their velocity minus ours). Comet tails join successive reports over the period, thick = now. Tap a boat to draw its true velocity vectors from the centre.',
         tcf: "Time-on-time handicap against us. Enter each boat's TCF (default 1.000; saved on the boat's server). Should = how far a boat must be ahead of us to be level on corrected time if the race ended at its report: the time owed over the elapsed time since the start (elapsed x the TCF ratio - 1), as a distance at the VMG to the waypoint of the boat that would be trailing. If it owes us time, at our VMG (Should +: it must be ahead); if we owe it time, at its VMG (Should -: it may be behind). VMGs are smoothed over the period set in the plugin config. Actual = how far it really is ahead toward Up. Net = Actual - Should, charted over the period (newest on the left) so an older report still shows the trend; + (orange) means it is beating us on handicap. Should is toward the waypoint, so it compares strictly with Actual only when Up = Waypoint.",
