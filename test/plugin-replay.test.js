@@ -184,7 +184,8 @@ test('config: history in hours, waypoint names default to [nemesis]', () => {
     assert.deepEqual(d.waypointNames, ['nemesis']);
     assert.equal(d.waypoint, undefined, 'no fixed waypoint');
     assert.deepEqual(withDefaults({waypointNames: []}).waypointNames, [], 'empty: no fallback');
-    assert.deepEqual(withDefaults({waypointNames: [' A ', '', 'A', 'B', 3]}).waypointNames, ['A', 'B']);
+    // Repeats are kept: a course can pass a mark twice (out and back).
+    assert.deepEqual(withDefaults({waypointNames: [' A ', '', 'A', 'B', 3]}).waypointNames, ['A', 'A', 'B']);
     assert.deepEqual(withDefaults({waypointName: 'Old'}).waypointNames, ['Old'], 'old single name still works');
     assert.equal(withDefaults({historyHours: 2, recentHours: 6}).recentHours, 2, 'recent capped at history');
 });

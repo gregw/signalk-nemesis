@@ -315,8 +315,7 @@ const ND = (() => {
         if (frame === 'course') {
             // Our next mark, and any configured mark the server did not find (a gap in the course).
             if (wp && usNow) upName += ' \u2192 ' + (wp.marks[wp.mark(usNow)].name || '?');
-            const found = new Set(((s && s.namedWaypoints) || []).map((w) => w.name));
-            const missing = ((s && s.waypointNames) || []).filter((n) => !found.has(n));
+            const missing = ((s && s.course) || []).filter((m) => !m.found).map((m) => m.name);
             if (missing.length) upName += ` (not found: ${missing.join(', ')})`;
         }
         const up = DERIVE.upDir(frame, usNow, wp);
@@ -395,15 +394,16 @@ const ND = (() => {
     function upChoice(s) {
         if (prefs.up.startsWith(WPT)) {
             const name = prefs.up.slice(WPT.length);
-            const wp = (s && (s.namedWaypoints || []).find((w) => w.name === name)) || null;
+            const wp = pickable(s).find((w) => w.name === name) || null;
             return {frame: 'waypoint', wp, upName: name};
         }
         if (prefs.up === 'course') {
-            // The course: the named waypoints found, in configured order (makeCourse).
-            const key = JSON.stringify((s && s.namedWaypoints) || []);
+            // The course from the Course tab, its marks found (makeCourse skips the others).
+            const marks = ((s && s.course) || []).filter((m) => m.found);
+            const key = JSON.stringify(marks);
             if (key !== courseKey) {
                 courseKey = key;
-                course = DERIVE.makeCourse((s && s.namedWaypoints) || []);
+                course = DERIVE.makeCourse(marks);
             }
             return {frame: 'course', wp: course, upName: 'course'};
         }
@@ -412,12 +412,24 @@ const ND = (() => {
     let course = null; // rebuilt only when the marks change (it caches each report's mark)
     let courseKey = null;
 
+    /** Waypoints Up can be set to by hand: the course's marks, then the fallback waypoints; each name once. */
+    function pickable(s) {
+        const out = [];
+        const seen = new Set();
+        for (const w of ((s && s.course) || []).filter((m) => m.found).concat((s && s.namedWaypoints) || [])) {
+            if (seen.has(w.name)) continue;
+            seen.add(w.name);
+            out.push(w);
+        }
+        return out;
+    }
+
     // Up options: the fixed ones, then each named waypoint the server found, then a
     // picked one no longer found (so the choice is visible, not silently changed).
     let upOptsKey = null;
     function syncUpOptions() {
         const el = $('upSel');
-        const names = ((M.snap && M.snap.namedWaypoints) || []).map((w) => w.name);
+        const names = pickable(M.snap).map((w) => w.name);
         const picked = prefs.up.startsWith(WPT) ? prefs.up.slice(WPT.length) : null;
         const missing = picked != null && !names.includes(picked) ? picked : null;
         const key = JSON.stringify([names, missing]);
@@ -709,6 +721,7 @@ const ND = (() => {
         vectors:
             'Velocity vectors with the chosen Up at the top. Each hull points the way that boat is moving; distance from the centre is speed. The centre is zero speed (Absolute) or our boat (Relative: their velocity minus ours). Comet tails join successive reports over the period, thick = now. Tap a boat to draw its true velocity vectors from the centre.',
         tcf: "Time-on-time handicap against us. Enter each boat's TCF (default 1.000; saved on the boat's server). Should = how far a boat must be ahead of us to be level on corrected time if the race ended at its report: the time owed over the elapsed time since the start (elapsed x the TCF ratio - 1), as a distance at the VMG to the waypoint of the boat that would be trailing. If it owes us time, at our VMG (Should +: it must be ahead); if we owe it time, at its VMG (Should -: it may be behind). VMGs are smoothed over the period set in the plugin config. Actual = how far it really is ahead toward Up. Net = Actual - Should, charted over the period (newest on the left) so an older report still shows the trend; + (orange) means it is beating us on handicap. Should is toward the waypoint, so it compares strictly with Actual only when Up = Waypoint.",
+        course: "The course for Up = Course: its marks in order, the last being the finish. Add waypoints (made in Freeboard-SK or another chart app) and move them up and down, or import a route, which replaces the course. A mark passed twice, on the way out and again on the way back, is listed twice. Each boat's next mark is the closest one ahead of it whose leg (from the previous mark) points within 100 degrees of the way it is sailing, so the two passes are not confused. Waypoint marks follow the waypoint if it is moved; route points that are not waypoints stay where they were. The course is kept on the boat's server for every screen.",
         cyca: "The CYCA race tracker, for boats beyond AIS range (it needs internet). Pick the race at the top: races we are entered in say so. Positions come every 10 minutes. Below, link each CYCA boat to its AIS boat so the two show as one; the plugin suggests AIS boats that were in the same place at the same times over the last hour (a highlighted button is a clear match). Links are kept for the next race; Unlink if one is wrong. 'No AIS' quiets a boat for this race. The tab is highlighted while a CYCA boat has a likely AIS match not yet linked.",
         geo: 'Boats on the water, rotated so Up is at the top; the ringed WPT is the waypoint. Drag to pan, pinch or wheel to zoom (in Relative mode this switches to Absolute). Relative centres on us and fits all shown boats. Fit reframes. OSM and Sea basemaps need internet; White works offline.'
     };

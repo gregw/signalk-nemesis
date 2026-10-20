@@ -34,6 +34,7 @@ const {mergedView} = require('./lib/cyca-merge');
 const {mappingRows} = require('./lib/cyca-mapping');
 const {BackfillPlanner} = require('./lib/cyca-backfill');
 const {nameKey} = require('./lib/cyca-feed');
+const {CourseStore, resolveCourse, routeToMarks, routeList, waypointList} = require('./lib/course');
 
 const PLUGIN_ID = 'signalk-nemesis';
 const API_PREFIX = '/nemesis';
@@ -44,7 +45,8 @@ const PUT_PATHS = {
     setStartTime: 'navigation.racing.nemesis.setStartTime',
     setCycaRace: 'navigation.racing.nemesis.setCycaRace',
     setCycaLink: 'navigation.racing.nemesis.setCycaLink',
-    setCycaNoAis: 'navigation.racing.nemesis.setCycaNoAis'
+    setCycaNoAis: 'navigation.racing.nemesis.setCycaNoAis',
+    setCourse: 'navigation.racing.nemesis.setCourse'
 };
 const MAX_PERIOD_MS = 24 * 3600e3;
 // Backfill depth: the longest display period a webapp asked /tracks for lately.
@@ -153,11 +155,12 @@ const schema = {
         },
         waypointNames: {
             type: 'array',
-            title: 'Named waypoints, looked up in the waypoint resources (e.g. made in Freeboard-SK)',
+            title: 'Fallback waypoints, looked up by name in the waypoint resources (e.g. made in Freeboard-SK)',
             description:
-                'Each one found can be picked as Up in the webapp. The first one found is also the ' +
-                'fallback when neither the Course API nor NMEA has a next point; with none, the waypoint ' +
-                'based values (Up = Waypoint, VMC, TCF Should) are not shown.',
+                'The first one found is the waypoint when neither the Course API nor NMEA has a next ' +
+                'point; with none, the waypoint based values (Up = Waypoint, VMC, TCF Should) are not ' +
+                'shown. Each one found can be picked as Up in the webapp. The course for Up = Course ' +
+                "is set on the webapp's Course tab; until it is, this list is the course.",
             default: ['nemesis'],
             items: {type: 'string', title: 'Name'}
         }
@@ -225,6 +228,10 @@ module.exports = function (app, deps = {}) {
             onError: (e) => app.error(`Saving start time failed: ${e.message}`)
         });
         const racerStart = new RacerStartAdapter(app, startTime);
+        // The course is set on the webapp's Course tab; until then, the old waypointNames.
+        const course = new CourseStore(app.getDataDirPath(), cfg.waypointNames, (e) =>
+            app.error(`Saving the course failed: ${e.message}`)
+        );
         const onCycaError = (e) => app.error(`Saving CYCA state failed: ${e.message}`);
         const cycaState = new CycaState(app.getDataDirPath(), onCycaError);
         const cycaRaces = new CycaRaces({
@@ -263,6 +270,7 @@ module.exports = function (app, deps = {}) {
             cycaState,
             cycaRaces,
             cyca,
+            course,
             backfillPlanner: new BackfillPlanner(),
             backfilling: false,
             wantPeriod: {ms: WANT_PERIOD_DEFAULT_MS, at: 0},
@@ -397,6 +405,37 @@ module.exports = function (app, deps = {}) {
                 return state.cycaState.setNoAis(value.entryId, value.noAis).then(() => complete(200, 'OK'));
             })
         );
+        // value {marks: [{name, waypointId?, lat?, lon?}]} replaces the course;
+        // {routeId} replaces it with that route resource's points.
+        app.registerPutHandler('vessels.self', PUT_PATHS.setCourse, (ctx, path, value) =>
+            command(async () => {
+                if (!value || !(Array.isArray(value.marks) || typeof value.routeId === 'string'))
+                    return complete(400, 'value must be {marks: [...]} or {routeId: string}');
+                const s = state;
+                let marks = value.marks;
+                if (typeof value.routeId === 'string') {
+                    let route;
+                    try {
+                        route = await app.resourcesApi.getResource('routes', value.routeId);
+                    } catch (e) {
+                        return complete(404, `route ${value.routeId} not found`);
+                    }
+                    try {
+                        marks = routeToMarks(route, s.waypoints.waypoints());
+                    } catch (e) {
+                        return complete(400, e.message);
+                    }
+                }
+                try {
+                    await s.course.set(marks);
+                } catch (e) {
+                    if (e instanceof RangeError) return complete(400, e.message);
+                    throw e;
+                }
+                s.waypoints.refresh();
+                return complete(200, 'OK');
+            })
+        );
         // value {startTime: RFC 3339 string} sets the override; {startTime: null} clears it.
         app.registerPutHandler('vessels.self', PUT_PATHS.setStartTime, (ctx, path, value) =>
             command(() => {
@@ -471,6 +510,7 @@ module.exports = function (app, deps = {}) {
                 now
             });
             snap.cyca = cycaSummary(s, now);
+            snap.course = resolveCourse(s.course.marks, s.waypoints.waypoints());
             res.json(snap);
         });
 
@@ -501,6 +541,31 @@ module.exports = function (app, deps = {}) {
                     ids
                 })
             );
+        });
+
+        router.get(prefix + '/course', (req, res) => {
+            const s = running(res);
+            if (!s) return;
+            res.json({seeded: s.course.seeded, marks: resolveCourse(s.course.marks, s.waypoints.waypoints())});
+        });
+
+        // Everything the Course tab can add: the waypoint resources, and the routes to import.
+        router.get(prefix + '/course/waypoints', (req, res) => {
+            const s = running(res);
+            if (s) res.json(waypointList(s.waypoints.waypoints()));
+        });
+
+        router.get(prefix + '/course/routes', (req, res) => {
+            const s = running(res);
+            if (!s) return;
+            const list = app.resourcesApi?.listResources;
+            if (!list) return res.json([]);
+            Promise.resolve()
+                .then(() => list.call(app.resourcesApi, 'routes', {}))
+                .then(
+                    (all) => res.json(routeList(all)),
+                    (e) => res.status(502).json({error: `routes: ${e && e.message}`})
+                );
         });
 
         router.get(prefix + '/cyca', (req, res) => {
@@ -630,7 +695,10 @@ function withDefaults(options) {
     };
 }
 
-/** Named waypoints, trimmed, empties and repeats dropped. An old single waypointName still works. */
+/**
+ * Named waypoints, trimmed, empties dropped. Repeats are kept: the list is also the course,
+ * where a mark can be passed twice (out and back). An old single waypointName still works.
+ */
 function waypointNames(o) {
     let list = schema.properties.waypointNames.default;
     if (Array.isArray(o.waypointNames)) list = o.waypointNames;
@@ -638,7 +706,7 @@ function waypointNames(o) {
     const out = [];
     for (const n of list) {
         const t = typeof n === 'string' ? n.trim() : '';
-        if (t && !out.includes(t)) out.push(t);
+        if (t) out.push(t);
     }
     return out;
 }

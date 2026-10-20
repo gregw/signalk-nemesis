@@ -82,6 +82,7 @@
             <button data-tab="tcf">TCF</button>
             <button data-tab="vectors">Vectors</button>
             <button data-tab="geo">Geo</button>
+            <button data-tab="course">Course</button>
             <button data-tab="cyca">CYCA</button>
         </nav>
 
@@ -161,6 +162,25 @@
                     </svg>
                 </div>
             </section>
+            <section class="tabpane hidden" id="pane-course">
+                <div class="plothead">
+                    <button class="info" data-info="course" aria-label="about this view">i</button>
+                    <div class="mode"><b>Course</b></div>
+                </div>
+                <div class="startbar">
+                    <select id="courseAdd" class="racesel" aria-label="waypoint to add"></select>
+                    <button class="mapbtn" id="courseAddBtn">Add</button>
+                </div>
+                <div class="startbar">
+                    <select id="courseRoute" class="racesel" aria-label="route to import"></select>
+                    <button class="mapbtn" id="courseImport">Import route</button>
+                    <button class="mapbtn" id="courseRefresh" title="read the waypoints and routes again">
+                        Refresh
+                    </button>
+                </div>
+                <div class="coursebar" id="courseStatus"></div>
+                <div class="blist" id="courselist"></div>
+            </section>
             <section class="tabpane hidden" id="pane-cyca">
                 <div class="plothead">
                     <button class="info" data-info="cyca" aria-label="about this view">i</button>
@@ -193,6 +213,7 @@
         <script src="tab-vectors.js"></script>
         <script src="tab-tcf.js"></script>
         <script src="tab-geo.js"></script>
+        <script src="tab-course.js"></script>
         <script src="tab-cyca.js"></script>
     </body>
 </html>

@@ -871,3 +871,43 @@ svg .hi {
     background: var(--panel);
     color: var(--ink);
 }
+
+/* ---------- Course ---------- */
+.mrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 4px;
+    border-bottom: 1px solid var(--line);
+}
+.mnum {
+    flex: 0 0 22px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--steel-lt);
+    text-align: right;
+}
+.mname {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+.mname b {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.mbtns {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 4px;
+}
+.mbtns .mapbtn {
+    font-size: 14px;
+    min-width: 34px;
+    padding: 5px 8px;
+}
+.warn {
+    color: var(--warn);
+}

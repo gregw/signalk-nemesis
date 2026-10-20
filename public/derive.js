@@ -24,14 +24,25 @@
 
     const fin = (v) => typeof v === 'number' && Number.isFinite(v);
 
+    // A leg is a boat's leg while its COG is within this of the leg's heading: wide enough
+    // for beating (tacks some 45 to 60 degrees off) and current, narrow enough to tell an
+    // out-and-back's outbound and return legs apart (about 170 degrees off).
+    const LEG_MAX_OFF = (100 * Math.PI) / 180;
+    const SAME_M = 1; // a repeated mark: distances equal within this
+
     /*
      * A target is what the Waypoint and Course frames measure progress toward:
      *  - a point {lat, lon}: the waypoint;
-     *  - a course (makeCourse): marks in order. Each report picks its own next mark, the
-     *    closest one it has positive instant VMC toward (else the closest), so a boat can
-     *    switch marks from one report to the next (decided 2026-10-16: drifting backwards
-     *    must not count as a rounding). Its distance to go (DTF) is to that mark, then
-     *    along every later mark.
+     *  - a course (makeCourse): marks in order; a mark may be listed more than once (one
+     *    passed on the way out and again on the way back). Each report picks its own next
+     *    mark, so a boat can switch marks from one report to the next (decided 2026-10-16:
+     *    drifting backwards must not count as a rounding). The pick is by leg (decided
+     *    2026-10-20): of the marks it has positive instant VMC toward, those whose leg
+     *    (from the previous mark) heads within LEG_MAX_OFF of its COG, the closest; the
+     *    first leg has no previous mark, so no heading test (it is often pre-start). A
+     *    mark listed twice at the same distance goes to the better aligned leg. With no
+     *    such mark, the closest with positive VMC, else the closest. Its distance to go
+     *    (DTF) is to that mark, then along every later mark.
      * mark(p) picks a handle for a position; dist(p, h) and brg(p, h) use it, so two
      * positions can be measured toward the same mark (VMC across a mark switch).
      */
@@ -53,16 +64,24 @@
         if (!ms.length) return null;
         const after = new Array(ms.length).fill(0); // distance from mark k to the last mark
         for (let k = ms.length - 2; k >= 0; k--) after[k] = after[k + 1] + G.distance(ms[k], ms[k + 1]);
+        // Heading of the leg ending at mark k; the first leg has none. A repeated mark
+        // listed twice in a row is a zero-length leg: no heading either.
+        const legBrg = ms.map((m, k) => (k > 0 && G.distance(ms[k - 1], m) > SAME_M ? G.bearing(ms[k - 1], m) : null));
+        const cosMax = Math.cos(LEG_MAX_OFF);
         const picked = new WeakMap(); // report -> mark index (reports are immutable)
         return {
             isCourse: true,
             marks: ms,
             after,
+            legBrg,
             mark(p) {
                 let k = picked.get(p);
                 if (k !== undefined) return k;
-                let best = -1;
-                let bestD = Infinity;
+                let leg = -1; // closest positive VMC mark on a leg the boat is sailing
+                let legD = Infinity;
+                let legA = -Infinity;
+                let ahead = -1; // closest positive VMC mark
+                let aheadD = Infinity;
                 let near = 0;
                 let nearD = Infinity;
                 const moving = fin(p.sogMs) && fin(p.cogRad);
@@ -72,12 +91,21 @@
                         nearD = d;
                         near = i;
                     }
-                    if (moving && d < bestD && Math.cos(p.cogRad - G.bearing(p, ms[i])) * p.sogMs > 0) {
-                        bestD = d;
-                        best = i;
+                    if (!moving || !(Math.cos(p.cogRad - G.bearing(p, ms[i])) * p.sogMs > 0)) continue;
+                    if (d < aheadD) {
+                        aheadD = d;
+                        ahead = i;
+                    }
+                    // Alignment with the leg: 0 (neutral) for a leg with no heading.
+                    const a = legBrg[i] == null ? 0 : Math.cos(p.cogRad - legBrg[i]);
+                    if (legBrg[i] != null && a < cosMax) continue;
+                    if (d < legD - SAME_M || (Math.abs(d - legD) <= SAME_M && a > legA)) {
+                        legD = d;
+                        legA = a;
+                        leg = i;
                     }
                 }
-                k = best >= 0 ? best : near;
+                k = leg >= 0 ? leg : ahead >= 0 ? ahead : near;
                 picked.set(p, k);
                 return k;
             },

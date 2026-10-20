@@ -99,6 +99,40 @@ test('course: each report picks its closest mark with positive VMC; DTF along th
     near(D.upDir('course', reach, c), geo.bearing(reach, B), 1e-12, 'Up after our rounding: B');
 });
 
+test('course: an out-and-back past a mark both ways picks by leg heading (Tollgate Islands)', () => {
+    // Sydney south past Jervis Bay to the Tollgate Islands, back past Jervis to North Head.
+    const J = {lat: -35.074, lon: 150.8508, name: 'Jervis'};
+    const T = {lat: -35.7451, lon: 150.2626, name: 'Tollgate'};
+    const N = {lat: -33.8288, lon: 151.304, name: 'NorthHead'};
+    const JT = geo.distance(J, T);
+    const JN = geo.distance(J, N);
+    const p = (lat, lon, cogDeg) => at(0, lat, lon, cogDeg, 7);
+    const south = p(-34.95, 150.95, 205); // southbound, just north of Jervis
+    const pastJ = p(-35.3, 150.65, 215); // southbound, past Jervis
+    const back = p(-35.6, 150.4, 40); // northbound from Tollgate
+    const beating = p(-35.5, 150.5, 330); // northbound, beating on port: 66 degrees off the leg
+    const home = p(-34.9, 151.0, 30); // northbound, past Jervis
+
+    // Jervis listed twice: the true distance to finish all the way round.
+    const c = D.makeCourse([J, T, J, N]);
+    assert.equal(c.legBrg[0], null, 'the first leg has no heading');
+    assert.equal(c.mark(south), 0, 'the outbound Jervis');
+    near(D.dtg(south, c), geo.distance(south, J) + 2 * JT + JN, 1e-6, 'DTF includes the out-and-back');
+    assert.equal(c.mark(pastJ), 1);
+    assert.equal(c.mark(back), 2, 'the return Jervis: same mark, the leg from Tollgate');
+    assert.equal(c.mark(beating), 2);
+    near(D.dtg(back, c), geo.distance(back, J) + JN, 1e-6, 'DTF on the way back');
+    assert.equal(c.mark(home), 3);
+
+    // Jervis listed only on the way back: southbound boats are not on the leg from
+    // Tollgate, so they keep Tollgate (positive VMC toward Jervis alone picked it).
+    const once = D.makeCourse([T, J, N]);
+    assert.equal(once.mark(south), 0);
+    near(D.dtg(south, once), geo.distance(south, T) + JT + JN, 1e-6, 'no skipped out-and-back');
+    assert.equal(once.mark(back), 1);
+    assert.equal(once.mark(home), 2);
+});
+
 test('upDir per frame', () => {
     const us = at(0, 0, 0, 45);
     assert.equal(D.upDir('north', us, WP), 0);
