@@ -128,10 +128,10 @@ The SIs allow it: 2025 NSGCYR SI 10.3 and the BWPS Sailing Program (addition to 
 - [x] Race list for the picker (`lib/cyca-races.js`): current and pre-race races from `years/<y>/series` and `series/<id>/races`, fleet size, name from the entry `cmsUrl` slug, "our boat entered" by vessel name. Cached in the data dir for offline.
 - [x] Polling adapter (`lib/cyca-adapter.js`, wired in `index.js`): always on while a race is selected and running (decided), `at/live/status` at about :02 past each 10 min boundary, one request in flight, an unchanged position counts as a missed report (`TODO(verify)` live). Reports `{boatId: 'cyca:<entryId>', src: 'cyca'}` into the TrackStore and journal.
 - [ ] Backfill: for nemesis boats with gaps longer than Stale after within the display period (decided: the period sets the depth), fetch `entries/<id>/track/at/live`, keep the slots in the gap.
-- [ ] Matcher (pure): CYCA boat vs AIS boats at the same slot time (AIS interpolated, within 5 min), distance, SOG/COG and name similarity; ambiguous candidates shown without a recommendation.
-- [ ] Merge at snapshot time: a linked CYCA boat shows as its AIS boat; its tracker report is dropped when an AIS report is within +/- 10 min (decided). Unlinked CYCA boats are ordinary boats under Show (decided).
-- [ ] Links persist across races (decided), keyed by the normalised CYCA name (entry ids change every race) to MMSI, and can be unlinked. "No AIS" is per race, keyed by entry id. Stored in `cyca-state.json`.
-- [ ] API: read-only `/cyca`, `/cyca/races`, `/cyca/mapping`; `cyca.needsAction` in the snapshot; PUT handlers `setCycaRace`, `setCycaLink`.
+- [x] Matcher (pure, `lib/cyca-match.js`): over the last hour, every slot with AIS data must fit (at least 3); CYCA boat vs AIS boats at the same slot time (AIS interpolated, within 5 min), distance, SOG/COG and name similarity; ambiguous candidates shown without a recommendation.
+- [x] Merge at snapshot time (`lib/cyca-merge.js`): a linked CYCA boat shows as its AIS boat; its tracker report is dropped when an AIS report is within +/- 10 min (decided). Unlinked CYCA boats are ordinary boats under Show (decided).
+- [x] Links persist across races (decided), keyed by the normalised CYCA name (entry ids change every race) to MMSI, and can be unlinked. "No AIS" is per race, keyed by entry id. Stored in `cyca-state.json`.
+- [x] API: read-only `/cyca`, `/cyca/races`, `/cyca/mapping`; `cyca.needsAction` in the snapshot; PUT handlers `setCycaRace`, `setCycaLink`.
 - [ ] Webapp tab "CYCA" (decided name), last: race picker at the top, mapping table below, badge when a CYCA boat is unlinked with a nearby AIS candidate.
 - [ ] Replay test: a fake CYCA feed from `gc2026-tracks.json` alongside the AIS simulator. Playwright tests for the tab.
 - [ ] Update `wiki/overview.md` 2.3 (v2 API, slot times, YB link).
