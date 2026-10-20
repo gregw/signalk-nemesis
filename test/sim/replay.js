@@ -12,6 +12,10 @@ const createPlugin = require('../../index');
 const data = require('../data/gc2026-tracks.json');
 
 const RACE_START = Date.parse(data.race.start);
+// Tests never reach the real CYCA feed unless they pass a fetch of their own.
+const noFetch = async () => {
+    throw new TypeError('no network in tests');
+};
 
 async function replayTo(hoursIn, opts = {}) {
     const now = Date.now();
@@ -20,7 +24,7 @@ async function replayTo(hoursIn, opts = {}) {
     const dataDir = opts.dataDir || tmpdir();
     const app = fakeApp({dataDir});
     if (opts.resources) Object.assign(app.resources, opts.resources); // e.g. named waypoints
-    const plugin = createPlugin(app);
+    const plugin = createPlugin(app, {fetch: opts.fetch || noFetch});
     plugin.registerWithRouter(app.pluginRouter);
     plugin.signalKApiRoutes(app.apiRouter);
     plugin.start(opts.config || {});

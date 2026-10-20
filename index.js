@@ -27,6 +27,9 @@ const {UserState, validTcf} = require('./lib/user-state');
 const {buildSnapshot, buildTracks} = require('./lib/snapshot');
 const {StartTime, RacerStartAdapter} = require('./lib/start-time');
 const {Journal} = require('./lib/journal');
+const {CycaState} = require('./lib/cyca-state');
+const {CycaRaces} = require('./lib/cyca-races');
+const {CycaAdapter} = require('./lib/cyca-adapter');
 
 const PLUGIN_ID = 'signalk-nemesis';
 const API_PREFIX = '/nemesis';
@@ -151,7 +154,12 @@ const schema = {
     }
 };
 
-module.exports = function (app) {
+/**
+ * @param {object} app Signal K server app
+ * @param {object} [deps] test seams: {fetch} for the CYCA feed
+ */
+module.exports = function (app, deps = {}) {
+    const fetchImpl = deps.fetch || globalThis.fetch;
     const plugin = {
         id: PLUGIN_ID,
         name: 'Nemesis Delta',
@@ -178,29 +186,26 @@ module.exports = function (app) {
         });
         const userState = new UserState(app.getDataDirPath(), (e) => app.error(`Saving state failed: ${e.message}`));
         userState.applyConfig(cfg.boats);
-        const ais = new AisSourceAdapter(
-            app,
-            (r) => {
-                // Our state at their report time travels with the report, so it outlives
-                // our own continuous history (kept only for the recent window).
-                const us = own.at(r.t);
-                const rep = {
-                    ...r,
-                    us: us ? {t: us.t, lat: us.lat, lon: us.lon, cogRad: us.cogRad, sogMs: us.sogMs} : null
-                };
-                store.add(rep);
-                journal.append({k: 'r', ...rep});
-            },
-            (id, name) => {
-                store.setName(id, name);
-                journal.append({k: 'n', id, name});
-            },
-            Date.now,
-            (id, shipType) => {
-                store.setShipType(id, shipType);
-                journal.append({k: 'n', id, shipType});
-            }
-        );
+        // Every source's reports go in the same way: AIS and the CYCA tracker.
+        const ingest = (r) => {
+            // Our state at their report time travels with the report, so it outlives
+            // our own continuous history (kept only for the recent window).
+            const us = own.at(r.t);
+            const rep = {
+                ...r,
+                us: us ? {t: us.t, lat: us.lat, lon: us.lon, cogRad: us.cogRad, sogMs: us.sogMs} : null
+            };
+            store.add(rep);
+            journal.append({k: 'r', ...rep});
+        };
+        const setName = (id, name) => {
+            store.setName(id, name);
+            journal.append({k: 'n', id, name});
+        };
+        const ais = new AisSourceAdapter(app, ingest, setName, Date.now, (id, shipType) => {
+            store.setShipType(id, shipType);
+            journal.append({k: 'n', id, shipType});
+        });
         const ownAdapter = new OwnAdapter(app, (s) => {
             if (own.add(s)) journal.append({k: 'o', ...s});
         });
@@ -210,6 +215,24 @@ module.exports = function (app) {
             onError: (e) => app.error(`Saving start time failed: ${e.message}`)
         });
         const racerStart = new RacerStartAdapter(app, startTime);
+        const onCycaError = (e) => app.error(`Saving CYCA state failed: ${e.message}`);
+        const cycaState = new CycaState(app.getDataDirPath(), onCycaError);
+        const cycaRaces = new CycaRaces({
+            fetch: fetchImpl,
+            dataDir: app.getDataDirPath(),
+            ourName: () => selfName(app),
+            onError: onCycaError
+        });
+        const cyca = new CycaAdapter({
+            fetch: fetchImpl,
+            onReport: (r) => {
+                ingest(r);
+                // Entries arrive before reports, and the store names only boats it holds.
+                const e = cyca.entries.get(Number(r.boatId.slice('cyca:'.length)));
+                const b = store.get(r.boatId);
+                if (e && b && b.name !== e.name) setName(r.boatId, e.name);
+            }
+        });
 
         state = {
             cfg,
@@ -222,6 +245,9 @@ module.exports = function (app) {
             startTime,
             racerStart,
             journal,
+            cycaState,
+            cycaRaces,
+            cyca,
             thinTimer: null,
             ready: null, // promise: journal loaded
             // Live clock. The replay harness shifts recorded times to wall-clock time.
@@ -231,6 +257,7 @@ module.exports = function (app) {
         ownAdapter.start();
         racerStart.start();
         state.waypoints.start();
+        cyca.setRace(cycaState.raceId);
         registerPutHandlers();
         app.setPluginStatus('Loading track history');
 
@@ -282,7 +309,7 @@ module.exports = function (app) {
             app.debug(e);
         }
         if (state.thinTimer) clearInterval(state.thinTimer);
-        for (const a of [state.ownAdapter, state.racerStart, state.waypoints, state.journal]) {
+        for (const a of [state.ownAdapter, state.racerStart, state.waypoints, state.cyca, state.journal]) {
             try {
                 a.stop();
             } catch (e) {
@@ -425,6 +452,13 @@ module.exports = function (app) {
 
     return plugin;
 };
+
+/** Our vessel name: a plain string at self.name (getSelfPath is lodash.get on self, signalk-server 2.30.0). */
+function selfName(app) {
+    const v = app.getSelfPath('name');
+    if (typeof v === 'string') return v;
+    return v && typeof v.value === 'string' ? v.value : null;
+}
 
 function withDefaults(options) {
     const o = options || {};
