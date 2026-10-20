@@ -120,11 +120,18 @@ then restart the server and enable the plugin in the admin UI. Caveats:
 - With security on, feed with `--user` (step 3), and the webapp asks you to log in (the
   "login needed" link goes to the server's login page).
 
-### Installing on a boat for a test (e.g. Windows 10)
+### Installing on a boat
 
-The plugin is not on npm yet, so it is not in the Appstore. Install it from a package file
-instead, the same way the Appstore installs plugins (npm in the server's config folder), so
-it is recorded in that folder's `package.json` and survives later Appstore installs.
+From the Signal K admin UI: **Appstore > Available**, find **Nemesis Delta**
+(`signalk-nemesis`), **Install**, then restart the server. The Appstore lists npm packages
+with the `signalk-node-server-plugin` keyword (signalk-server 2.30.0 `src/modules.ts`
+searches the npm registry for it), so a new release shows there once npm has indexed it.
+
+### Installing from a package file (e.g. Windows 10, or a build not on npm)
+
+Install it from a package file the same way the Appstore installs plugins (npm in the
+server's config folder), so it is recorded in that folder's `package.json` and survives
+later Appstore installs.
 
 1. Download `signalk-nemesis-<version>.tgz` from the
    [GitHub releases](https://github.com/gregw/signalk-nemesis/releases), or build it on a
@@ -137,7 +144,7 @@ it is recorded in that folder's `package.json` and survives later Appstore insta
 3. In a Command Prompt in that folder:
 
    ```text
-   npm install signalk-nemesis-0.2.1.tgz
+   npm install signalk-nemesis-<version>.tgz
    ```
 
    `npm` must be the one belonging to the Node.js the server runs on (TODO(verify): how the
@@ -198,7 +205,7 @@ The first browser run on a machine needs `npm install` in the checkout and
 | `maxRaceHours`             | Ignore a start time older than this                                             | 96             |
 | `waypointOrder`            | Next waypoint: `course,nmea` (Course API first) or `nmea,course`                | `course,nmea`  |
 | `nmeaWaypointStaleSeconds` | Ignore an NMEA next point not updated for this long                             | 30             |
-| `waypointNames`            | Named waypoints (resources), in course order: each found can be picked as Up; together they are the course for Up = Course; first found is the fallback | `[nemesis]` |
+| `waypointNames`            | Fallback waypoints (resources, by name): the first found is the waypoint when neither the Course API nor NMEA has one; each found can be picked as Up. Also the course until one is set on the Course tab | `[nemesis]` |
 
 Boats entered in advance (`boats`) are made nemeses with their TCF when they are added, and
 their TCF is set again when it is changed in the configuration. What was applied is
@@ -206,6 +213,13 @@ remembered, so a restart (or a brownout) with the same configuration never undoe
 made in the webapp since. Removing a boat from the list leaves it as it is. A configured name
 is shown in this plugin instead of the name the boat sends over AIS (the snapshot's `aisName`
 keeps that, and the boat popup shows it); the Signal K data model is not changed.
+
+The course for Up = Course is set on the webapp's **Course** tab and kept by the plugin
+(`course.json` in its data folder), so every screen shares it: add waypoints and move them up
+and down, or import a Signal K route (it replaces the course). A mark passed twice, out and
+back, is listed twice. Waypoint marks follow the waypoint if it is moved in the chart app;
+route points that are not waypoints stay where they were imported. Until a course is set
+there, `waypointNames` is the course, as in earlier versions.
 
 The webapp's **Show** filter has a **Sailing** choice for busy harbours: it hides boats whose
 AIS ship type is known and is not Sailing (36), so Pleasure (37) too, boats under 0.5 kn and
@@ -215,15 +229,23 @@ ship type yet is shown.
 ## Interfaces
 
 - **REST (read):** `GET /signalk/v1/api/nemesis/snapshot`, `/tracks?periodS=&toT=&sinceT=`,
-  `/user` (also at `/plugins/signalk-nemesis/*`, which is admin only when security is on).
+  `/user`, `/course` (the course, resolved), `/course/waypoints` and `/course/routes` (what
+  the Course tab can add), and for the CYCA tracker `/cyca` (poll state), `/cyca/races` (`?refresh=1` reads
+  the feed first) and `/cyca/mapping` (also at `/plugins/signalk-nemesis/*`, which is admin
+  only when security is on).
 - **PUT handlers (write, need read/write access):** `navigation.racing.nemesis.setNemesis`
   `{id, nemesis}`, `.setTcf` `{id, tcf}` (id `self` is our boat), `.setStartTime`
-  `{startTime: RFC 3339 | null}`. As REST: `PUT /signalk/v1/api/vessels/self/navigation/racing/nemesis/setTcf`
+  `{startTime: RFC 3339 | null}`, `.setCycaRace` `{raceId | null}`, `.setCycaLink`
+  `{name: CYCA boat name, mmsi | null}`, `.setCycaNoAis` `{entryId, noAis}`, `.setCourse`
+  `{marks: [{name, waypointId?, lat?, lon?}]}` or `{routeId}`. As REST: `PUT /signalk/v1/api/vessels/self/navigation/racing/nemesis/setTcf`
   with body `{"value": {...}}`.
 - **Consumed:** other vessels' AIS position, COG, SOG and name; our position, COG, SOG,
   heading; the Course API and waypoint/route resources; NMEA next point
   (`navigation.courseRhumbline|courseGreatCircle.nextPoint.*`); signalk-racer's
-  `navigation.racing.startTime`.
+  `navigation.racing.startTime`; our vessel name (to find our own CYCA entry).
+- **Fetched (only with a CYCA race picked):** `https://feeds.cycaracing.com/v2/...`, the
+  race list when the CYCA tab asks for it, the race's fleet every 10 minutes while it runs,
+  and a nemesis boat's track when its history has a gap.
 - **Published to the data model:** nothing yet.
 
 All values are SI on the wire (radians, m/s, metres, epoch ms); the webapp converts to
