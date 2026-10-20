@@ -5,6 +5,13 @@ are sailing relative to you during a race, from AIS and, for CYCA races, the CYC
 (picked on the CYCA tab; it needs internet). It answers: who is going faster toward
 where we are heading, who is gaining or losing on us, and who is beating us on handicap.
 
+| Boats | TCF | Vectors | Geo |
+| --- | --- | --- | --- |
+| <img src="docs/screenshots/boats.png" width="200" alt="Boats tab"> | <img src="docs/screenshots/tcf.png" width="200" alt="TCF tab"> | <img src="docs/screenshots/vectors.png" width="200" alt="Vectors tab"> | <img src="docs/screenshots/geo.png" width="200" alt="Geo tab"> |
+
+Six hours into the 2026 Sydney Gold Coast race, from the recorded AIS data, with the four
+nearest boats as nemeses (their TCFs made up). `node tools/readme-shots.js` makes them again.
+
 The design brief is in [`wiki/overview.md`](wiki/overview.md); work in progress is in
 [`TODO.md`](TODO.md).
 
