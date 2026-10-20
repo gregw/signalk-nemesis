@@ -32,6 +32,8 @@ const {CycaRaces} = require('./lib/cyca-races');
 const {CycaAdapter} = require('./lib/cyca-adapter');
 const {mergedView} = require('./lib/cyca-merge');
 const {mappingRows} = require('./lib/cyca-mapping');
+const {BackfillPlanner} = require('./lib/cyca-backfill');
+const {nameKey} = require('./lib/cyca-feed');
 
 const PLUGIN_ID = 'signalk-nemesis';
 const API_PREFIX = '/nemesis';
@@ -45,6 +47,9 @@ const PUT_PATHS = {
     setCycaNoAis: 'navigation.racing.nemesis.setCycaNoAis'
 };
 const MAX_PERIOD_MS = 24 * 3600e3;
+// Backfill depth: the longest display period a webapp asked /tracks for lately.
+const WANT_PERIOD_DEFAULT_MS = 60 * 60e3;
+const WANT_PERIOD_HOLD_MS = 10 * 60e3;
 
 const schema = {
     title: 'Nemesis Delta',
@@ -230,10 +235,15 @@ module.exports = function (app, deps = {}) {
         });
         const cyca = new CycaAdapter({
             fetch: fetchImpl,
+            onChange: () => {
+                if (state && state.cyca === cyca) backfill(state);
+            },
             onReport: (r) => {
+                const e = cyca.entries.get(Number(r.boatId.slice('cyca:'.length)));
+                // We are in the fleet too: our own entry is not a competitor.
+                if (e && nameKey(e.name) === nameKey(selfName(app) || '')) return;
                 ingest(r);
                 // Entries arrive before reports, and the store names only boats it holds.
-                const e = cyca.entries.get(Number(r.boatId.slice('cyca:'.length)));
                 const b = store.get(r.boatId);
                 if (e && b && b.name !== e.name) setName(r.boatId, e.name);
             }
@@ -253,6 +263,9 @@ module.exports = function (app, deps = {}) {
             cycaState,
             cycaRaces,
             cyca,
+            backfillPlanner: new BackfillPlanner(),
+            backfilling: false,
+            wantPeriod: {ms: WANT_PERIOD_DEFAULT_MS, at: 0},
             thinTimer: null,
             ready: null, // promise: journal loaded
             // Live clock. The replay harness shifts recorded times to wall-clock time.
@@ -336,7 +349,11 @@ module.exports = function (app, deps = {}) {
             command(() => {
                 if (!value || typeof value.id !== 'string' || typeof value.nemesis !== 'boolean')
                     return complete(400, 'value must be {id: string, nemesis: boolean}');
-                return state.userState.setNemesis(value.id, value.nemesis).then(() => complete(200, 'OK'));
+                const s = state;
+                return s.userState.setNemesis(value.id, value.nemesis).then(() => {
+                    backfill(s); // a new nemesis may have gaps the tracker can fill
+                    return complete(200, 'OK');
+                });
             })
         );
         app.registerPutHandler('vessels.self', PUT_PATHS.setTcf, (ctx, path, value) =>
@@ -352,6 +369,7 @@ module.exports = function (app, deps = {}) {
                 if (!value || !(value.raceId === null || Number.isInteger(value.raceId)))
                     return complete(400, 'value must be {raceId: integer|null}');
                 state.cyca.setRace(value.raceId);
+                state.backfillPlanner.reset();
                 return state.cycaState.setRace(value.raceId).then(() => complete(200, 'OK'));
             })
         );
@@ -470,12 +488,14 @@ module.exports = function (app, deps = {}) {
             if ((toT != null && !Number.isFinite(toT)) || (sinceT != null && !Number.isFinite(sinceT)))
                 return res.status(400).json({error: 'bad toT or sinceT'});
             const now = s.clock();
+            const periodMs = Math.min(periodS * 1000, MAX_PERIOD_MS);
+            if (toT == null && sinceT == null) wantPeriod(s, periodMs, now);
             res.json(
                 buildTracks({
                     store: viewOf(s),
                     own: s.own,
                     now,
-                    periodMs: Math.min(periodS * 1000, MAX_PERIOD_MS),
+                    periodMs,
                     toT: toT ?? now,
                     sinceT,
                     ids
@@ -507,6 +527,45 @@ module.exports = function (app, deps = {}) {
             const s = running(res);
             if (s) res.json(s.userState.toJSON());
         });
+    }
+
+    /** Note the period a webapp shows; a longer one than before backfills at once. */
+    function wantPeriod(s, periodMs, now) {
+        const w = s.wantPeriod;
+        const longer = periodMs > w.ms;
+        if (longer || now - w.at > WANT_PERIOD_HOLD_MS) s.wantPeriod = {ms: periodMs, at: now};
+        else if (periodMs === w.ms) w.at = now;
+        if (longer) backfill(s);
+    }
+
+    /**
+     * Fill gaps in nemesis boats' tracks over the display period from the CYCA tracks
+     * (one run at a time; the adapter queues the fetches). Never throws.
+     */
+    function backfill(s) {
+        if (s.backfilling || s.cycaState.raceId === null || !s.cyca.race) return;
+        const now = s.clock();
+        const jobs = s.backfillPlanner.plan({
+            boats: viewOf(s).all(),
+            isNemesis: (id) => s.userState.isNemesis(id),
+            now,
+            periodMs: s.wantPeriod.ms,
+            staleMs: s.cfg.staleSeconds * 1000,
+            startT: s.cyca.race.startT
+        });
+        if (!jobs.length) return;
+        s.backfilling = true;
+        (async () => {
+            for (const j of jobs) {
+                if (state !== s) return;
+                const own = s.store.get('cyca:' + j.entryId);
+                const known = (t) => !!own && own.track.atOrBefore(t)?.t === t;
+                const added = await s.cyca.fillTrack(j.entryId, j.fromT, j.toT, known);
+                s.backfillPlanner.done(j.entryId, j.fromT, now, added);
+            }
+        })()
+            .catch((e) => app.error(`CYCA backfill: ${e.message}`))
+            .finally(() => (s.backfilling = false));
     }
 
     // Tracks with CYCA links applied: a linked CYCA boat shows as its AIS boat.

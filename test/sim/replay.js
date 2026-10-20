@@ -22,9 +22,11 @@ async function replayTo(hoursIn, opts = {}) {
     const shiftMs = now - (RACE_START + hoursIn * 3600e3);
     const sim = simulate(data, {receiverName: 'Kanreki', seed: 11, shiftMs});
     const dataDir = opts.dataDir || tmpdir();
-    const app = fakeApp({dataDir});
+    const app = fakeApp({dataDir, selfPaths: opts.selfName ? {name: opts.selfName} : {}});
     if (opts.resources) Object.assign(app.resources, opts.resources); // e.g. named waypoints
-    const plugin = createPlugin(app, {fetch: opts.fetch || noFetch});
+    // opts.fetchFor(shiftMs): a fake feed on the same shifted clock (test/sim/cyca-sim.js).
+    const fetch = opts.fetchFor ? opts.fetchFor(shiftMs) : opts.fetch || noFetch;
+    const plugin = createPlugin(app, {fetch});
     plugin.registerWithRouter(app.pluginRouter);
     plugin.signalKApiRoutes(app.apiRouter);
     plugin.start(opts.config || {});
@@ -69,7 +71,7 @@ async function replayTo(hoursIn, opts = {}) {
         });
     }
     await sleep(300); // let the coalescer flush the last report per context
-    return {app, plugin, sim, now, dataDir};
+    return {app, plugin, sim, now, dataDir, shiftMs, fetch};
 }
 
 module.exports = {replayTo};
