@@ -48,25 +48,32 @@ async function assertLayout(page) {
     const m = await page.evaluate(() => {
         const vw = window.innerWidth;
         const rect = (sel) => document.querySelector(sel).getBoundingClientRect();
-        const tabs = [...document.querySelectorAll('#tabbar button')].map((b) => b.getBoundingClientRect());
+        const tabs = [...document.querySelectorAll('#tabbar button')].map((b) => ({
+            r: b.getBoundingClientRect(),
+            fits: b.scrollWidth <= b.clientWidth
+        }));
         return {
             vw,
             vh: window.innerHeight,
             scrollW: document.scrollingElement.scrollWidth,
             docH: document.scrollingElement.scrollHeight,
-            tabs: tabs.map((r) => ({l: r.left, r: r.right, h: r.height})),
+            tabs: tabs.map(({r, fits}) => ({l: r.left, r: r.right, h: r.height, fits})),
             stage: rect('.stage')
         };
     });
     assert.ok(m.scrollW <= m.vw, `no horizontal page scroll (${m.scrollW} > ${m.vw})`);
     assert.ok(m.docH <= m.vh + 1, `page itself does not scroll vertically (${m.docH} > ${m.vh})`);
-    assert.equal(m.tabs.length, 4);
-    assert.deepEqual(
-        await page.$$eval('#tabbar button', (bs) => bs.map((b) => b.dataset.tab)),
-        ['boats', 'tcf', 'vectors', 'geo']
-    );
+    assert.equal(m.tabs.length, 5);
+    assert.deepEqual(await page.$$eval('#tabbar button', (bs) => bs.map((b) => b.dataset.tab)), [
+        'boats',
+        'tcf',
+        'vectors',
+        'geo',
+        'cyca'
+    ]);
     for (const t of m.tabs) {
         assert.ok(t.l >= 0 && t.r <= m.vw, 'tab inside viewport');
+        assert.ok(t.fits, 'tab label not clipped');
         assert.ok(t.h >= 30, `tab tall enough to tap (${t.h}px)`);
     }
     assert.ok(m.stage.height > m.vh * 0.4, `stage gets most of the height (${m.stage.height}px)`);

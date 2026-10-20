@@ -97,6 +97,9 @@ function cycaFeed({shiftMs, clock, raceId = 194}) {
         f.calls.push(url);
         if (f.down) throw new TypeError('fetch failed');
         const p = url.replace('https://feeds.cycaracing.com/v2', '');
+        // The race list: every year has series 3, whose one race is this one.
+        if (/^\/years\/\d{4}\/series$/.test(p)) return {ok: true, json: async () => [3]};
+        if (p === '/series/3/races') return {ok: true, json: async () => [routes[`/races/${raceId}`]()]};
         const m = new RegExp(`^/races/${raceId}/entries/(\\d+)/track/at/live$`).exec(p);
         let json;
         if (m) {

@@ -469,6 +469,9 @@ const ND = (() => {
         const view = buildView();
         lastView = view;
         $('fleetCount').textContent = view.visible.length + '/' + view.all.length;
+        // The CYCA tab asks for the navigator: a CYCA boat with a candidate AIS match.
+        const cyca = document.querySelector('#tabbar button[data-tab="cyca"]');
+        if (cyca) cyca.classList.toggle('attn', !!(M.snap && M.snap.cyca && M.snap.cyca.needsAction));
         const t = tabs[prefs.tab];
         if (t) t.render(view, force);
         if (sel != null && !view.all.some((b) => b.id === sel)) clearSel();
@@ -706,6 +709,7 @@ const ND = (() => {
         vectors:
             'Velocity vectors with the chosen Up at the top. Each hull points the way that boat is moving; distance from the centre is speed. The centre is zero speed (Absolute) or our boat (Relative: their velocity minus ours). Comet tails join successive reports over the period, thick = now. Tap a boat to draw its true velocity vectors from the centre.',
         tcf: "Time-on-time handicap against us. Enter each boat's TCF (default 1.000; saved on the boat's server). Should = how far a boat must be ahead of us to be level on corrected time if the race ended at its report: the time owed over the elapsed time since the start (elapsed x the TCF ratio - 1), as a distance at the VMG to the waypoint of the boat that would be trailing. If it owes us time, at our VMG (Should +: it must be ahead); if we owe it time, at its VMG (Should -: it may be behind). VMGs are smoothed over the period set in the plugin config. Actual = how far it really is ahead toward Up. Net = Actual - Should, charted over the period (newest on the left) so an older report still shows the trend; + (orange) means it is beating us on handicap. Should is toward the waypoint, so it compares strictly with Actual only when Up = Waypoint.",
+        cyca: "The CYCA race tracker, for boats beyond AIS range (it needs internet). Pick the race at the top: races we are entered in say so. Positions come every 10 minutes. Below, link each CYCA boat to its AIS boat so the two show as one; the plugin suggests AIS boats that were in the same place at the same times over the last hour (a highlighted button is a clear match). Links are kept for the next race; Unlink if one is wrong. 'No AIS' quiets a boat for this race. The tab is highlighted while a CYCA boat has a likely AIS match not yet linked.",
         geo: 'Boats on the water, rotated so Up is at the top; the ringed WPT is the waypoint. Drag to pan, pinch or wheel to zoom (in Relative mode this switches to Absolute). Relative centres on us and fits all shown boats. Fit reframes. OSM and Sea basemaps need internet; White works offline.'
     };
     function bindInfo() {
@@ -776,6 +780,12 @@ const ND = (() => {
         toggleNemesis,
         setTcf,
         setStart,
+        refresh: () => poll(),
+        liveNow,
+        api: {
+            get: (path) => fetchJson(API + path),
+            put
+        },
         setPrefs(kv) {
             Object.assign(prefs, kv);
             savePrefs();

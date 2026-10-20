@@ -775,3 +775,99 @@ svg .hi {
         font-size: 13px;
     }
 }
+
+/* ---------- CYCA ---------- */
+.tabbar button.attn {
+    position: relative;
+}
+.tabbar button.attn::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--warn);
+}
+.racesel {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 3px 4px;
+    border: 1px solid var(--panel-line);
+    border-radius: 5px;
+    min-width: 0;
+    max-width: 100%;
+    flex: 1 1 200px;
+}
+.crow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+    padding: 7px 4px;
+    border-bottom: 1px solid var(--line);
+}
+.crow.attn {
+    background: #fff4e8;
+    box-shadow: inset 3px 0 0 var(--warn);
+}
+.crow.done .cname b {
+    color: var(--steel);
+}
+.cname {
+    flex: 1 1 140px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+.cname b {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.csub,
+.cand-sub {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--steel-lt);
+}
+.cact {
+    flex: 2 1 220px;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--mono);
+    font-size: 12px;
+}
+.cact .linked {
+    color: var(--ok);
+}
+.cact .noais,
+.cact .nocand {
+    color: var(--steel-lt);
+}
+.cact select.pick {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 2px;
+    border: 1px solid var(--panel-line);
+    border-radius: 5px;
+    max-width: 150px;
+}
+.mapbtn.cand {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    color: var(--ink);
+}
+.mapbtn.cand.rec {
+    border-color: var(--ok);
+    box-shadow: inset 0 0 0 1px var(--ok);
+}
+.mapbtn.on {
+    background: var(--panel);
+    color: var(--ink);
+}

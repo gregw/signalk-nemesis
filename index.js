@@ -574,13 +574,15 @@ module.exports = function (app, deps = {}) {
     }
 
     function cycaEntries(s) {
-        const fleet = s.cyca.fleet();
-        if (fleet.length || s.cyca.raceId === null) return fleet;
+        const ours = nameKey(selfName(app) || '');
+        let fleet = s.cyca.fleet();
         // Entries not read yet (offline since a restart): the CYCA boats already in the store.
-        return s.store
-            .all()
-            .filter((b) => b.id.startsWith('cyca:') && b.name)
-            .map((b) => ({entryId: Number(b.id.slice(5)), name: b.name, owner: '', club: ''}));
+        if (!fleet.length && s.cyca.raceId !== null)
+            fleet = s.store
+                .all()
+                .filter((b) => b.id.startsWith('cyca:') && b.name)
+                .map((b) => ({entryId: Number(b.id.slice(5)), name: b.name, owner: '', club: ''}));
+        return ours ? fleet.filter((e) => nameKey(e.name) !== ours) : fleet; // we are not a competitor
     }
 
     function cycaMapping(s, now) {

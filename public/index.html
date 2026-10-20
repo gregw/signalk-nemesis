@@ -82,6 +82,7 @@
             <button data-tab="tcf">TCF</button>
             <button data-tab="vectors">Vectors</button>
             <button data-tab="geo">Geo</button>
+            <button data-tab="cyca">CYCA</button>
         </nav>
 
         <main class="stage">
@@ -160,6 +161,24 @@
                     </svg>
                 </div>
             </section>
+            <section class="tabpane hidden" id="pane-cyca">
+                <div class="plothead">
+                    <button class="info" data-info="cyca" aria-label="about this view">i</button>
+                    <div class="mode"><b>CYCA tracker</b></div>
+                </div>
+                <div class="startbar">
+                    <span class="ctl-label">Race</span>
+                    <select id="cycaRace" class="racesel" aria-label="CYCA race"></select>
+                    <button class="mapbtn" id="cycaRefresh" title="read the race list from the CYCA feed">
+                        Refresh
+                    </button>
+                </div>
+                <div class="coursebar">
+                    <span id="cycaStatus"></span>
+                    <button class="mapbtn hidden" id="cycaLinkAll">Link all suggested</button>
+                </div>
+                <div class="blist" id="cycalist"></div>
+            </section>
         </main>
 
         <div class="tip" id="tip"></div>
@@ -174,5 +193,6 @@
         <script src="tab-vectors.js"></script>
         <script src="tab-tcf.js"></script>
         <script src="tab-geo.js"></script>
+        <script src="tab-cyca.js"></script>
     </body>
 </html>

@@ -132,8 +132,8 @@ The SIs allow it: 2025 NSGCYR SI 10.3 and the BWPS Sailing Program (addition to 
 - [x] Merge at snapshot time (`lib/cyca-merge.js`): a linked CYCA boat shows as its AIS boat; its tracker report is dropped when an AIS report is within +/- 10 min (decided). Unlinked CYCA boats are ordinary boats under Show (decided).
 - [x] Links persist across races (decided), keyed by the normalised CYCA name (entry ids change every race) to MMSI, and can be unlinked. "No AIS" is per race, keyed by entry id. Stored in `cyca-state.json`.
 - [x] API: read-only `/cyca`, `/cyca/races`, `/cyca/mapping`; `cyca.needsAction` in the snapshot; PUT handlers `setCycaRace`, `setCycaLink`.
-- [ ] Webapp tab "CYCA" (decided name), last: race picker at the top, mapping table below, badge when a CYCA boat is unlinked with a nearby AIS candidate.
-- [ ] Replay test: a fake CYCA feed from `gc2026-tracks.json` alongside the AIS simulator. Playwright tests for the tab.
+- [x] Webapp tab "CYCA" (decided name, `public/tab-cyca.js`), last: race picker at the top, mapping table below, badge when a CYCA boat is unlinked with a nearby AIS candidate.
+- [x] Replay test: a fake CYCA feed (`test/sim/cyca-sim.js`) from `gc2026-tracks.json` alongside the AIS simulator. Playwright tests for the tab.
 - [ ] Update `wiki/overview.md` 2.3 (v2 API, slot times, YB link).
 - [ ] Instrument-display outputs in our own namespace.
 
