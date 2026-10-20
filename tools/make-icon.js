@@ -15,7 +15,7 @@ const OUT = path.join(__dirname, '..', 'public', 'assets');
 
 const C = {
     bg: '#1a2a3a', // prototype --ink
-    delta: '#4a8be0', // prototype --accent, lightened for a dark ground
+    rings: '#4a8be0', // prototype --accent, lightened for a dark ground
     us: '#ffffff',
     nemesis: '#e0303f', // prototype --port, slightly brighter
     lead: '#ffffff'
@@ -44,13 +44,34 @@ function hull(px, py, ang, size, beam = 0.7) {
     }).join(' ');
 }
 
+// A faint VMG strip chart: our trace and the nemesis trace, wandering across the icon.
+function strip() {
+    const trace = (y0, amp, ph, colour) => {
+        const pts = [];
+        for (let x = 0; x <= 512; x += 16) {
+            const y = y0 + amp * (Math.sin(x / 41 + ph) * 0.6 + Math.sin(x / 17 + 2 * ph) * 0.3 + Math.sin(x / 7 + 3 * ph) * 0.1);
+            pts.push(`${x},${y.toFixed(1)}`);
+        }
+        return `<polyline points="${pts.join(' ')}" fill="none" stroke="${colour}" stroke-width="10" stroke-linejoin="round" opacity="0.22"/>`;
+    };
+    return `<g clip-path="url(#bg)">${trace(370, 46, 0.4, C.us)}${trace(395, 52, 2.1, C.nemesis)}</g>`;
+}
+
+// Range rings and cross hairs centred on our boat, as on a radar or AIS display.
+function rings(c) {
+    let out = `<g clip-path="url(#bg)" fill="none" stroke="${C.rings}">`;
+    out += `<line x1="${c.x}" y1="0" x2="${c.x}" y2="512" stroke-width="6" opacity="0.45"/>`;
+    out += `<line x1="0" y1="${c.y}" x2="512" y2="${c.y}" stroke-width="6" opacity="0.45"/>`;
+    for (const r of [80, 160, 240]) out += `<circle cx="${c.x}" cy="${c.y}" r="${r}" stroke-width="16"/>`;
+    return out + '</g>';
+}
+
 function svg() {
     const deg = (d) => (d * Math.PI) / 180;
     // Delta: equilateral-ish triangle, apex up.
-    const tri = '256,70 452,418 60,418';
     // Our boat lower left; the nemesis ahead, with a comet tail along its track.
-    const us = {x: 190, y: 330, a: deg(-80)};
-    const nem = {x: 300, y: 205, a: deg(-68)};
+    const us = {x: 256, y: 256, a: deg(-80)};
+    const nem = {x: 366, y: 131, a: deg(-68)};
     let tail = '';
     const n = 4;
     for (let i = 0; i < n; i++) {
@@ -62,7 +83,9 @@ function svg() {
     }
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <rect x="0" y="0" width="512" height="512" rx="96" fill="${C.bg}"/>
-  <polygon points="${tri}" fill="none" stroke="${C.delta}" stroke-width="30" stroke-linejoin="round"/>
+  <clipPath id="bg"><rect x="0" y="0" width="512" height="512" rx="96"/></clipPath>
+  ${strip()}
+  ${rings(us)}
   <line x1="${us.x}" y1="${us.y}" x2="${nem.x}" y2="${nem.y}" stroke="${C.lead}" stroke-width="10" stroke-dasharray="4 22" stroke-linecap="round" opacity="0.85"/>
   ${tail}
   <polygon points="${hull(nem.x, nem.y, nem.a, 150)}" fill="${C.nemesis}" stroke="${C.bg}" stroke-width="8" stroke-linejoin="round"/>
