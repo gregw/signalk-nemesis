@@ -60,3 +60,27 @@ test('linking or marking No AIS clears the need; the linked AIS boat is no candi
     assert.equal(m.needsAction, false);
     assert.equal(m.rows.at(-1).name, 'Kanreki'); // No AIS sorts last
 });
+
+test('before the start (no tracker fixes) boats still match AIS boats by name', async () => {
+    const s = new TrackStore({maxSpanMs: 96 * 3600e3});
+    const now = T0;
+    s.add({boatId: '503000001', t: now - 4 * 24 * 3600e3, lat: -33.8, lon: 151.3, cogRad: 0, sogMs: 0});
+    s.setName('503000001', 'BLUE PLANET (DH)');
+    s.add({boatId: '503000002', t: now - 60e3, lat: -33.8, lon: 151.3, cogRad: 0, sogMs: 0});
+    s.setName('503000002', 'Someone Else');
+    const entries = [
+        {entryId: 1, name: 'Blue Planet (DH)', owner: '', club: ''},
+        {entryId: 2, name: 'Akonga', owner: '', club: ''}
+    ];
+    const m = mappingRows({entries, store: s, cycaState: new CycaState(tmpdir()), now});
+    const bp = m.rows.find((r) => r.name === 'Blue Planet (DH)');
+    assert.equal(bp.lastT, null);
+    assert.deepEqual(
+        bp.candidates.map((c) => [c.mmsi, c.sameName, c.distanceM]),
+        [['503000001', true, null]]
+    );
+    assert.equal(bp.recommended, '503000001');
+    assert.equal(bp.needsAction, true);
+    assert.equal(m.rows.find((r) => r.name === 'Akonga').candidates.length, 0);
+    assert.equal(m.needsAction, true);
+});
