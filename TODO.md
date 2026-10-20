@@ -134,7 +134,7 @@ The SIs allow it: 2025 NSGCYR SI 10.3 and the BWPS Sailing Program (addition to 
 - [x] API: read-only `/cyca`, `/cyca/races`, `/cyca/mapping`; `cyca.needsAction` in the snapshot; PUT handlers `setCycaRace`, `setCycaLink`.
 - [x] Webapp tab "CYCA" (decided name, `public/tab-cyca.js`), last: race picker at the top, mapping table below, badge when a CYCA boat is unlinked with a nearby AIS candidate.
 - [x] Replay test: a fake CYCA feed (`test/sim/cyca-sim.js`) from `gc2026-tracks.json` alongside the AIS simulator. Playwright tests for the tab.
-- [ ] Update `wiki/overview.md` 2.3 (v2 API, slot times, YB link).
+- [x] Update `wiki/overview.md` 2.3 (v2 API, slot times, YB link).
 - [ ] Instrument-display outputs in our own namespace.
 
 ## Open decisions (Greg's call)

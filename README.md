@@ -1,7 +1,8 @@
 # Nemesis Delta (signalk-nemesis)
 
 A Signal K server plugin and webapp that tracks how nearby competitors (your nemesis boats)
-are sailing relative to you during a race, from AIS. It answers: who is going faster toward
+are sailing relative to you during a race, from AIS and, for CYCA races, the CYCA race tracker
+(picked on the CYCA tab; it needs internet). It answers: who is going faster toward
 where we are heading, who is gaining or losing on us, and who is beating us on handicap.
 
 The design brief is in [`wiki/overview.md`](wiki/overview.md); work in progress is in

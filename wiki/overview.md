@@ -29,14 +29,17 @@ Our own position, COG, SOG and (where available) heading, STW and true wind come
 
 ### 2.3 Race tracker feeds (secondary, optional)
 
-The prototype used the CYCA race-tracker backend (reverse-engineered):
+CYCA races (the Sydney Gold Coast, the Hobart and the Blue Water Pointscore) carry YB tracker units, published through the CYCA tracker feed. The SIs allow a boat to read it while racing: 2025 NSGCYR SI 10.3, and the BWPS Sailing Program's addition to RRS 41 e) (recheck each year's SIs). YB's own feed alone is not enough: no SOG/COG, and some races only send a fix every few hours.
 
-- `GET https://feeds.cycaracing.com/Yachts/<raceId>?raceTime=YYYYMMDDHHMMSS`. `raceTime` is local time (AEST, UTC+10) and returns the whole fleet "as at" that time.
-- Each boat has `Position { Latitude, Longitude, SpeedOverGround, CourseOverGround, DistanceToGo, DistanceToLeader, RaceStatus }` (SOG and COG arrive as strings).
-- `/Weather?raceTime=...` returns a U/V wind grid. It is unused so far, and its timeline appears to be UTC while positions are local.
-- `pull-gc2026.mjs` walks the 10-minute grid and writes `gc2026-tracks.json`.
+The feed API v2, from the tracker page's own module (`goldcoast.cycaracing.com /_astro/feedsV2.*.js`), checked 2026-10-20:
 
-A tracker feed is a second implementation of the same source adapter as AIS (see section 4). It is useful offshore beyond AIS range, but needs internet.
+- Base `https://feeds.cycaracing.com/v2`: `years/<y>/series`, `series/<id>/races`, `races/<id>` (start and end in UTC, `timeZone`, `isRunning`), `races/<id>/entries`, `races/<id>/at/<snap>/status` (the fleet), `races/<id>/entries/<entryId>/track/at/<snap>`. `<snap>` is `live`, `final` or race-local `yyyyMMddHHmm` on a 10 minute boundary. The tracker page polls `live` every minute. The old `/Yachts/<raceId>?raceTime=` still works.
+- A position has SOG and COG (strings, knots and degrees), DTG and DTL (nm) and status, but **no fix time**: only its 10 minute slot (`raceTime`, race-local). YB fixes fall almost all in the first minute after the boundary (bwp2023), so a report is stamped with its slot. A track has one point per slot from the start while racing; the points after a finish are not slot fixes.
+- There are no race or series names; the entry `cmsUrl` slug gives one for multi-race series. Entry ids change every race. At `final` the status has no positions.
+
+In the plugin (decided 2026-10-20): the navigator picks the race on the CYCA tab (races we are entered in are marked); the plugin polls it 2 minutes after each slot, always, while the race runs. CYCA boats are their own boats (`cyca:<entryId>`) until linked to an AIS boat; links are kept across races by CYCA name and can be undone. A linked boat shows as its AIS boat, its tracker reports filling only gaps of more than 10 minutes either side of an AIS report. Nemesis boats are backfilled from their CYCA tracks over the display period. The tab suggests AIS boats that were in the same place at the same slot times over the last hour, and is highlighted while a likely match is not linked. Our own entry is dropped.
+
+The prototype used the v1 call, `GET https://feeds.cycaracing.com/Yachts/<raceId>?raceTime=YYYYMMDDHHMMSS` (local time); `tools/pull-gc2026.mjs` walks the 10 minute grid and writes `gc2026-tracks.json`. `/Weather?raceTime=...` returned a U/V wind grid; the v2 tracker reads weather from `https://weather.cycaracing.com`, one file per UTC hour (unused so far).
 
 ### 2.4 Recorded test data
 
@@ -211,7 +214,7 @@ Plain JS with no framework, built for phones and tablets first.
 - Track history persistence: decided 2026-10-15, append-only journal in the plugin data dir, 5 days by default.
 - Strip chart sign: decided 2026-10-15, positive always means the other boat is doing better than us (ahead, or faster toward Up), so negative is good for us. This applies in every frame and to both columns. The prototype's Waypoint strip chart (`distMetric`) has the sign reversed and its North chart plots range; the port follows 3.3 instead.
 - Which derived values, if any, to publish into the Signal K data model for instrument displays.
-- How to map tracker-feed boat names to MMSIs.
+- How to map tracker-feed boat names to MMSIs: decided 2026-10-20, a CYCA tab with suggested matches by position, links kept across races by name.
 
 ## 9. Repo contents to bring across
 
