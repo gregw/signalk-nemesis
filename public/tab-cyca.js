@@ -75,7 +75,9 @@
         } else {
             const now = ND.liveNow(); // server time: the tablet's clock may be off
             if (m.completed) parts.push('race completed: no longer polled');
-            if (m.lastOkT) parts.push(`last fetch ${UNITS.fmtAge(now - m.lastOkT)} ago`);
+            const startT = m.race && m.race.startT;
+            if (startT && now < startT) parts.push(`starts ${esc(fmtStart(startT))} · positions from 10 min before`);
+            else if (m.lastOkT) parts.push(`last fetch ${UNITS.fmtAge(now - m.lastOkT)} ago`);
             else if (!m.lastError) parts.push('waiting for the first fetch');
             if (m.lastError) parts.push(`<span class="err">feed: ${esc(m.lastError)}</span>`);
             const n = m.rows.length;
@@ -127,7 +129,7 @@
         const scroll = list.scrollTop;
         list.innerHTML = m.rows
             .map((r) => {
-                const age = r.lastT ? UNITS.fmtAge(now - r.lastT) : 'no fix';
+                const age = r.lastT ? 'fix ' + UNITS.fmtAge(now - r.lastT) + ' ago' : 'no fix yet';
                 let body;
                 if (r.link) {
                     body =
@@ -143,7 +145,7 @@
                         `<button class="mapbtn${r.noAis ? ' on' : ''}" data-act="noais" data-entry="${r.entryId}" data-on="${r.noAis ? '0' : '1'}">No AIS</button>`;
                 }
                 return `<div class="crow${r.needsAction ? ' attn' : ''}${r.link ? ' done' : ''}">
-      <div class="cname"><b>${esc(r.name)}</b><span class="csub">${esc([r.owner, r.club].filter(Boolean).join(' · '))}${r.owner || r.club ? ' · ' : ''}fix ${esc(age)}</span></div>
+      <div class="cname"><b>${esc(r.name)}</b><span class="csub">${esc([r.owner, r.club].filter(Boolean).join(' · '))}${r.owner || r.club ? ' · ' : ''}${esc(age)}</span></div>
       <div class="cact">${body}</div>
     </div>`;
             })
