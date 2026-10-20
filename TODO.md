@@ -125,7 +125,7 @@ All in `public/derive.js`, pure and loaded by both the webapp and `test/derive.t
 The SIs allow it: 2025 NSGCYR SI 10.3 and the BWPS Sailing Program (addition to RRS 41 e) let a boat retrieve the standings pages and the yb.tl text feeds while racing. Recheck the 2026 SIs. The YB feed alone is not enough (no SOG/COG; GGR fixes every 4 h), so the CYCA feed v2 is used.
 
 - [x] `lib/cyca-feed.js`: v2 URLs, fetch that never throws, parsers to SI. No per-fix time: a report is stamped with its 10 min slot.
-- [ ] Race list for the picker: current and pre-race races from `years/<y>/series` and `series/<id>/races`, fleet size, name from the entry `cmsUrl` slug, "our boat entered" by vessel name. Cached in the data dir for offline.
+- [x] Race list for the picker (`lib/cyca-races.js`): current and pre-race races from `years/<y>/series` and `series/<id>/races`, fleet size, name from the entry `cmsUrl` slug, "our boat entered" by vessel name. Cached in the data dir for offline.
 - [ ] Polling adapter: always on while a race is selected and running (decided), `at/live/status` at about :02 past each 10 min boundary, one request in flight, an unchanged position counts as a missed report (`TODO(verify)` live). Reports `{boatId: 'cyca:<entryId>', src: 'cyca'}` into the TrackStore and journal.
 - [ ] Backfill: for nemesis boats with gaps longer than Stale after within the display period (decided: the period sets the depth), fetch `entries/<id>/track/at/live`, keep the slots in the gap.
 - [ ] Matcher (pure): CYCA boat vs AIS boats at the same slot time (AIS interpolated, within 5 min), distance, SOG/COG and name similarity; ambiguous candidates shown without a recommendation.
