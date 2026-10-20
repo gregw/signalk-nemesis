@@ -1,0 +1,94 @@
+{
+ "raceId": 197,
+ "year": 2026,
+ "status": "Pre-race",
+ "startDateTime": "2026-11-14T10:00:00",
+ "endDateTime": null,
+ "startDateUtc": "2026-11-13T23:00:00",
+ "endDateUtc": null,
+ "isCurrent": true,
+ "isRunning": false,
+ "publishLineHonoursLeader": false,
+ "timeZone": "Australia/Sydney",
+ "categories": [
+  {
+   "id": 1141,
+   "name": "Line Honours",
+   "type": "Line Honours",
+   "isDefault": true,
+   "decidesWinner": false,
+   "totalDivisionsText": "",
+   "divisions": [
+    ""
+   ]
+  },
+  {
+   "id": 1140,
+   "name": "IRC",
+   "type": "Handicap",
+   "isDefault": false,
+   "decidesWinner": true,
+   "totalDivisionsText": "1,2",
+   "divisions": [
+    "1",
+    "2"
+   ]
+  },
+  {
+   "id": 1142,
+   "name": "PHS",
+   "type": "Handicap",
+   "isDefault": false,
+   "decidesWinner": false,
+   "totalDivisionsText": "1,2",
+   "divisions": [
+    "1",
+    "2"
+   ]
+  },
+  {
+   "id": 1145,
+   "name": "IRC Corinthian",
+   "type": "Handicap",
+   "isDefault": false,
+   "decidesWinner": false,
+   "totalDivisionsText": "",
+   "divisions": [
+    ""
+   ]
+  },
+  {
+   "id": 1146,
+   "name": "Wild Rose IRC",
+   "type": "Handicap",
+   "isDefault": false,
+   "decidesWinner": false,
+   "totalDivisionsText": "",
+   "divisions": [
+    ""
+   ]
+  },
+  {
+   "id": 1143,
+   "name": "2-Handed IRC",
+   "type": "Handicap",
+   "isDefault": false,
+   "decidesWinner": false,
+   "totalDivisionsText": "",
+   "divisions": [
+    ""
+   ]
+  },
+  {
+   "id": 1144,
+   "name": "2-Handed PHS",
+   "type": "Handicap",
+   "isDefault": false,
+   "decidesWinner": false,
+   "totalDivisionsText": "",
+   "divisions": [
+    ""
+   ]
+  }
+ ]
+}

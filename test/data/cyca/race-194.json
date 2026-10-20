@@ -1,0 +1,95 @@
+{
+ "raceId": 194,
+ "year": 2026,
+ "status": "Race completed",
+ "startDateTime": "2026-07-25T13:00:00",
+ "endDateTime": "2026-07-28T16:48:22",
+ "startDateUtc": "2026-07-25T03:00:00",
+ "endDateUtc": "2026-07-28T06:48:22",
+ "isCurrent": true,
+ "isRunning": false,
+ "publishLineHonoursLeader": true,
+ "timeZone": "Australia/Sydney",
+ "categories": [
+  {
+   "id": 1120,
+   "name": "IRC",
+   "type": "Handicap",
+   "isDefault": true,
+   "decidesWinner": true,
+   "totalDivisionsText": "0,1,2,3",
+   "divisions": [
+    "0",
+    "1",
+    "2",
+    "3"
+   ]
+  },
+  {
+   "id": 1121,
+   "name": "PHS",
+   "type": "Handicap",
+   "isDefault": false,
+   "decidesWinner": false,
+   "totalDivisionsText": "",
+   "divisions": [
+    ""
+   ]
+  },
+  {
+   "id": 1122,
+   "name": "Corinthian - IRC",
+   "type": "Handicap",
+   "isDefault": false,
+   "decidesWinner": false,
+   "totalDivisionsText": "",
+   "divisions": [
+    ""
+   ]
+  },
+  {
+   "id": 1123,
+   "name": "Corinthian - PHS",
+   "type": "Handicap",
+   "isDefault": false,
+   "decidesWinner": false,
+   "totalDivisionsText": "",
+   "divisions": [
+    ""
+   ]
+  },
+  {
+   "id": 1124,
+   "name": "Double-Handed IRC",
+   "type": "Handicap",
+   "isDefault": false,
+   "decidesWinner": false,
+   "totalDivisionsText": "",
+   "divisions": [
+    ""
+   ]
+  },
+  {
+   "id": 1125,
+   "name": "Double-Handed PHS",
+   "type": "Handicap",
+   "isDefault": false,
+   "decidesWinner": false,
+   "totalDivisionsText": "",
+   "divisions": [
+    ""
+   ]
+  },
+  {
+   "id": 1119,
+   "name": "Line Honours",
+   "type": "Line Honours",
+   "isDefault": false,
+   "decidesWinner": false,
+   "totalDivisionsText": "",
+   "divisions": [
+    ""
+   ]
+  }
+ ]
+}

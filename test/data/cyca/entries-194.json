@@ -1,0 +1,41 @@
+[
+ {
+  "raceEntryId": 18921,
+  "raceId": 194,
+  "year": 2026,
+  "name": "Ambition",
+  "isLineHonourRecord": false,
+  "cmsUrl": "/the-yachts/2026/ambition/",
+  "owner": "Chris & Lachlan Dare",
+  "club": "Derwent Sailing Squadron",
+  "image": null,
+  "body": null,
+  "showOnMap": false
+ },
+ {
+  "raceEntryId": 18866,
+  "raceId": 194,
+  "year": 2026,
+  "name": "Antipodes",
+  "isLineHonourRecord": false,
+  "cmsUrl": "/the-yachts/2026/antipodes/",
+  "owner": "Geoffrey Hill",
+  "club": "RHKYC",
+  "image": null,
+  "body": null,
+  "showOnMap": false
+ },
+ {
+  "raceEntryId": 18957,
+  "raceId": 194,
+  "year": 2026,
+  "name": "Ariel",
+  "isLineHonourRecord": false,
+  "cmsUrl": "/the-yachts/2026/ariel/",
+  "owner": "Ron Forster / Phil Damp",
+  "club": "CYCA",
+  "image": null,
+  "body": null,
+  "showOnMap": false
+ }
+]

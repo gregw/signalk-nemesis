@@ -1,0 +1,146 @@
+[
+ {
+  "raceEntryId": 18921,
+  "raceId": 194,
+  "raceTime": "2026-07-26T12:10:00",
+  "raceStartTime": "2026-07-25T13:00:00",
+  "raceTimeFormat": "00:23:10",
+  "categories": [
+   {
+    "raceEntryId": 18921,
+    "categoryId": 1120,
+    "name": "IRC",
+    "division": "1",
+    "raceTime": "2026-07-26T12:10:00",
+    "catPlace": 6,
+    "divPlace": 1
+   },
+   {
+    "raceEntryId": 18921,
+    "categoryId": 1119,
+    "name": "Line Honours",
+    "division": "",
+    "raceTime": "2026-07-26T12:10:00",
+    "catPlace": 7,
+    "divPlace": 7
+   }
+  ],
+  "position": {
+   "raceEntryId": 18921,
+   "dataTypeCode": "GPS       ",
+   "latitude": -30.89356,
+   "longitude": 153.11351,
+   "speedOverGround": "8.6",
+   "courseOverGround": "309",
+   "distanceToGo": 179.89,
+   "distanceToLeader": 32.38,
+   "raceStatus": "Racing",
+   "heading": "NW",
+   "positionDescription": null,
+   "isRetired": false,
+   "isFinished": false,
+   "isRacing": true
+  },
+  "history": null,
+  "showOnMap": true
+ },
+ {
+  "raceEntryId": 18866,
+  "raceId": 194,
+  "raceTime": "2026-07-26T12:10:00",
+  "raceStartTime": "2026-07-25T13:00:00",
+  "raceTimeFormat": "00:23:10",
+  "categories": [
+   {
+    "raceEntryId": 18866,
+    "categoryId": 1120,
+    "name": "IRC",
+    "division": "0",
+    "raceTime": "2026-07-26T12:10:00",
+    "catPlace": 23,
+    "divPlace": 5
+   },
+   {
+    "raceEntryId": 18866,
+    "categoryId": 1119,
+    "name": "Line Honours",
+    "division": "",
+    "raceTime": "2026-07-26T12:10:00",
+    "catPlace": 5,
+    "divPlace": 5
+   }
+  ],
+  "position": {
+   "raceEntryId": 18866,
+   "dataTypeCode": "GPS       ",
+   "latitude": -30.77523,
+   "longitude": 153.15127,
+   "speedOverGround": "6.5",
+   "courseOverGround": "51",
+   "distanceToGo": 172.56,
+   "distanceToLeader": 25.05,
+   "raceStatus": "Racing",
+   "heading": "NE",
+   "positionDescription": null,
+   "isRetired": false,
+   "isFinished": false,
+   "isRacing": true
+  },
+  "history": null,
+  "showOnMap": true
+ },
+ {
+  "raceEntryId": 18957,
+  "raceId": 194,
+  "raceTime": "2026-07-26T12:10:00",
+  "raceStartTime": "2026-07-25T13:00:00",
+  "raceTimeFormat": "00:23:10",
+  "categories": [
+   {
+    "raceEntryId": 18957,
+    "categoryId": 1120,
+    "name": "IRC",
+    "division": "2",
+    "raceTime": "2026-07-26T12:10:00",
+    "catPlace": 9,
+    "divPlace": 1
+   },
+   {
+    "raceEntryId": 18957,
+    "categoryId": 1122,
+    "name": "Corinthian - IRC",
+    "division": "",
+    "raceTime": "2026-07-26T12:10:00",
+    "catPlace": 5,
+    "divPlace": 5
+   },
+   {
+    "raceEntryId": 18957,
+    "categoryId": 1119,
+    "name": "Line Honours",
+    "division": "",
+    "raceTime": "2026-07-26T12:10:00",
+    "catPlace": 24,
+    "divPlace": 24
+   }
+  ],
+  "position": {
+   "raceEntryId": 18957,
+   "dataTypeCode": "GPS       ",
+   "latitude": -31.41361,
+   "longitude": 153.00866,
+   "speedOverGround": "6.4",
+   "courseOverGround": "336",
+   "distanceToGo": 211.47,
+   "distanceToLeader": 63.96,
+   "raceStatus": "Racing",
+   "heading": "NW",
+   "positionDescription": null,
+   "isRetired": false,
+   "isFinished": false,
+   "isRacing": true
+  },
+  "history": null,
+  "showOnMap": true
+ }
+]

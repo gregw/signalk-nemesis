@@ -1,0 +1,35 @@
+[
+ {
+  "raceEntryId": 19231,
+  "raceId": 197,
+  "raceTime": "0001-01-01T00:00:00",
+  "raceStartTime": "2026-11-14T10:00:00",
+  "raceTimeFormat": null,
+  "categories": [],
+  "position": null,
+  "history": null,
+  "showOnMap": false
+ },
+ {
+  "raceEntryId": 19057,
+  "raceId": 197,
+  "raceTime": "0001-01-01T00:00:00",
+  "raceStartTime": "2026-11-14T10:00:00",
+  "raceTimeFormat": null,
+  "categories": [],
+  "position": null,
+  "history": null,
+  "showOnMap": false
+ },
+ {
+  "raceEntryId": 19274,
+  "raceId": 197,
+  "raceTime": "0001-01-01T00:00:00",
+  "raceStartTime": "2026-11-14T10:00:00",
+  "raceTimeFormat": null,
+  "categories": [],
+  "position": null,
+  "history": null,
+  "showOnMap": false
+ }
+]
