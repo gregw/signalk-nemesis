@@ -30,6 +30,8 @@ const {Journal} = require('./lib/journal');
 const {CycaState} = require('./lib/cyca-state');
 const {CycaRaces} = require('./lib/cyca-races');
 const {CycaAdapter} = require('./lib/cyca-adapter');
+const {mergedView} = require('./lib/cyca-merge');
+const {mappingRows} = require('./lib/cyca-mapping');
 
 const PLUGIN_ID = 'signalk-nemesis';
 const API_PREFIX = '/nemesis';
@@ -37,7 +39,10 @@ const API_PREFIX = '/nemesis';
 const PUT_PATHS = {
     setNemesis: 'navigation.racing.nemesis.setNemesis',
     setTcf: 'navigation.racing.nemesis.setTcf',
-    setStartTime: 'navigation.racing.nemesis.setStartTime'
+    setStartTime: 'navigation.racing.nemesis.setStartTime',
+    setCycaRace: 'navigation.racing.nemesis.setCycaRace',
+    setCycaLink: 'navigation.racing.nemesis.setCycaLink',
+    setCycaNoAis: 'navigation.racing.nemesis.setCycaNoAis'
 };
 const MAX_PERIOD_MS = 24 * 3600e3;
 
@@ -341,6 +346,39 @@ module.exports = function (app, deps = {}) {
                 return state.userState.setTcf(value.id, value.tcf).then(() => complete(200, 'OK'));
             })
         );
+        // value {raceId: integer} selects the CYCA race to poll; {raceId: null} turns it off.
+        app.registerPutHandler('vessels.self', PUT_PATHS.setCycaRace, (ctx, path, value) =>
+            command(() => {
+                if (!value || !(value.raceId === null || Number.isInteger(value.raceId)))
+                    return complete(400, 'value must be {raceId: integer|null}');
+                state.cyca.setRace(value.raceId);
+                return state.cycaState.setRace(value.raceId).then(() => complete(200, 'OK'));
+            })
+        );
+        // value {name: CYCA boat name, mmsi: string} links it (kept across races); mmsi null unlinks.
+        app.registerPutHandler('vessels.self', PUT_PATHS.setCycaLink, (ctx, path, value) =>
+            command(() => {
+                if (
+                    !value ||
+                    typeof value.name !== 'string' ||
+                    !(value.mmsi === null || typeof value.mmsi === 'string')
+                )
+                    return complete(400, 'value must be {name: string, mmsi: string|null}');
+                try {
+                    return state.cycaState.link(value.name, value.mmsi).then(() => complete(200, 'OK'));
+                } catch (e) {
+                    return complete(400, e.message);
+                }
+            })
+        );
+        // value {entryId: integer, noAis: boolean}: the boat has no AIS this race (silences the badge).
+        app.registerPutHandler('vessels.self', PUT_PATHS.setCycaNoAis, (ctx, path, value) =>
+            command(() => {
+                if (!value || !Number.isInteger(value.entryId) || typeof value.noAis !== 'boolean')
+                    return complete(400, 'value must be {entryId: integer, noAis: boolean}');
+                return state.cycaState.setNoAis(value.entryId, value.noAis).then(() => complete(200, 'OK'));
+            })
+        );
         // value {startTime: RFC 3339 string} sets the override; {startTime: null} clears it.
         app.registerPutHandler('vessels.self', PUT_PATHS.setStartTime, (ctx, path, value) =>
             command(() => {
@@ -399,22 +437,23 @@ module.exports = function (app, deps = {}) {
             const s = running(res);
             if (!s) return;
             const waypoint = s.waypoints.get();
-            res.json(
-                buildSnapshot({
-                    store: s.store,
-                    own: s.own,
-                    userState: s.userState,
-                    waypoint,
-                    start: s.startTime.get(),
-                    names: s.cfg.names,
-                    configured: s.cfg.configuredIds,
-                    namedWaypoints: s.waypoints.namedList(),
-                    waypointNames: s.cfg.waypointNames,
-                    tcfVmgMs: s.cfg.tcfVmgSeconds * 1000,
-                    staleMs: s.cfg.staleSeconds * 1000,
-                    now: s.clock()
-                })
-            );
+            const now = s.clock();
+            const snap = buildSnapshot({
+                store: viewOf(s),
+                own: s.own,
+                userState: s.userState,
+                waypoint,
+                start: s.startTime.get(),
+                names: s.cfg.names,
+                configured: s.cfg.configuredIds,
+                namedWaypoints: s.waypoints.namedList(),
+                waypointNames: s.cfg.waypointNames,
+                tcfVmgMs: s.cfg.tcfVmgSeconds * 1000,
+                staleMs: s.cfg.staleSeconds * 1000,
+                now
+            });
+            snap.cyca = cycaSummary(s, now);
+            res.json(snap);
         });
 
         router.get(prefix + '/tracks', (req, res) => {
@@ -433,7 +472,7 @@ module.exports = function (app, deps = {}) {
             const now = s.clock();
             res.json(
                 buildTracks({
-                    store: s.store,
+                    store: viewOf(s),
                     own: s.own,
                     now,
                     periodMs: Math.min(periodS * 1000, MAX_PERIOD_MS),
@@ -444,10 +483,60 @@ module.exports = function (app, deps = {}) {
             );
         });
 
+        router.get(prefix + '/cyca', (req, res) => {
+            const s = running(res);
+            if (s) res.json(cycaSummary(s, s.clock()));
+        });
+
+        // The race picker's list; ?refresh=1 reads the feed first (the cached list if that fails).
+        router.get(prefix + '/cyca/races', (req, res) => {
+            const s = running(res);
+            if (!s) return;
+            const send = () => res.json({...s.cycaRaces.toJSON(), selected: s.cycaState.raceId});
+            if (req.query.refresh) s.cycaRaces.refresh().then(send, send);
+            else send();
+        });
+
+        router.get(prefix + '/cyca/mapping', (req, res) => {
+            const s = running(res);
+            if (!s) return;
+            res.json({...cycaSummary(s, s.clock()), ...cycaMapping(s, s.clock())});
+        });
+
         router.get(prefix + '/user', (req, res) => {
             const s = running(res);
             if (s) res.json(s.userState.toJSON());
         });
+    }
+
+    // Tracks with CYCA links applied: a linked CYCA boat shows as its AIS boat.
+    function viewOf(s) {
+        return mergedView(s.store, (name) => s.cycaState.linkOf(name));
+    }
+
+    function cycaEntries(s) {
+        const fleet = s.cyca.fleet();
+        if (fleet.length || s.cyca.raceId === null) return fleet;
+        // Entries not read yet (offline since a restart): the CYCA boats already in the store.
+        return s.store
+            .all()
+            .filter((b) => b.id.startsWith('cyca:') && b.name)
+            .map((b) => ({entryId: Number(b.id.slice(5)), name: b.name, owner: '', club: ''}));
+    }
+
+    function cycaMapping(s, now) {
+        if (s.cycaState.raceId === null) return {rows: [], needsAction: false};
+        return mappingRows({entries: cycaEntries(s), store: s.store, cycaState: s.cycaState, now});
+    }
+
+    function cycaSummary(s, now) {
+        // race: the adapter's race detail; listing: the picker's row (name, fleet, entered).
+        return {
+            ...s.cyca.toJSON(),
+            raceId: s.cycaState.raceId,
+            listing: s.cycaRaces.byId(s.cycaState.raceId),
+            needsAction: cycaMapping(s, now).needsAction
+        };
     }
 
     return plugin;
