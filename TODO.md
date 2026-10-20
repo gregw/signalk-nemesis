@@ -118,7 +118,23 @@ All in `public/derive.js`, pure and loaded by both the webapp and `test/derive.t
 ## Phase 5: extras
 
 - [ ] Wind frame and VMG to wind (instrument TWD, or CYCA weather grid for replay).
-- [ ] Tracker-feed adapter (CYCA), with a name-to-MMSI mapping table.
+- [ ] Tracker-feed adapter (CYCA), with a name-to-MMSI mapping table (plan below).
+
+### CYCA tracker feed (decided 2026-10-20)
+
+The SIs allow it: 2025 NSGCYR SI 10.3 and the BWPS Sailing Program (addition to RRS 41 e) let a boat retrieve the standings pages and the yb.tl text feeds while racing. Recheck the 2026 SIs. The YB feed alone is not enough (no SOG/COG; GGR fixes every 4 h), so the CYCA feed v2 is used.
+
+- [x] `lib/cyca-feed.js`: v2 URLs, fetch that never throws, parsers to SI. No per-fix time: a report is stamped with its 10 min slot.
+- [ ] Race list for the picker: current and pre-race races from `years/<y>/series` and `series/<id>/races`, fleet size, name from the entry `cmsUrl` slug, "our boat entered" by vessel name. Cached in the data dir for offline.
+- [ ] Polling adapter: always on while a race is selected and running (decided), `at/live/status` at about :02 past each 10 min boundary, one request in flight, an unchanged position counts as a missed report (`TODO(verify)` live). Reports `{boatId: 'cyca:<entryId>', src: 'cyca'}` into the TrackStore and journal.
+- [ ] Backfill: for nemesis boats with gaps longer than Stale after within the display period (decided: the period sets the depth), fetch `entries/<id>/track/at/live`, keep the slots in the gap.
+- [ ] Matcher (pure): CYCA boat vs AIS boats at the same slot time (AIS interpolated, within 5 min), distance, SOG/COG and name similarity; ambiguous candidates shown without a recommendation.
+- [ ] Merge at snapshot time: a linked CYCA boat shows as its AIS boat; its tracker report is dropped when an AIS report is within +/- 10 min (decided). Unlinked CYCA boats are ordinary boats under Show (decided).
+- [ ] Links persist across races (decided), keyed by the normalised CYCA name (entry ids change every race) to MMSI, and can be unlinked. "No AIS" is per race, keyed by entry id. Stored in `cyca-state.json`.
+- [ ] API: read-only `/cyca`, `/cyca/races`, `/cyca/mapping`; `cyca.needsAction` in the snapshot; PUT handlers `setCycaRace`, `setCycaLink`.
+- [ ] Webapp tab "CYCA" (decided name), last: race picker at the top, mapping table below, badge when a CYCA boat is unlinked with a nearby AIS candidate.
+- [ ] Replay test: a fake CYCA feed from `gc2026-tracks.json` alongside the AIS simulator. Playwright tests for the tab.
+- [ ] Update `wiki/overview.md` 2.3 (v2 API, slot times, YB link).
 - [ ] Instrument-display outputs in our own namespace.
 
 ## Open decisions (Greg's call)
@@ -127,7 +143,7 @@ All in `public/derive.js`, pure and loaded by both the webapp and `test/derive.t
 - [x] TCF Should method: time owed at the trailing boat's smoothed VMG (see above).
 - [ ] Own state kept continuously (current choice) vs only at other boats' report times.
 - [ ] Which derived values, if any, to publish to the data model.
-- [ ] Mapping tracker-feed names to MMSIs.
+- [x] Mapping tracker-feed names to MMSIs: a CYCA tab with suggested matches by position, links kept across races by name (2026-10-20).
 - [x] Boats entered in advance in the plugin config (`boats`: MMSI, name, TCF): seed the nemesis list and TCFs when added or when the configured TCF changes (applied values remembered in nemesis-state.json, so restarts keep webapp edits); configured name shown in the plugin only, AIS name in the popup.
 - [ ] Configured boats not yet heard are not listed (could show them greyed in Boats and TCF).
 - [x] Up = Course (2026-10-16): the named waypoints in order are the course; each report picks its own next mark (closest with positive instant VMC, else closest; switching allowed); Lead and VMG by distance to finish. Old Up = Course renamed COG (stored prefs migrated). North kept.
