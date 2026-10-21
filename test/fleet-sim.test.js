@@ -29,12 +29,13 @@ test('state between fixes: straight line, SOG and COG of the leg, nothing across
     near(leg({lat: -34, lon: 151}, {lat: -34, lon: 151.1}).brg, Math.PI / 2, 1e-9, 'east');
 });
 
-test('reception chance: high near, a third at 8 nm, none from 20 nm', () => {
+test('reception chance: 1 in 6 near (2 min median gaps), half that at 8 nm, none from 20 nm', () => {
     const o = DEFAULTS;
-    assert.equal(keepChance(1, o), 0.9);
-    near(keepChance(5, o), 0.9 + ((1 / 3 - 0.9) * 3) / 6, 1e-12, 'between');
-    near(keepChance(8, o), 1 / 3, 1e-12, 'mid');
-    near(keepChance(14, o), 1 / 6, 1e-12, 'half way out');
+    assert.equal(keepChance(1, o), 0.16);
+    assert.equal(keepChance(4, o), 0.16);
+    near(keepChance(6, o), 0.12, 1e-12, 'between');
+    near(keepChance(8, o), 0.08, 1e-12, 'mid');
+    near(keepChance(14, o), 0.04, 1e-12, 'half way out');
     assert.equal(keepChance(20, o), 0);
     assert.equal(keepChance(30, o), 0);
 });
@@ -53,7 +54,7 @@ test('fleet: a close fast boat every 30 s or so, a slow one every 3 min, a far o
         ]
     };
     // The close boat ends 6.5 nm away: all of it in the near band.
-    const OPTS = {seed: 7, ownMmsi: '503029690', shiftMs: 5000, nearNm: 10, midNm: 12};
+    const OPTS = {seed: 7, ownMmsi: '503029690', shiftMs: 5000, nearNm: 10, keepNear: 0.9, midNm: 12};
     const {reports, names} = simulateFleet(fleet, own, OPTS);
     assert.deepEqual([...names.values()], ['Close', 'Slow', 'Far'], 'our own boat left out');
     const of = (id) => reports.filter((r) => r.boatId === String(500000000 + id));
@@ -133,4 +134,36 @@ test('tracker slots: the first fix in the first 2 minutes of each slot, SOG and 
     near(s[3], 3600 / 320, 0.06, 'SOG kn, to 0.1');
     assert.equal(s[4], 0, 'COG north');
     assert.equal(out.boats[0].samples.length, 2);
+});
+
+test('default reception: AIS gaps near us like GC2026 (median 2 min, 90% within 7), sparse far out', () => {
+    // Four hours east at 6 kn (1 nm per 10 min), us and two boats 1 nm and 14 nm north of us.
+    const LON_NM = 1 / 60 / Math.cos((34 * Math.PI) / 180);
+    const own = Array.from({length: 4 * 3600 + 1}, (_, i) => ({
+        t: T0 + i * 1000,
+        lat: -34,
+        lon: 151 + (i / 600) * LON_NM
+    }));
+    const line = (dNm) =>
+        Array.from({length: 25}, (_, k) => [iso(T0 + k * 600e3), -34 + dNm * LAT_NM, 151 + k * LON_NM]);
+    const fleet = {
+        boats: [
+            {id: 1, name: 'Near', samples: line(1)},
+            {id: 2, name: 'Far', samples: line(14)}
+        ]
+    };
+    const {reports} = simulateFleet(fleet, own, {seed: 3});
+    const gaps = (id) => {
+        const rs = reports.filter((r) => r.boatId === String(500000000 + id));
+        return rs
+            .slice(1)
+            .map((r, i) => (r.t - rs[i].t) / 60e3)
+            .sort((a, b) => a - b);
+    };
+    const g = gaps(1);
+    const q = (p) => g[Math.floor(g.length * p)];
+    assert.ok(q(0.5) >= 1.5 && q(0.5) <= 3, `near median ${q(0.5)} min`);
+    assert.ok(q(0.9) >= 4.5 && q(0.9) <= 9, `near 90th percentile ${q(0.9)} min`);
+    const f = gaps(2);
+    assert.ok(f[f.length >> 1] >= 5, `far median ${f[f.length >> 1]} min`); // 0.04 a time: about 8
 });

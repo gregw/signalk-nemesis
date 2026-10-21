@@ -10,7 +10,12 @@
  *     3 minutes at or below, from a seeded random phase. TODO(verify) against ITU-R
  *     M.1371 Annex 7: not confirmed from the text, only from secondary sources.
  *  3. Each transmission is received with a chance that falls with range from us: keepNear
- *     out to nearNm, down to keepMid at midNm, down to 0 at farNm.
+ *     out to nearNm, down to keepMid at midNm, down to 0 at farNm. Most are lost even
+ *     close by: GC2026's real AIS gaps had a median of 2 min and a 90th percentile of
+ *     7 min (brief section 6), which 30 s transmissions give at a chance of 0.16 each
+ *     (gaps geometric: 0.84^4 = 0.5, 0.84^13 = 0.1). At 8 nm, 0.08 gives a median gap
+ *     of about 4 min; from 12 nm on a boat is heard every 6 to 30 min, so far boats
+ *     are mostly seen by their tracker.
  *  4. A received report is jiggled a little (seeded): position, COG and SOG noise, so
  *     nearby boats do not move along perfectly straight lines.
  *
@@ -92,10 +97,10 @@ const DEFAULTS = {
     fastMs: 30e3, // Class B CS above 2 kn
     slowMs: 180e3, // at or below 2 kn
     slowKn: 2,
-    nearNm: 2,
-    keepNear: 0.9,
+    nearNm: 4,
+    keepNear: 0.16,
     midNm: 8,
-    keepMid: 1 / 3,
+    keepMid: 0.08,
     farNm: 20,
     jigglePosM: 5,
     jiggleCogDeg: 4,
