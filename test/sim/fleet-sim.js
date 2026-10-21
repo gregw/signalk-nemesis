@@ -174,4 +174,35 @@ function ownFromLog(json, shiftMs = 0) {
     }));
 }
 
-module.exports = {simulateFleet, ownFromLog, stateAt, keepChance, leg, DEFAULTS};
+/**
+ * Tracker fixes at real times as the CYCA feed shows them: one sample per 10 minute slot,
+ * the boat's first fix within lateMs after the slot boundary (YB fixes fall almost all in
+ * that first minute), with SOG and COG of the leg from its previous fix. No DTG.
+ * @returns {object} the same file with samples [slot iso, lat, lon, sog_kn, cog_deg, null, null]
+ */
+function trackerSlots(fleet, {slotMs = 600e3, lateMs = 120e3} = {}) {
+    const R2D = 180 / Math.PI;
+    const boats = fleet.boats.map((b) => {
+        const fixes = b.samples.map(([t, lat, lon]) => ({t: Date.parse(t), lat, lon}));
+        const samples = [];
+        for (let i = 0; i < fixes.length; i++) {
+            const f = fixes[i];
+            const slot = Math.floor(f.t / slotMs) * slotMs;
+            if (f.t - slot > lateMs || (samples.length && Date.parse(samples.at(-1)[0]) === slot)) continue;
+            const p = fixes[i - 1];
+            const l = p && f.t > p.t ? leg(p, f) : null;
+            const sog = l ? Math.round((l.m / ((f.t - p.t) / 1e3) / KN) * 10) / 10 : null;
+            const cog = l ? Math.round(l.brg * R2D) % 360 : null;
+            samples.push([new Date(slot).toISOString().replace('.000Z', 'Z'), f.lat, f.lon, sog, cog, null, null]);
+        }
+        return {...b, samples};
+    });
+    return {
+        ...fleet,
+        step_s: slotMs / 1e3,
+        sample_fields: ['t', 'lat', 'lon', 'sog_kn', 'cog_deg', 'dtg_nm', 'dtl_nm'],
+        boats
+    };
+}
+
+module.exports = {simulateFleet, ownFromLog, trackerSlots, stateAt, keepChance, leg, DEFAULTS};

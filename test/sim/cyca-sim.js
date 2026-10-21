@@ -1,15 +1,16 @@
 'use strict';
 /*
- * A fake CYCA feed (v2) serving the recorded GC2026 race, shifted like the AIS
- * simulator so that `now` is the same moment of the race. Entry ids are the
+ * A fake CYCA feed (v2) serving a recorded race (GC2026 by default), shifted like the
+ * AIS simulator so that `now` is the same moment of the race. Entry ids are the
  * recorded tracker ids. Serves the race detail, entries, the live fleet status
- * (each boat's latest sample at or before now) and each boat's live track.
+ * (each boat's latest sample at or before now) and each boat's live track. The data's
+ * samples are [t, lat, lon, sog_kn, cog_deg, dtg_nm, dtl_nm] on the 10 minute slot grid
+ * (gc2026-tracks.json, or trackerSlots() of the YB fixes).
  */
 
-const data = require('../data/gc2026-tracks.json');
+const gc2026 = require('../data/gc2026-tracks.json');
 
 const KN_STR = (v) => (v == null ? '' : String(v));
-const RACE_START = Date.parse(data.race.start);
 const SLOT_MS = 600e3;
 
 /** UTC ms to Sydney wall-clock 'yyyy-MM-ddTHH:mm:ss' (the feed's race-local times). */
@@ -51,11 +52,12 @@ function position(b, s) {
  * @param {object} o
  * @param {number} o.shiftMs as given to the AIS simulator
  * @param {() => number} o.clock
+ * @param {object} [o.data] the recorded race
  * @param {number} [o.raceId]
  * @returns {typeof fetch & {calls: string[], down: boolean}}
  */
-function cycaFeed({shiftMs, clock, raceId = 194}) {
-    const startT = RACE_START + shiftMs;
+function cycaFeed({shiftMs, clock, data = gc2026, raceId = data.race.id}) {
+    const startT = Date.parse(data.race.start) + shiftMs;
     const samplesTo = (b, now) => b.samples.filter((s) => Date.parse(s[0]) + shiftMs <= now);
     const routes = {
         [`/races/${raceId}`]: () => ({

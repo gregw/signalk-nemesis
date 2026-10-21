@@ -1,17 +1,16 @@
 'use strict';
 /*
- * Shared replay setup: GC2026 recorded race -> seeded AIS simulator -> Signal K
- * deltas (split per path by the fake app) -> a running plugin instance.
+ * Shared replay setup: a recorded race (GC2026 unless opts.race names another, see
+ * races.js) -> seeded AIS simulator -> Signal K deltas (split per path by the fake app)
+ * -> a running plugin instance.
  * Recorded times are shifted so that `hoursIn` after the start is wall-clock now.
  */
 const {setTimeout: sleep} = require('node:timers/promises');
-const {simulate, toDelta, finishOf, rmbDelta, simTwdRad, windDelta} = require('./ais-sim');
+const {toDelta, rmbDelta, windDelta} = require('./ais-sim');
+const {race} = require('./races');
 const {fakeApp} = require('./fake-app');
 const {tmpdir} = require('./tmpdir');
 const createPlugin = require('../../index');
-const data = require('../data/gc2026-tracks.json');
-
-const RACE_START = Date.parse(data.race.start);
 // Tests never reach the real CYCA feed unless they pass a fetch of their own.
 const noFetch = async () => {
     throw new TypeError('no network in tests');
@@ -19,13 +18,16 @@ const noFetch = async () => {
 
 async function replayTo(hoursIn, opts = {}) {
     const now = Date.now();
+    const rec = race(opts.race);
+    const RACE_START = rec.start;
     const shiftMs = now - (RACE_START + hoursIn * 3600e3);
-    const sim = simulate(data, {receiverName: 'Kanreki', seed: 11, shiftMs});
+    const sim = rec.play(shiftMs);
     const dataDir = opts.dataDir || tmpdir();
     const app = fakeApp({dataDir, selfPaths: opts.selfName ? {name: opts.selfName} : {}});
     if (opts.resources) Object.assign(app.resources, opts.resources); // e.g. named waypoints
-    // opts.fetchFor(shiftMs): a fake feed on the same shifted clock (test/sim/cyca-sim.js).
-    const fetch = opts.fetchFor ? opts.fetchFor(shiftMs) : opts.fetch || noFetch;
+    // opts.fetchFor(shiftMs, tracker): a fake feed of the race's tracker data on the same
+    // shifted clock (test/sim/cyca-sim.js).
+    const fetch = opts.fetchFor ? opts.fetchFor(shiftMs, rec.tracker) : opts.fetch || noFetch;
     const plugin = createPlugin(app, {fetch});
     plugin.registerWithRouter(app.pluginRouter);
     plugin.signalKApiRoutes(app.apiRouter);
@@ -49,13 +51,13 @@ async function replayTo(hoursIn, opts = {}) {
     }
 
     // Interleave own samples and competitor reports in time order, up to "now".
-    // opts.wind: our instruments' true wind with each own sample, made up (ais-sim simTwdRad).
+    // opts.wind: our instruments' true wind with each own sample (made up for GC2026).
     const events = [
         ...sim.own.filter((s) => s.t <= now).map((s) => ({t: s.t, d: toDelta(app.selfContext, s)})),
         ...(opts.wind
             ? sim.own
-                  .filter((s) => s.t <= now)
-                  .map((s) => ({t: s.t, d: windDelta(app.selfContext, s.t, simTwdRad(s.t - shiftMs))}))
+                  .filter((s) => s.t <= now && s.twdRad != null)
+                  .map((s) => ({t: s.t, d: windDelta(app.selfContext, s.t, s.twdRad)}))
             : []),
         ...sim.reports
             .filter((r) => r.t <= now)
@@ -63,7 +65,7 @@ async function replayTo(hoursIn, opts = {}) {
     ].sort((a, b) => a.t - b.t);
     for (const e of events) app.deliver(e.d);
     // The nav PC's next point (the finish), as an RMB sentence, unless a test opts out.
-    if (opts.rmb !== false) app.deliver(rmbDelta(app.selfContext, finishOf(data), now));
+    if (opts.rmb !== false && sim.finish) app.deliver(rmbDelta(app.selfContext, sim.finish, now));
     // signalk-racer's start time, unless a test opts out.
     if (opts.racerStart !== false) {
         app.deliver({
@@ -77,7 +79,7 @@ async function replayTo(hoursIn, opts = {}) {
         });
     }
     await sleep(300); // let the coalescer flush the last report per context
-    return {app, plugin, sim, now, dataDir, shiftMs, fetch};
+    return {app, plugin, sim, now, dataDir, shiftMs, fetch, tracker: rec.tracker};
 }
 
 module.exports = {replayTo};

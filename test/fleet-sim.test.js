@@ -107,3 +107,30 @@ test('own log to SI, shifted', () => {
     near(s.twaRad, -Math.PI / 2, 1e-12, 'TWA port is negative');
     near(s.twsMs * 3600, 10 * NM, 1e-6, 'TWS');
 });
+
+test('tracker slots: the first fix in the first 2 minutes of each slot, SOG and COG from the fix before', () => {
+    const {trackerSlots} = require('./sim/fleet-sim');
+    const fleet = {
+        race: {id: 198},
+        boats: [
+            {
+                id: 1,
+                name: 'A',
+                samples: [
+                    [iso(T0 + 30e3), -34, 151],
+                    [iso(T0 + 50e3), -34, 151.0001], // later in the same slot
+                    [iso(T0 + 300e3), -34, 151.1], // mid slot: not a slot fix
+                    [iso(T0 + 600e3 + 20e3), -34 + LAT_NM, 151.1] // 1 nm north in 320 s
+                ]
+            }
+        ]
+    };
+    const out = trackerSlots(fleet);
+    assert.equal(out.step_s, 600);
+    assert.deepEqual(out.boats[0].samples[0], [iso(T0).replace('.000Z', 'Z'), -34, 151, null, null, null, null]);
+    const s = out.boats[0].samples[1];
+    assert.equal(s[0], iso(T0 + 600e3).replace('.000Z', 'Z'));
+    near(s[3], 3600 / 320, 0.06, 'SOG kn, to 0.1');
+    assert.equal(s[4], 0, 'COG north');
+    assert.equal(out.boats[0].samples.length, 2);
+});
