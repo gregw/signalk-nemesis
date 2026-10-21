@@ -65,13 +65,23 @@ test('Clear history empties the boats after a confirm; Unlink all removes the ol
     );
 
     await page.click('body', {position: {x: 5, y: 700}}); // close the popup
+    // Clear all TCFs: shown once a TCF is set.
+    await page.click('#tabbar button[data-tab="tcf"]');
+    const clr = page.locator('#tcfClearAll');
+    assert.equal(await clr.isVisible(), false, 'no TCFs set');
+    await srv.app.put('navigation.racing.nemesis.setTcf', {id: 'self', tcf: 1.02});
+    await clr.waitFor();
+    await clr.click();
+    await clr.waitFor({state: 'hidden'});
+    assert.match(dialogs[1], /every TCF back to 1.000/);
+
     await page.click('#tabbar button[data-tab="cyca"]');
     const un = page.locator('#cycaUnlinkAll');
     await un.waitFor();
     assert.equal((await un.textContent()).trim(), 'Unlink all 2');
     await un.click();
     await un.waitFor({state: 'hidden'});
-    assert.match(dialogs[1], /Remove every CYCA link/);
+    assert.match(dialogs[2], /Remove every CYCA link/);
     assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dataDir, 'cyca-state.json'), 'utf8')).links, {});
     assert.deepEqual(errors, []);
     await ctx.close();

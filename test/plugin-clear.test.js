@@ -55,6 +55,13 @@ test('clear history: tracks and journal emptied, names and links kept; unlink al
     // Links survive a clear.
     assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dataDir, 'cyca-state.json'), 'utf8')).links, links);
 
+    // Clear all TCFs.
+    assert.equal((await app.put(PUT_PATHS.setTcf, {id: '503073900', tcf: 1.05})).status, 200);
+    assert.equal((await snap()).boats.find((b) => b.id === '503073900').tcf, 1.05);
+    assert.equal((await app.put(PUT_PATHS.clearTcfs, 1)).status, 400);
+    assert.equal((await app.put(PUT_PATHS.clearTcfs, true)).status, 200);
+    assert.equal((await snap()).boats.find((b) => b.id === '503073900').tcf, 1);
+
     assert.equal((await app.put(PUT_PATHS.unlinkAllCyca, true)).status, 200);
     assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dataDir, 'cyca-state.json'), 'utf8')).links, {});
 });

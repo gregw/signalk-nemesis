@@ -51,6 +51,7 @@ const PUT_PATHS = {
     setCycaNoAis: 'navigation.racing.nemesis.setCycaNoAis',
     setCourse: 'navigation.racing.nemesis.setCourse',
     clearHistory: 'navigation.racing.nemesis.clearHistory',
+    clearTcfs: 'navigation.racing.nemesis.clearTcfs',
     unlinkAllCyca: 'navigation.racing.nemesis.unlinkAllCyca'
 };
 const MAX_PERIOD_MS = 24 * 3600e3;
@@ -449,6 +450,13 @@ module.exports = function (app, deps = {}) {
                 await s.journal.clear();
                 s.filled++; // the webapp refetches its tracks
                 return complete(200, 'OK');
+            })
+        );
+        // value true: every TCF back to 1.000, ours too.
+        app.registerPutHandler('vessels.self', PUT_PATHS.clearTcfs, (ctx, path, value) =>
+            command(() => {
+                if (value !== true) return complete(400, 'value must be true');
+                return state.userState.clearTcfs().then(() => complete(200, 'OK'));
             })
         );
         // value true: remove every CYCA link (they are kept across races, by CYCA name).

@@ -42,3 +42,17 @@ test('configured boats seed the nemesis list and TCFs once; webapp edits survive
     assert.equal(new UserState(dir).applyConfig([{mmsi: '503029690', tcf: null}]), null, 'persisted');
     assert.ok(new UserState(dir).isNemesis('503000002'), 'removed from config: still a nemesis');
 });
+
+test('clear TCFs: every TCF back to 1, ours too, saved; nemeses kept', async () => {
+    const dir = tmpdir();
+    const u = new UserState(dir);
+    await u.setTcf('503073900', 1.05);
+    await u.setTcf('self', 0.98);
+    await u.setNemesis('503073900', true);
+    await u.clearTcfs();
+    assert.equal(u.tcfOf('503073900'), 1);
+    assert.equal(u.tcfOf('self'), 1);
+    const again = new UserState(dir);
+    assert.equal(again.tcfOf('503073900'), 1, 'saved');
+    assert.equal(again.isNemesis('503073900'), true);
+});

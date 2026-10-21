@@ -55,6 +55,9 @@
     function render(view, force) {
         if (!force && focusedInput()) return;
         renderStart(view);
+        // Clear all, shown while any TCF (ours included) is not 1.
+        const anyTcf = !!view.snap && (view.snap.tcfUs !== 1 || view.snap.boats.some((b) => b.tcf !== 1));
+        $('tcfClearAll').classList.toggle('hidden', !anyTcf);
         const list = $('tcflist');
         if (!view.snap) {
             $('tcfhead').innerHTML = '';
@@ -161,6 +164,16 @@
                 return ND.render(true);
             }
             setStart(new Date(t).toISOString());
+        });
+        $('tcfClearAll').addEventListener('click', async () => {
+            if (!confirm('Set every TCF back to 1.000, ours too?')) return;
+            try {
+                const r = await ND.api.put('clearTcfs', true);
+                if (r && r.statusCode && r.statusCode !== 200) throw new Error(r.message || 'refused');
+            } catch (e) {
+                alert('Clear TCFs failed: ' + (e.status === 401 || e.status === 403 ? 'login needed' : e.message));
+            }
+            ND.refresh();
         });
         $('startNow').addEventListener('click', () => setStart(new Date().toISOString()));
         $('startClear').addEventListener('click', () => setStart(null));
