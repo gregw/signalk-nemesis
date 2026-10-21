@@ -1,0 +1,133 @@
+{
+  "title": "Tollgate race, 16 Oct 2026: Supernova and Kanreki before the start",
+  "tzHours": 11,
+  "tzName": "AEDT",
+  "boats": [
+    {
+      "key": "K",
+      "name": "Kanreki (Cookson 12)",
+      "log": "/tmp/K-log-2026Oct16.csv",
+      "lengthM": 12,
+      "beamM": 3.82,
+      "tableTwa": true,
+      "colour": "#2e9e4f",
+      "antenna": {
+        "fromSternM": 1,
+        "stbdM": 1
+      },
+      "textColour": "#1d7a38",
+      "labelSide": "right"
+    },
+    {
+      "key": "S",
+      "name": "Supernova (Sydney 36)",
+      "log": "/tmp/S-log-2026Oct16.csv",
+      "lengthM": 10,
+      "colour": "#1f5fa8",
+      "antenna": {"fromSternM": 0.2, "stbdM": 1.1, "source": "crew: aft starboard corner of the pushpit"},
+      "textColour": "#1f5fa8",
+      "labelSide": "left"
+    }
+  ],
+  "panels": [
+    {
+      "from": "2026-10-16T05:58:40Z",
+      "to": "2026-10-16T05:59:45Z",
+      "title": "Close quarters.",
+      "up": "wind",
+      "steps": [
+        [
+          "2026-10-16T05:58:40Z",
+          10
+        ],
+        [
+          "2026-10-16T05:59:30Z",
+          5
+        ]
+      ],
+      "shade": [
+        [
+          "2026-10-16T05:58:40Z",
+          "faint"
+        ],
+        [
+          "2026-10-16T05:59:30Z",
+          "filled"
+        ],
+        [
+          "2026-10-16T05:59:35Z",
+          "faint"
+        ],
+        [
+          "2026-10-16T05:59:45Z",
+          "full"
+        ]
+      ],
+      "events": [
+        [
+          "2026-10-16T05:59:30Z",
+          "approx. time of overlap"
+        ],
+        [
+          "2026-10-16T05:59:45Z",
+          "approx. time of contact"
+        ]
+      ],
+      "measures": [
+        {
+          "key": "K",
+          "from": "2026-10-16T05:59:30Z",
+          "to": "2026-10-16T05:59:45Z"
+        }
+      ],
+      "ghosts": [
+        "2026-10-16T05:59:50Z",
+        "2026-10-16T06:00:00Z"
+      ],
+      "laterals": [{"at": "2026-10-16T05:59:30Z", "of": "K", "to": "S"}],
+      "distances": [
+        {
+          "at": "2026-10-16T05:59:30Z",
+          "from": {
+            "key": "CI",
+            "part": "bow"
+          },
+          "to": {
+            "key": "K",
+            "part": "stern"
+          }
+        }
+      ]
+    }
+  ],
+  "witnesses": [
+    {
+      "key": "CI",
+      "name": "Caol Ila",
+      "lengthM": 20,
+      "beamM": 5.22,
+      "colour": "#d0312d",
+      "textColour": "#b0201c",
+      "ref": "K",
+      "source": "Caol Ila's protest account",
+      "poses": [
+        {
+          "at": "2026-10-16T05:59:30Z",
+          "rule": "overlap",
+          "side": "port",
+          "headingDeg": 0,
+          "hdgDeg": 30,
+          "bowToSternM": 8
+        },
+        {
+          "at": "2026-10-16T05:59:45Z",
+          "rule": "contact",
+          "side": "port",
+          "headingDeg": 25,
+          "contactAtM": -9
+        }
+      ],
+      "opacity": 0.55
+    }
+  ]
+}
