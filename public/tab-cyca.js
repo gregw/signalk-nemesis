@@ -70,6 +70,8 @@
         const parts = [];
         if (D.msg) parts.push(`<span class="err">${esc(D.msg)}</span>`);
         if (D.races && D.races.error) parts.push(`<span class="err">race list: ${esc(D.races.error)}</span>`);
+        for (const e of (D.races && D.races.recordedErrors) || [])
+            parts.push(`<span class="err">recorded race ${esc(e)}</span>`);
         if (!m || m.raceId == null) {
             parts.push('Pick the race to follow on the CYCA tracker.');
         } else {

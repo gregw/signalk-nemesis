@@ -7,7 +7,9 @@
  */
 const {setTimeout: sleep} = require('node:timers/promises');
 const {toDelta, rmbDelta, windDelta} = require('./ais-sim');
-const {race} = require('./races');
+const fs = require('node:fs');
+const path = require('node:path');
+const {race, shiftTracker} = require('./races');
 const {fakeApp} = require('./fake-app');
 const {tmpdir} = require('./tmpdir');
 const createPlugin = require('../../index');
@@ -20,9 +22,17 @@ async function replayTo(hoursIn, opts = {}) {
     const now = Date.now();
     const rec = race(opts.race);
     const RACE_START = rec.start;
-    const shiftMs = now - (RACE_START + hoursIn * 3600e3);
+    // Whole seconds: the feed's times (a recorded race's start) carry no milliseconds.
+    const shiftMs = Math.round((now - (RACE_START + hoursIn * 3600e3)) / 1000) * 1000;
     const sim = rec.play(shiftMs);
     const dataDir = opts.dataDir || tmpdir();
+    // opts.recorded: a key; the race's tracker data is written as recorded-race-<key>.json,
+    // shifted like the rest, for the plugin to offer on the CYCA tab.
+    if (opts.recorded)
+        fs.writeFileSync(
+            path.join(dataDir, `recorded-race-${opts.recorded}.json`),
+            JSON.stringify(shiftTracker(rec.tracker, shiftMs))
+        );
     const app = fakeApp({dataDir, selfPaths: opts.selfName ? {name: opts.selfName} : {}});
     if (opts.resources) Object.assign(app.resources, opts.resources); // e.g. named waypoints
     // opts.fetchFor(shiftMs, tracker): a fake feed of the race's tracker data on the same

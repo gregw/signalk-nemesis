@@ -31,6 +31,7 @@ const {StartTime, RacerStartAdapter} = require('./lib/start-time');
 const {Journal} = require('./lib/journal');
 const {CycaState} = require('./lib/cyca-state');
 const {CycaRaces} = require('./lib/cyca-races');
+const {RecordedRaces} = require('./lib/recorded-race');
 const {CycaAdapter} = require('./lib/cyca-adapter');
 const {mergedView} = require('./lib/cyca-merge');
 const {mappingRows} = require('./lib/cyca-mapping');
@@ -255,8 +256,11 @@ module.exports = function (app, deps = {}) {
             ourName: () => selfName(app),
             onError: onCycaError
         });
+        // Recorded races (recorded-race-<key>.json in the data dir) are offered beside the
+        // feed's; picking one serves the feed's requests from its file.
+        const recorded = new RecordedRaces({dataDir: app.getDataDirPath()});
         const cyca = new CycaAdapter({
-            fetch: fetchImpl,
+            fetch: recorded.fetchWith(fetchImpl),
             onChange: () => {
                 if (state && state.cyca === cyca) backfill(state);
             },
@@ -285,10 +289,12 @@ module.exports = function (app, deps = {}) {
             journal,
             cycaState,
             cycaRaces,
+            recorded,
             cyca,
             course,
             backfillPlanner: new BackfillPlanner(),
             backfilling: false,
+            filled: 0, // bumped when a backfill adds reports: the webapp then refetches tracks
             wantPeriod: {ms: WANT_PERIOD_DEFAULT_MS, at: 0},
             thinTimer: null,
             ready: null, // promise: journal loaded
@@ -300,7 +306,10 @@ module.exports = function (app, deps = {}) {
         wind.start();
         racerStart.start();
         state.waypoints.start();
-        cyca.setRace(cycaState.raceId);
+        // A recorded race is only served once its file is read.
+        recorded.scan().then(() => {
+            if (state && state.cyca === cyca) cyca.setRace(cycaState.raceId);
+        });
         registerPutHandlers();
         app.setPluginStatus('Loading track history');
 
@@ -594,8 +603,14 @@ module.exports = function (app, deps = {}) {
         router.get(prefix + '/cyca/races', (req, res) => {
             const s = running(res);
             if (!s) return;
-            const send = () => res.json({...s.cycaRaces.toJSON(), selected: s.cycaState.raceId});
-            if (req.query.refresh) s.cycaRaces.refresh().then(send, send);
+            const send = () =>
+                res.json({
+                    ...s.cycaRaces.toJSON(),
+                    races: [...s.recorded.listings(), ...s.cycaRaces.races],
+                    recordedErrors: s.recorded.errors,
+                    selected: s.cycaState.raceId
+                });
+            if (req.query.refresh) Promise.all([s.cycaRaces.refresh(), s.recorded.scan()]).then(send, send);
             else send();
         });
 
@@ -643,6 +658,7 @@ module.exports = function (app, deps = {}) {
                 const own = s.store.get('cyca:' + j.entryId);
                 const known = (t) => !!own && own.track.atOrBefore(t)?.t === t;
                 const added = await s.cyca.fillTrack(j.entryId, j.fromT, j.toT, known);
+                if (added > 0) s.filled++;
                 s.backfillPlanner.done(j.entryId, j.fromT, now, added);
             }
         })()
@@ -677,7 +693,11 @@ module.exports = function (app, deps = {}) {
         return {
             ...s.cyca.toJSON(),
             raceId: s.cycaState.raceId,
-            listing: s.cycaRaces.byId(s.cycaState.raceId),
+            filled: s.filled,
+            listing:
+                s.cycaRaces.byId(s.cycaState.raceId) ||
+                s.recorded.listings().find((r) => r.raceId === s.cycaState.raceId) ||
+                null,
             needsAction: cycaMapping(s, now).needsAction
         };
     }

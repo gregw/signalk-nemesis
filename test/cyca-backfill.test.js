@@ -84,7 +84,9 @@ test('fillTrack reports the missing slots in the window, one fetch at a time', a
     };
     const reports = [];
     const timers = {setTimeout: () => null, clearTimeout: () => {}};
-    const a = new CycaAdapter({fetch, timers, clock: () => T0, onReport: (r) => reports.push(r)});
+    // Now is when the track was fetched (12:00 local), so its slots are not in the future.
+    const now = Date.parse('2026-07-26T02:00:00Z');
+    const a = new CycaAdapter({fetch, timers, clock: () => now, onReport: (r) => reports.push(r)});
     a.setRace(194);
     await a.pollNow(); // reads the race detail (start time)
     const from = Date.parse('2026-07-26T00:00:00Z');

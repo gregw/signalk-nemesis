@@ -9,7 +9,8 @@
  *  - tollgate2026: Tollgate Islands Race 2026, 02:50 to 13:00Z 16 Oct (start 06:00Z). Our
  *    own state and wind are Kanreki's Expedition log, at its rate; the fleet's AIS is
  *    simulated from its YB fixes (fleet-sim.js); the tracker feed is those fixes on the
- *    CYCA slot grid. No finish point is sent: the course is out and back.
+ *    CYCA slot grid, played as a recorded race file (lib/recorded-race.js). No finish
+ *    point is sent: the course is out and back.
  */
 const {simulate, finishOf, simTwdRad} = require('./ais-sim');
 const {simulateFleet, ownFromLog, trackerSlots} = require('./fleet-sim');
@@ -48,6 +49,19 @@ const RACES = {
     }
 };
 
+/**
+ * A race's tracker data with every time shifted, as a recorded race file's JSON
+ * (lib/recorded-race.js), so the plugin plays it on the same clock as the replay.
+ */
+function shiftTracker(tracker, shiftMs) {
+    const sh = (iso) => new Date(Date.parse(iso) + shiftMs).toISOString();
+    return {
+        ...tracker,
+        race: {...tracker.race, start: sh(tracker.race.start), timeZone: tracker.race.timeZone || 'Australia/Sydney'},
+        boats: tracker.boats.map((b) => ({...b, samples: b.samples.map(([t, ...rest]) => [sh(t), ...rest])}))
+    };
+}
+
 /** @param {string} name a key of RACES */
 function race(name = 'gc2026') {
     const make = RACES[name];
@@ -55,4 +69,4 @@ function race(name = 'gc2026') {
     return make();
 }
 
-module.exports = {race, RACES};
+module.exports = {race, shiftTracker, RACES};

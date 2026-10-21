@@ -2,7 +2,8 @@
 /*
  * Tracker fixes drawn hollow, AIS fixes solid, in headless Chromium against the plugin
  * replaying the Tollgate Islands Race 2026 two hours in: AIS simulated from the YB fixes,
- * and the same fixes as the CYCA tracker feed (race 198 already picked).
+ * and the same fixes as a recorded race (already picked). A new nemesis's history shows
+ * within seconds, not at the next full resync.
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -10,9 +11,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {chromium} = require('playwright');
 const {startDevServer} = require('../sim/dev-server');
-const {cycaFeed} = require('../sim/cyca-sim');
 const {tmpdir} = require('../sim/tmpdir');
 const {PUT_PATHS} = require('../../index');
+const {recordedId} = require('../../lib/recorded-race');
 
 const POLL = 300;
 const SHOT_DIR = process.env.SHOT_DIR;
@@ -24,15 +25,18 @@ let srv;
 test.before(async () => {
     browser = await chromium.launch();
     const dataDir = tmpdir();
-    fs.writeFileSync(path.join(dataDir, 'cyca-state.json'), JSON.stringify({version: 1, raceId: 198, links: {}}));
+    fs.writeFileSync(
+        path.join(dataDir, 'cyca-state.json'),
+        JSON.stringify({version: 1, raceId: recordedId('tollgate'), links: {}})
+    );
     srv = await startDevServer({
         hoursIn: 2,
         replayOpts: {
             race: 'tollgate2026',
+            recorded: 'tollgate',
             dataDir,
             selfName: 'Kanreki',
-            wind: true,
-            fetchFor: (shiftMs, tracker) => cycaFeed({shiftMs, clock: Date.now, data: tracker})
+            wind: true
         }
     });
 });
@@ -51,13 +55,6 @@ function kinds(page, sel) {
 }
 
 test('Geo and Vectors: tracker boats hollow with a key, AIS boats solid', async () => {
-    // A tracker boat only has its live fix until it is a nemesis, then it is backfilled
-    // over the period (Ragtime's CYCA entry is 19066). Before the page loads its tracks.
-    assert.equal((await srv.app.put(PUT_PATHS.setNemesis, {id: 'cyca:19066', nemesis: true})).status, 200);
-    const tracks = () =>
-        srv.app.call('GET', '/signalk/v1/api/nemesis/tracks', {query: {periodS: '3600', ids: 'cyca:19066'}});
-    for (let i = 0; i < 100 && ((await tracks()).body.boats['cyca:19066'] || []).length < 3; i++)
-        await new Promise((r) => setTimeout(r, 50));
     const ctx = await browser.newContext(TABLET);
     const page = await ctx.newPage();
     const errors = [];
@@ -68,6 +65,14 @@ test('Geo and Vectors: tracker boats hollow with a key, AIS boats solid', async 
 
     await page.click('#tabbar button[data-tab="geo"]');
     await page.locator('#mapLine .trkkey').waitFor();
+    // A tracker boat only has its live fix until it is a nemesis; then the plugin fills in
+    // its history (Ragtime's entry is 19066), and the page shows it within a few polls.
+    assert.equal(await page.locator('#mapcontent circle[r="3"]').count(), 0, 'no tracker history yet');
+    assert.equal((await srv.app.put(PUT_PATHS.setNemesis, {id: 'cyca:19066', nemesis: true})).status, 200);
+    const t0 = Date.now();
+    await page.locator('#mapcontent circle[r="3"]').first().waitFor({state: 'attached', timeout: 5000});
+    const quick = Date.now() - t0;
+    assert.ok(quick < 3000, `history shown after ${quick} ms`);
     const [solidHulls, hollowHulls] = await kinds(page, '#mapcontent polygon');
     assert.ok(hollowHulls >= 15, `tracker hulls hollow: ${hollowHulls}`);
     assert.ok(solidHulls >= 15, `AIS hulls solid: ${solidHulls}`);

@@ -89,10 +89,11 @@ test('an unchanged position in a new slot is a missed report', async () => {
     const moved = JSON.parse(JSON.stringify(status1200)).map((s) => ({...s, raceTime: '2026-07-26T12:10:00'}));
     const live = {v: status1200};
     const routes = {'/races/194': RUNNING, '/races/194/entries': entries194, '/races/194/at/live/status': () => live.v};
-    const {a, reports} = make(routes, Date.parse('2026-07-26T02:05:00Z'));
+    const {a, reports, clock} = make(routes, Date.parse('2026-07-26T02:05:00Z'));
     a.setRace(194);
     await a.pollNow();
     live.v = moved;
+    clock.now = Date.parse('2026-07-26T02:12:00Z');
     await a.pollNow();
     assert.equal(reports.length, 3);
     assert.equal(a.fleet().find((e) => e.entryId === 18921).last.t, Date.parse('2026-07-26T02:10:00Z'));
@@ -157,4 +158,30 @@ test('changing race mid-poll drops the old poll results', async () => {
     await p;
     assert.equal(reports.length, 0);
     assert.equal(a.toJSON().raceId, null);
+});
+
+test('a fix from more than 2 minutes in the future is dropped, from the status and from a track', async () => {
+    // The 12:10 slot polled at 12:05 local (02:05Z): not happened yet.
+    const ahead = JSON.parse(JSON.stringify(status1200)).map((s) => ({...s, raceTime: '2026-07-26T12:10:00'}));
+    const routes = {'/races/194': RUNNING, '/races/194/entries': entries194, '/races/194/at/live/status': ahead};
+    const {a, reports, clock} = make(routes, Date.parse('2026-07-26T02:05:00Z'));
+    a.setRace(194);
+    await a.pollNow();
+    assert.equal(reports.length, 0);
+    assert.equal(a.fleet().find((e) => e.entryId === 18921).last, null, 'not kept either');
+    // Within 2 minutes it is taken.
+    clock.now = Date.parse('2026-07-26T02:08:30Z');
+    await a.pollNow();
+    assert.equal(reports.length, 3);
+    // A track: slots up to now + 2 min only.
+    const start = Date.parse(RUNNING.startDateUtc + 'Z');
+    const pt = {latitude: -33.9, longitude: 151.3, speedOverGround: '8', courseOverGround: '180', isRacing: true};
+    routes['/races/194/entries/18921/track/at/live'] = Array.from({length: 6}, () => pt);
+    clock.now = start + 3 * 600e3 + 60e3;
+    reports.length = 0;
+    await a.fillTrack(18921, start, start + 10 * 600e3, () => false);
+    assert.deepEqual(
+        reports.map((r) => (r.t - start) / 600e3),
+        [0, 1, 2, 3]
+    );
 });

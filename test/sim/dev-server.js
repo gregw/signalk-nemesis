@@ -8,7 +8,8 @@
  * 401: security on and not logged in); `setFail(null)` restores service.
  *
  * Run standalone for manual poking: node test/sim/dev-server.js [port] [hoursIn] [race]
- * Standalone, it also serves the race's tracker data as a fake CYCA feed (cyca-sim.js):
+ * Standalone, it also writes the race's tracker data as a recorded race file in its data
+ * dir (lib/recorded-race.js), and serves GC2026's as a fake CYCA feed (cyca-sim.js):
  * pick the race on the CYCA tab.
  */
 const http = require('node:http');
@@ -120,7 +121,8 @@ if (require.main === module) {
         replayOpts: {
             race,
             selfName: 'Kanreki',
-            fetchFor: (shiftMs, tracker) => cycaFeed({shiftMs, clock: Date.now, data: tracker})
+            recorded: race,
+            fetchFor: (shiftMs) => cycaFeed({shiftMs, clock: Date.now})
         }
     }).then((s) => console.log('webapp at', s.url));
 }

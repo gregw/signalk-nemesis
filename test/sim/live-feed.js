@@ -16,21 +16,26 @@
  * sending in real time.
  *
  *   node test/sim/live-feed.js [--race gc2026|tollgate2026] [--url ws://127.0.0.1:3000]
- *       [--hours 6] [--live] [--user name]
+ *       [--hours 6] [--live] [--user name] [--tracker-file path]
  *
  * GC2026's finish is sent as an RMB-style next point, as the nav PC would (Tollgate's
  * course is out and back: none is sent). Tollgate's own heading is Kanreki's logged HDG,
  * sent as navigation.headingTrue: the log's TWD is its HDG + TWA (median difference 0.1
- * deg over 16 Oct), so HDG is referenced to true north like TWD. The tracker feed is not
- * played here: the plugin on a real server reads the real CYCA feed (dev-server.js plays
- * it).
+ * deg over 16 Oct), so HDG is referenced to true north like TWD.
+ *
+ * --tracker-file writes the race's tracker data, shifted to the same clock, as a recorded
+ * race file (lib/recorded-race.js) for the plugin to offer on the CYCA tab. Name it
+ * recorded-race-<key>.json in the plugin's data dir, e.g.
+ * /var/lib/signalk/plugin-config-data/signalk-nemesis/recorded-race-tollgate.json.
+ * Written to a temp file and renamed, so the plugin never reads half of it.
  * Names are sent the way N2K PGN 129809 maps them: path '' with value {name}
  * (n2k-signalk pgns/129809.js).
  * Our boat is Kanreki (MMSI 503029690); its data goes to vessels.self, or --self.
  */
 
 const {toDelta, rmbDelta, windDelta} = require('./ais-sim');
-const {race} = require('./races');
+const fs = require('node:fs');
+const {race, shiftTracker} = require('./races');
 
 function parseArgs(argv) {
     const a = {race: 'gc2026', url: 'ws://127.0.0.1:3000', hours: 6, live: false, selfContext: null, user: null};
@@ -41,6 +46,7 @@ function parseArgs(argv) {
         else if (argv[i] === '--live') a.live = true;
         else if (argv[i] === '--self') a.selfContext = argv[++i];
         else if (argv[i] === '--user') a.user = argv[++i];
+        else if (argv[i] === '--tracker-file') a.trackerFile = argv[++i];
     }
     return a;
 }
@@ -102,8 +108,13 @@ async function main() {
     const args = parseArgs(process.argv.slice(2));
     const now = Date.now();
     const rec = race(args.race);
-    const shiftMs = now - (rec.start + args.hours * 3600e3);
+    // Whole seconds: the feed's times (a recorded race's start) carry no milliseconds.
+    const shiftMs = Math.round((now - (rec.start + args.hours * 3600e3)) / 1000) * 1000;
     const sim = rec.play(shiftMs);
+    if (args.trackerFile) {
+        writeAtomic(args.trackerFile, JSON.stringify(shiftTracker(rec.tracker, shiftMs)));
+        console.log(`wrote ${args.trackerFile}: pick it on the CYCA tab (refresh the race list)`);
+    }
 
     // Own deltas go to the server's self context; 'vessels.self' is accepted by handleMessage.
     const selfContext = args.selfContext || 'vessels.self';
@@ -155,6 +166,12 @@ async function main() {
         send(events[i].d);
     }
     ws.close();
+}
+
+function writeAtomic(file, text) {
+    const tmp = `${file}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, text);
+    fs.renameSync(tmp, file);
 }
 
 /** Our own state: position, COG and SOG, and the heading where the recording has one. */

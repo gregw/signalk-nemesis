@@ -74,6 +74,7 @@ const ND = (() => {
         maxT: null, // newest report time held (for incremental fetches)
         tracksKey: '', // which window the held tracks describe
         tracksAt: 0, // wall time of the last full tracks fetch
+        filled: null, // the plugin's backfill count at the last snapshot
         viewT: null // null = live; else the time being looked at (epoch ms)
     };
 
@@ -145,6 +146,11 @@ const ND = (() => {
         inFlight = true;
         try {
             const snap = await fetchJson(API + '/snapshot');
+            // A backfill filled in history (a new nemesis): fetch the tracks in full now,
+            // not at the next resync, as the incremental fetch only asks for newer reports.
+            const filled = snap.cyca ? snap.cyca.filled : null;
+            if (filled != null && M.filled != null && filled !== M.filled) M.tracksKey = '';
+            M.filled = filled;
             M.snap = applyPending(snap);
             M.fetchedAt = Date.now();
             syncUpOptions();
