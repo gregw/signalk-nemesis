@@ -89,6 +89,8 @@ test('live-feed --race: the Tollgate race plays our logged heading and wind, and
     const {race} = require('./sim/races');
     assert.equal(parseArgs([]).race, 'gc2026');
     assert.equal(parseArgs(['--race', 'tollgate2026']).race, 'tollgate2026');
+    assert.equal(parseArgs(['--tracker-file', '/x/recorded-race-t.json']).trackerFile, '/x/recorded-race-t.json');
+    assert.throws(() => parseArgs(['----tracker-file', '/x']), /unknown argument ----tracker-file/);
     assert.throws(() => race('nope'), /unknown race nope/);
     const rec = race('tollgate2026');
     assert.equal(rec.start, Date.parse('2026-10-16T06:00:00Z'));

@@ -47,6 +47,7 @@ function parseArgs(argv) {
         else if (argv[i] === '--self') a.selfContext = argv[++i];
         else if (argv[i] === '--user') a.user = argv[++i];
         else if (argv[i] === '--tracker-file') a.trackerFile = argv[++i];
+        else throw new Error(`unknown argument ${argv[i]}`); // a mistyped option is not ignored
     }
     return a;
 }
