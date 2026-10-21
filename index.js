@@ -261,7 +261,18 @@ module.exports = function (app, deps = {}) {
         });
         // Recorded races (recorded-race-<key>.json in the data dir) are offered beside the
         // feed's; picking one serves the feed's requests from its file.
-        const recorded = new RecordedRaces({dataDir: app.getDataDirPath()});
+        // A replay rewrites its file with new times each run: the selected race is then
+        // picked afresh, so its start is read again and its polls start over.
+        const recorded = new RecordedRaces({
+            dataDir: app.getDataDirPath(),
+            onChange: (raceId) =>
+                setImmediate(() => {
+                    if (!state || state.cyca !== cyca || state.cycaState.raceId !== raceId) return;
+                    cyca.setRace(null);
+                    cyca.setRace(raceId);
+                    state.backfillPlanner.reset();
+                })
+        });
         const cyca = new CycaAdapter({
             fetch: recorded.fetchWith(fetchImpl),
             onChange: () => {
@@ -300,6 +311,7 @@ module.exports = function (app, deps = {}) {
             filled: 0, // bumped when a backfill adds reports: the webapp then refetches tracks
             wantPeriod: {ms: WANT_PERIOD_DEFAULT_MS, at: 0},
             thinTimer: null,
+            recordedTimer: null,
             ready: null, // promise: journal loaded
             // Live clock. The replay harness shifts recorded times to wall-clock time.
             clock: () => Date.now()
@@ -313,6 +325,13 @@ module.exports = function (app, deps = {}) {
         recorded.scan().then(() => {
             if (state && state.cyca === cyca) cyca.setRace(cycaState.raceId);
         });
+        // A selected recorded race's file is checked every 5 s: a new replay run is picked
+        // up at once, not at the next 10 minute poll.
+        state.recordedTimer = setInterval(() => {
+            if (state && state.recorded === recorded && state.cycaState.raceId < 0)
+                recorded.check(state.cycaState.raceId);
+        }, 5e3);
+        state.recordedTimer.unref?.();
         registerPutHandlers();
         app.setPluginStatus('Loading track history');
 
@@ -364,6 +383,7 @@ module.exports = function (app, deps = {}) {
             app.debug(e);
         }
         if (state.thinTimer) clearInterval(state.thinTimer);
+        if (state.recordedTimer) clearInterval(state.recordedTimer);
         for (const a of [state.ownAdapter, state.wind, state.racerStart, state.waypoints, state.cyca, state.journal]) {
             try {
                 a.stop();

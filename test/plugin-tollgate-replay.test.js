@@ -87,4 +87,14 @@ test('Tollgate 2026: AIS boats with their real MMSIs, the fleet from the recorde
     }
     // The page refetches tracks when this count moves.
     assert.ok((await app.call('GET', API + '/snapshot')).body.cyca.filled >= 1);
+
+    // A new replay run rewrites the file with other times: the race is read again.
+    const {shiftTracker} = require('./sim/races');
+    const file = path.join(dataDir, 'recorded-race-tollgate.json');
+    fs.writeFileSync(file, JSON.stringify(shiftTracker(tracker, shiftMs - 3600e3)));
+    fs.utimesSync(file, new Date(), new Date(Date.now() + 5000));
+    const startNow = Date.parse(tracker.race.start) + shiftMs - 3600e3;
+    // Within the 5 s check, without a Refresh.
+    await until(async () => (await app.call('GET', API + '/snapshot')).body.cyca.race?.startT === startNow, 8000);
+    assert.equal((await app.call('GET', API + '/snapshot')).body.cyca.race.startT, startNow);
 });

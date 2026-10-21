@@ -132,3 +132,28 @@ test('recorded feed: the race, entries, and only slots at or before now; other r
         feed.FEED_BASE + '/v2/years/2026/series'
     ]);
 });
+
+test('recorded feed: a rewritten file is read again and reported; a file written later is found', async () => {
+    const dir = tmpdir();
+    const clock = {now: START + SLOT + 90e3};
+    const changed = [];
+    const rr = new RecordedRaces({dataDir: dir, clock: () => clock.now, onChange: (id) => changed.push(id)});
+    await rr.scan();
+    const fetch = rr.fetchWith(async () => ({ok: false, status: 503}));
+    const id = recordedId('tollgate');
+    const url = `${feed.FEED_BASE}/v2/races/${id}`;
+    assert.equal((await fetch(url)).status, 503, 'no file yet');
+    // Written after the start-up scan: found by the next request 30 s on.
+    fs.writeFileSync(path.join(dir, 'recorded-race-tollgate.json'), JSON.stringify(race()));
+    clock.now += 30e3;
+    assert.equal(feed.parseRace(await (await fetch(url)).json()).startT, START);
+    assert.deepEqual(changed, [], 'new, not changed');
+    // Rewritten with another start (a new replay run): read again, and reported.
+    const later = race();
+    later.race.start = iso(START + 3600e3);
+    const file = path.join(dir, 'recorded-race-tollgate.json');
+    fs.writeFileSync(file, JSON.stringify(later));
+    fs.utimesSync(file, new Date(), new Date(Date.now() + 5000)); // a new mtime, whatever the fs resolution
+    assert.equal(feed.parseRace(await (await fetch(url)).json()).startT, START + 3600e3);
+    assert.deepEqual(changed, [id]);
+});
