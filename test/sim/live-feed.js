@@ -1,7 +1,8 @@
 'use strict';
 /*
- * Feeds the seeded AIS simulation of the GC2026 race into a running Signal K
- * server over its WebSocket stream, as Signal K deltas. The server accepts
+ * Feeds a recorded race (GC2026, or --race tollgate2026; see races.js) into a running
+ * Signal K server over its WebSocket stream, as Signal K deltas: our own state and wind,
+ * and the fleet as simulated AIS. The server accepts
  * client deltas when security is off, or from a user with readwrite or admin
  * permission (signalk-server 2.18 src/interfaces/ws.js processUpdates,
  * src/tokensecurity.js shouldAllowWrite). With --user the password is prompted
@@ -14,21 +15,28 @@
  * up to now is sent as fast as the socket allows; with --live it then keeps
  * sending in real time.
  *
- *   node test/sim/live-feed.js [--url ws://127.0.0.1:3000] [--hours 6] [--live] [--user name]
+ *   node test/sim/live-feed.js [--race gc2026|tollgate2026] [--url ws://127.0.0.1:3000]
+ *       [--hours 6] [--live] [--user name]
  *
- * The finish is sent as an RMB-style next point, as the nav PC would.
+ * GC2026's finish is sent as an RMB-style next point, as the nav PC would (Tollgate's
+ * course is out and back: none is sent). Tollgate's own heading is Kanreki's logged HDG,
+ * sent as navigation.headingTrue: the log's TWD is its HDG + TWA (median difference 0.1
+ * deg over 16 Oct), so HDG is referenced to true north like TWD. The tracker feed is not
+ * played here: the plugin on a real server reads the real CYCA feed (dev-server.js plays
+ * it).
  * Names are sent the way N2K PGN 129809 maps them: path '' with value {name}
  * (n2k-signalk pgns/129809.js).
  * Our boat is Kanreki (MMSI 503029690); its data goes to vessels.self, or --self.
  */
 
-const {simulate, toDelta, finishOf, rmbDelta, simTwdRad, windDelta} = require('./ais-sim');
-const data = require('../data/gc2026-tracks.json');
+const {toDelta, rmbDelta, windDelta} = require('./ais-sim');
+const {race} = require('./races');
 
 function parseArgs(argv) {
-    const a = {url: 'ws://127.0.0.1:3000', hours: 6, live: false, selfContext: null, user: null};
+    const a = {race: 'gc2026', url: 'ws://127.0.0.1:3000', hours: 6, live: false, selfContext: null, user: null};
     for (let i = 0; i < argv.length; i++) {
-        if (argv[i] === '--url') a.url = argv[++i];
+        if (argv[i] === '--race') a.race = argv[++i];
+        else if (argv[i] === '--url') a.url = argv[++i];
         else if (argv[i] === '--hours') a.hours = Number(argv[++i]);
         else if (argv[i] === '--live') a.live = true;
         else if (argv[i] === '--self') a.selfContext = argv[++i];
@@ -93,15 +101,16 @@ async function login(wsUrl, username, password) {
 async function main() {
     const args = parseArgs(process.argv.slice(2));
     const now = Date.now();
-    const shiftMs = now - (Date.parse(data.race.start) + args.hours * 3600e3);
-    const sim = simulate(data, {receiverName: 'Kanreki', seed: 11, shiftMs});
+    const rec = race(args.race);
+    const shiftMs = now - (rec.start + args.hours * 3600e3);
+    const sim = rec.play(shiftMs);
 
     // Own deltas go to the server's self context; 'vessels.self' is accepted by handleMessage.
     const selfContext = args.selfContext || 'vessels.self';
     const events = [
-        ...sim.own.map((s) => ({t: s.t, d: toDelta(selfContext, s)})),
-        // Our true wind with each own sample, made up (the recording has none).
-        ...sim.own.map((s) => ({t: s.t, d: windDelta(selfContext, s.t, simTwdRad(s.t - shiftMs))})),
+        ...sim.own.map((s) => ({t: s.t, d: ownDelta(selfContext, s)})),
+        // Our true wind with each own sample (made up for GC2026: its recording has none).
+        ...sim.own.filter((s) => s.twdRad != null).map((s) => ({t: s.t, d: windDelta(selfContext, s.t, s.twdRad)})),
         ...sim.reports.map((r) => ({t: r.t, d: toDelta('vessels.urn:mrn:imo:mmsi:' + r.boatId, r)}))
     ].sort((a, b) => a.t - b.t);
 
@@ -125,8 +134,8 @@ async function main() {
         });
     }
     // The nav PC's next point (the finish) as RMB, the way Expedition would send it.
-    const finish = finishOf(data);
-    send(rmbDelta(selfContext, finish, now));
+    const finish = sim.finish;
+    if (finish) send(rmbDelta(selfContext, finish, now));
     let i = 0;
     for (; i < events.length && events[i].t <= now; i++) send(events[i].d);
     console.log(`sent ${i} history deltas up to now`);
@@ -139,13 +148,20 @@ async function main() {
         return;
     }
     console.log('live: sending in real time, Ctrl-C to stop');
-    setInterval(() => send(rmbDelta(selfContext, finish, Date.now())), 2000);
+    if (finish) setInterval(() => send(rmbDelta(selfContext, finish, Date.now())), 2000);
     for (; i < events.length; i++) {
         const wait = events[i].t - Date.now();
         if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
         send(events[i].d);
     }
     ws.close();
+}
+
+/** Our own state: position, COG and SOG, and the heading where the recording has one. */
+function ownDelta(context, s) {
+    const d = toDelta(context, s);
+    if (s.hdgRad != null) d.updates[0].values.push({path: 'navigation.headingTrue', value: s.hdgRad});
+    return d;
 }
 
 if (require.main === module) {
@@ -155,4 +171,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = {parseArgs, login};
+module.exports = {parseArgs, login, ownDelta};

@@ -7,14 +7,16 @@
  * `setFail(503)` makes every request fail with that status (503: server restarting,
  * 401: security on and not logged in); `setFail(null)` restores service.
  *
- * Run standalone for manual poking: node test/sim/dev-server.js [port] [hoursIn]
+ * Run standalone for manual poking: node test/sim/dev-server.js [port] [hoursIn] [race]
+ * Standalone, it also serves the race's tracker data as a fake CYCA feed (cyca-sim.js):
+ * pick the race on the CYCA tab.
  */
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const {replayTo} = require('./replay');
-const {finishOf, rmbDelta} = require('./ais-sim');
-const data = require('../data/gc2026-tracks.json');
+const {rmbDelta} = require('./ais-sim');
+const {cycaFeed} = require('./cyca-sim');
 
 const PUBLIC = path.join(__dirname, '..', '..', 'public');
 const TYPES = {
@@ -29,7 +31,8 @@ async function startDevServer({port = 0, hoursIn = 6, replay, config, resources,
     const r = replay || (await replayTo(hoursIn, {config, resources, wind: true, ...replayOpts}));
     let failWith = null; // HTTP status every request fails with, or null
     // Keep the nav PC's RMB next point coming, as the live feed does, or it goes stale.
-    const rmbTimer = setInterval(() => r.app.deliver(rmbDelta(r.app.selfContext, finishOf(data), Date.now())), 5000);
+    const finish = r.sim.finish;
+    const rmbTimer = setInterval(() => finish && r.app.deliver(rmbDelta(r.app.selfContext, finish, Date.now())), 5000);
     rmbTimer.unref();
     const server = http.createServer((req, res) => {
         const url = new URL(req.url, 'http://x');
@@ -110,7 +113,14 @@ function send(res, status, body) {
 module.exports = {startDevServer};
 
 if (require.main === module) {
-    startDevServer({port: Number(process.argv[2] || 3300), hoursIn: Number(process.argv[3] || 6)}).then((s) =>
-        console.log('webapp at', s.url)
-    );
+    const [port = 3300, hoursIn = 6, race = 'gc2026'] = process.argv.slice(2);
+    startDevServer({
+        port: Number(port),
+        hoursIn: Number(hoursIn),
+        replayOpts: {
+            race,
+            selfName: 'Kanreki',
+            fetchFor: (shiftMs, tracker) => cycaFeed({shiftMs, clock: Date.now, data: tracker})
+        }
+    }).then((s) => console.log('webapp at', s.url));
 }

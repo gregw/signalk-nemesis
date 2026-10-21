@@ -83,3 +83,34 @@ test('live-feed --user: logs in with POST /signalk/v1/auth/login', async () => {
         srv.close();
     }
 });
+
+test('live-feed --race: the Tollgate race plays our logged heading and wind, and no finish', () => {
+    const {ownDelta} = require('./sim/live-feed');
+    const {race} = require('./sim/races');
+    assert.equal(parseArgs([]).race, 'gc2026');
+    assert.equal(parseArgs(['--race', 'tollgate2026']).race, 'tollgate2026');
+    assert.throws(() => race('nope'), /unknown race nope/);
+    const rec = race('tollgate2026');
+    assert.equal(rec.start, Date.parse('2026-10-16T06:00:00Z'));
+    const sim = rec.play(1000);
+    assert.equal(sim.finish, null);
+    const s = sim.own.find((x) => x.hdgRad != null && x.twdRad != null);
+    assert.equal(
+        s.t,
+        require('./data/tollgate2026-kanreki.json').samples.find((x) => x[5] != null && x[7] != null)[0] + 1000
+    );
+    const d = ownDelta('vessels.self', s);
+    assert.deepEqual(
+        d.updates[0].values.map((v) => v.path),
+        [
+            'navigation.position',
+            'navigation.courseOverGroundTrue',
+            'navigation.speedOverGround',
+            'navigation.headingTrue'
+        ]
+    );
+    assert.equal(d.updates[0].values[3].value, s.hdgRad);
+    // GC2026 has no heading: none sent.
+    const g = race('gc2026').play(0).own[30];
+    assert.equal(ownDelta('vessels.self', g).updates[0].values.length, 3);
+});
