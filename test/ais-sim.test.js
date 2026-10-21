@@ -116,3 +116,11 @@ test('live-feed --race: the Tollgate race plays our logged heading and wind, and
     const g = race('gc2026').play(0).own[30];
     assert.equal(ownDelta('vessels.self', g).updates[0].values.length, 3);
 });
+
+test('live-feed prints the replayed start for the TCF tab', () => {
+    const {startLine} = require('./sim/live-feed');
+    const line = startLine(Date.parse('2026-10-22T00:30:05Z'), 5);
+    assert.match(line, /^race start \(5 h ago, for the TCF tab\): /);
+    assert.match(line, /\(2026-10-22T00:30:05\.000Z\)$/);
+    assert.match(line, /30:05/, 'to the second');
+});

@@ -113,6 +113,7 @@ async function main() {
     // milliseconds, and no recorded time may land after now.
     const shiftMs = Math.floor((now - (rec.start + args.hours * 3600e3)) / 1000) * 1000;
     const sim = rec.play(shiftMs);
+    console.log(startLine(rec.start + shiftMs, args.hours));
     if (args.trackerFile) {
         writeAtomic(args.trackerFile, JSON.stringify(shiftTracker(rec.tracker, shiftMs)));
         console.log(`wrote ${args.trackerFile}: pick it on the CYCA tab (refresh the race list)`);
@@ -176,6 +177,21 @@ function writeAtomic(file, text) {
     fs.renameSync(tmp, file);
 }
 
+/** The replayed start, for the TCF tab: in local time to the second, and as UTC. */
+function startLine(startT, hours) {
+    const local = new Date(startT).toLocaleString('en-AU', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+        timeZoneName: 'short'
+    });
+    return `race start (${hours} h ago, for the TCF tab): ${local} (${new Date(startT).toISOString()})`;
+}
+
 /** Our own state: position, COG and SOG, and the heading where the recording has one. */
 function ownDelta(context, s) {
     const d = toDelta(context, s);
@@ -190,4 +206,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = {parseArgs, login, ownDelta};
+module.exports = {parseArgs, login, ownDelta, startLine};
