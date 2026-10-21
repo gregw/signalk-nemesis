@@ -323,6 +323,16 @@ const ND = (() => {
         const {frame, wp} = upChoice(s);
         let {upName} = upChoice(s);
         const ctx = {frame, wp, us: M.us, staleMs: st, usGapMs: US_GAP_MS};
+        // Live, our current state is the snapshot's latest sample, and it ends our series too:
+        // the fetched track keeps one sample per 30 s (and our state at each report, which
+        // can be newer than the snapshot), so its last can differ, and a newest hull drawn
+        // from it would sit off Up = COG.
+        let usSeries = upTo(M.us, now);
+        if (live && s && s.own) {
+            let k = usSeries.length;
+            while (k > 0 && usSeries[k - 1].t >= s.own.t) k--;
+            usSeries = usSeries.slice(0, k).concat([s.own]);
+        }
         const usNow = live && s && s.own ? s.own : DERIVE.stateAt(M.us, now, st);
         if (frame === 'course') {
             // Our next mark, and any configured mark the server did not find (a gap in the course).
@@ -339,7 +349,7 @@ const ND = (() => {
             nemesis: false,
             tcf: s ? s.tcfUs || 1 : 1,
             color: DRAW.US_COLOR,
-            series: upTo(M.us, now),
+            series: usSeries,
             cur: usNow
         });
         for (const b of s ? s.boats : []) {

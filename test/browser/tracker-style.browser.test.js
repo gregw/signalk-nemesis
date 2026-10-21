@@ -99,3 +99,39 @@ test('Geo and Vectors: tracker boats hollow with a key, AIS boats solid', async 
     assert.deepEqual(errors, []);
     await ctx.close();
 });
+
+test('Vectors, Up = COG, Absolute: our newest hull is on the vertical axis', async () => {
+    const ctx = await browser.newContext(TABLET);
+    const page = await ctx.newPage();
+    await page.goto(srv.url + '?poll=' + POLL);
+    await page.locator('#conn', {hasText: 'live'}).waitFor();
+    await page.selectOption('#upSel', 'cog');
+    await page.selectOption('#modeSel', 'abs');
+    await page.click('#tabbar button[data-tab="vectors"]');
+    await page.locator('#polar text', {hasText: 'US'}).waitFor();
+    // Our instruments keep going, COG swinging 20 degrees, as on a live server: each fetch
+    // of the snapshot and of the tracks sees a different latest sample.
+    const {toDelta} = require('../sim/ais-sim');
+    const last = srv.sim.own.at(-1);
+    let n = 0;
+    const feed = setInterval(() => {
+        n++;
+        const t = Date.now();
+        srv.app.deliver(toDelta(srv.app.selfContext, {...last, t, cogRad: last.cogRad + (n % 2 ? 0.35 : -0.35)}));
+    }, 150);
+    try {
+        await page.waitForTimeout(1500);
+        for (let i = 0; i < 6; i++) {
+            const off = await page.evaluate(() => {
+                const axis = document.querySelector('#polar line[stroke="#8ea3bc"]');
+                const us = [...document.querySelectorAll('#polar text')].find((t) => t.textContent === 'US');
+                return Number(us.getAttribute('x')) - Number(axis.getAttribute('x1'));
+            });
+            assert.ok(Math.abs(off) < 0.2, `US ${off.toFixed(1)} px off the axis`);
+            await page.waitForTimeout(POLL * 2);
+        }
+    } finally {
+        clearInterval(feed);
+        await ctx.close();
+    }
+});
