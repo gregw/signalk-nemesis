@@ -923,3 +923,8 @@ svg .hi {
 .warn {
     color: var(--warn);
 }
+
+/* The key for hollow tracker fixes on the Geo and Vectors info lines. */
+.trkkey {
+    white-space: nowrap;
+}

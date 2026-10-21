@@ -38,7 +38,7 @@
         } else {
             for (const r of win) {
                 const p = kn(DERIVE.vectorPoint(r, view.usAt(r.t), view.mode, view.upRad));
-                if (p) out.push({t: r.t, p});
+                if (p) out.push({t: r.t, p, src: r.src});
             }
         }
         // The newest point is the boat's current state unless it is older than stale.
@@ -67,6 +67,7 @@
         }
 
         const draw = [];
+        let anyTracker = false;
         const XY = [[0, 0]]; // the origin is always in view
         for (const b of view.visible) {
             const proj = pointsFor(b, view);
@@ -151,6 +152,7 @@
             // Older hulls are grouped into one path per age step (render budget).
             const STEPS = 6;
             const old = new Array(STEPS).fill('');
+            const oldTrk = new Array(STEPS).fill('');
             const hiCls = b.id === view.sel ? ' class="hi"' : '';
             let front = '';
             for (const q of proj) {
@@ -165,25 +167,35 @@
                         front += `<polygon${hiCls} points="${DRAW.boatIcon(px, py, ang, sz)}" fill="${color}" stroke="#fff" stroke-width="1.8"/>`;
                         front += `<text x="${px.toFixed(1)}" y="${(py - sz * 0.55 - 6).toFixed(1)}" text-anchor="middle" font-family="${FONT}" font-size="9" fill="${color}">US</text>`;
                     } else {
-                        front += `<polygon${hiCls} points="${DRAW.boatIcon(px, py, ang, sz)}" fill="${color}" stroke="#fff" stroke-width="1"/>`;
+                        front += `<polygon${hiCls} points="${DRAW.boatIcon(px, py, ang, sz)}" ${DRAW.hullStyle(q, color, 1)}/>`;
+                        anyTracker = anyTracker || DRAW.isTracker(q);
                     }
                 } else {
                     const k = Math.min(STEPS - 1, Math.floor(DERIVE.ageFrac(q.t, view.now, spanMs) * STEPS));
                     const fr = (k + 0.5) / STEPS;
                     const sz = (isUs ? 11 : 9) * (0.45 + 0.55 * fr) * 2 * selMul;
-                    old[k] += 'M' + DRAW.boatIcon(px, py, ang, sz).replace(/ /g, 'L') + 'Z';
+                    const d = 'M' + DRAW.boatIcon(px, py, ang, sz).replace(/ /g, 'L') + 'Z';
+                    // Tracker fixes as outlines, in their own path per age step.
+                    if (DRAW.isTracker(q)) {
+                        anyTracker = true;
+                        oldTrk[k] += d;
+                    } else old[k] += d;
                 }
                 hits.push({id: b.id, t: q.t, x: px, y: py, newest: !!q.newest});
             }
             for (let k = 0; k < STEPS; k++) {
-                if (old[k])
-                    s += `<path${hiCls} d="${old[k]}" fill="${color}" opacity="${(0.25 + (0.6 * (k + 0.5)) / STEPS).toFixed(2)}"/>`;
+                const op = (0.25 + (0.6 * (k + 0.5)) / STEPS).toFixed(2);
+                if (old[k]) s += `<path${hiCls} d="${old[k]}" fill="${color}" opacity="${op}"/>`;
+                if (oldTrk[k])
+                    s += `<path${hiCls} d="${oldTrk[k]}" fill="#fff" fill-opacity="0.6" stroke="${color}" stroke-width="1.2" opacity="${op}"/>`;
             }
             s += front;
         }
         s += '</g>';
         el.innerHTML = s;
-        $('scaleLine').textContent = `ring ${+step.toFixed(2)}kn  max ~${+maxMag.toFixed(2)}kn`;
+        $('scaleLine').innerHTML =
+            `ring ${+step.toFixed(2)}kn  max ~${+maxMag.toFixed(2)}kn` +
+            (anyTracker ? ' &middot; ' + DRAW.TRACKER_KEY : '');
     }
 
     /** Nearest drawn point to an svg position; current positions win over trail points. */

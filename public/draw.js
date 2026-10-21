@@ -16,6 +16,20 @@ const DRAW = (() => {
         return `hsl(${((h % 997) * 137.508) % 360} 55% 45%)`;
     }
 
+    /**
+     * A report from a race tracker (YB units through the CYCA feed, src 'cyca'), not heard
+     * on AIS: drawn hollow, as an outline hull or a ring, so the two can be told apart.
+     */
+    const isTracker = (r) => !!r && r.src != null && r.src !== 'ais';
+    /** Fill and stroke for a current hull: solid for AIS and us, hollow for a tracker fix. */
+    function hullStyle(r, color, strokeW) {
+        return isTracker(r)
+            ? `fill="#fff" fill-opacity="0.85" stroke="${color}" stroke-width="${(strokeW + 1).toFixed(1)}"`
+            : `fill="${color}" stroke="#fff" stroke-width="${strokeW}"`;
+    }
+    /** The key for hollow tracker fixes, for a tab's info line. */
+    const TRACKER_KEY = '<span class="trkkey">&#9675; tracker (YB)</span>';
+
     /* Top-view hull outline, forward = +x, length about size (prototype boatIcon). */
     const HULL = [
         [0.58, 0],
@@ -176,6 +190,9 @@ const DRAW = (() => {
         US_COLOR,
         colorFor,
         boatIcon,
+        isTracker,
+        hullStyle,
+        TRACKER_KEY,
         listIcon,
         taper,
         spark,

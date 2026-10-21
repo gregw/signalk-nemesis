@@ -237,7 +237,7 @@
             const s = win[j];
             if (b.isUs && j !== win.length - 1 && lastT - s.t < OWN_STEP_MS) continue;
             lastT = s.t;
-            pts.unshift({wx: mercX(s.lon), wy: mercY(s.lat), t: s.t, cogRad: s.cogRad});
+            pts.unshift({wx: mercX(s.lon), wy: mercY(s.lat), t: s.t, cogRad: s.cogRad, src: s.src});
         }
         if (pts.length && view.now - pts[pts.length - 1].t <= view.staleMs) pts[pts.length - 1].newest = true;
         return pts;
@@ -359,6 +359,7 @@
             if (!course && view.usNow) s += markAt(view.wp.marks[view.wp.mark(view.usNow)], true);
         } else if (view.wp) s += markAt(view.wp, true);
         hits = [];
+        let anyTracker = false;
         const z = (x) => (x.b.id === view.sel ? 2 : x.b.isUs ? 1 : 0); // us, then the selection, on top
         boats.sort((a, b) => z(a) - z(b));
         for (const {b, pts} of boats) {
@@ -387,12 +388,19 @@
                     const th = Number.isFinite(q.cogRad) ? q.cogRad : 0;
                     const ang = Math.atan2(-Math.cos(th), Math.sin(th)); // north-up screen direction
                     const len = (b.isUs ? 13 : 11) * 2 * (b.id === view.sel ? 1.5 : 1);
-                    s += `<polygon${hi} points="${DRAW.boatIcon(q.px, q.py, ang, len)}" fill="${b.color}" stroke="#fff" stroke-width="1.3"/>`;
+                    s += `<polygon${hi} points="${DRAW.boatIcon(q.px, q.py, ang, len)}" ${DRAW.hullStyle(q, b.color, 1.3)}/>`;
+                    anyTracker = anyTracker || DRAW.isTracker(q);
                     if (b.isUs)
                         s += `<text ${upright(q.px, q.py - 15)} x="${q.px.toFixed(1)}" y="${(q.py - 15).toFixed(1)}" text-anchor="middle" font-family="${FONT}" font-size="9" fill="${b.color}">US</text>`;
                 } else {
                     const fr = DERIVE.ageFrac(q.t, view.now, spanMs);
-                    s += `<circle cx="${q.px.toFixed(1)}" cy="${q.py.toFixed(1)}" r="2.2" fill="${b.color}" opacity="${(0.1 + 0.55 * fr).toFixed(2)}"/>`;
+                    const op = (0.1 + 0.55 * fr).toFixed(2);
+                    if (DRAW.isTracker(q)) {
+                        // A tracker fix: a ring, a little larger, so it reads as hollow.
+                        anyTracker = true;
+                        s += `<circle cx="${q.px.toFixed(1)}" cy="${q.py.toFixed(1)}" r="3" fill="#fff" stroke="${b.color}" stroke-width="1.4" opacity="${(0.25 + 0.65 * fr).toFixed(2)}"/>`;
+                    } else
+                        s += `<circle cx="${q.px.toFixed(1)}" cy="${q.py.toFixed(1)}" r="2.2" fill="${b.color}" opacity="${op}"/>`;
                 }
             }
         }
@@ -411,7 +419,8 @@
         $('mapLine').innerHTML =
             `<b>Geographic</b> &middot; ${DRAW.esc(view.upName)} up` +
             (view.up == null && view.frame !== 'north' ? ' (unknown: north up)' : '') +
-            ` &middot; ${view.mode === 'rel' ? 'fit all' : 'z' + zoom.toFixed(1)}`;
+            ` &middot; ${view.mode === 'rel' ? 'fit all' : 'z' + zoom.toFixed(1)}` +
+            (anyTracker ? ' &middot; ' + DRAW.TRACKER_KEY : '');
     }
 
     /** Nearest drawn boat point to an svg position; current positions win over trail dots. */
