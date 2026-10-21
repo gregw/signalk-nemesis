@@ -62,6 +62,15 @@
                 <input type="number" id="staleMin" min="5" max="240" step="5" value="30" class="numin" />
                 <span class="tv" style="width: auto; text-align: left">min without a report</span>
             </div>
+            <div class="trow">
+                <button
+                    class="playbtn"
+                    id="clearHist"
+                    title="forget every boat's track and ours, here and on the server; names, nemeses, TCFs and links are kept"
+                >
+                    Clear history
+                </button>
+            </div>
         </div>
 
         <div class="selbar">
@@ -203,6 +212,9 @@
                 <div class="coursebar">
                     <span id="cycaStatus"></span>
                     <button class="mapbtn hidden" id="cycaLinkAll">Link all suggested</button>
+                    <button class="mapbtn hidden" id="cycaUnlinkAll" title="remove every link, from all races">
+                        Unlink all
+                    </button>
                 </div>
                 <div class="blist" id="cycalist"></div>
             </section>

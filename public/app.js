@@ -711,6 +711,19 @@ const ND = (() => {
             setViewT(Number(sl.value) >= Number(sl.max) ? null : oldest + Number(sl.value) * 60e3);
         });
         $('liveBtn').addEventListener('click', () => setViewT(null));
+        $('clearHist').addEventListener('click', async () => {
+            if (!confirm("Clear all track history, ours and every boat's, on the server too?")) return;
+            try {
+                const r = await put('clearHistory', true);
+                if (r && r.statusCode && r.statusCode !== 200) throw new Error(r.message || 'refused');
+                M.tracksKey = ''; // fetch the (now empty) tracks in full
+                setViewT(null);
+            } catch (e) {
+                noteWriteError(e);
+                alert('Clear history failed: ' + (e.status === 401 || e.status === 403 ? 'login needed' : e.message));
+            }
+            pollSoon();
+        });
         $('backBtn').addEventListener('click', () => setViewT(nowT() - STEP_MS));
         $('fwdBtn').addEventListener('click', () => (M.viewT == null ? null : setViewT(M.viewT + STEP_MS)));
 

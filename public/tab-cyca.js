@@ -93,6 +93,12 @@
         all.textContent = `Link all ${n} suggested`;
         all.classList.toggle('hidden', n < 2);
         all.disabled = D.busy;
+        // Links are kept across races: old ones can point at boats not here any more.
+        const links = D.map ? D.map.links || 0 : 0;
+        const un = $('cycaUnlinkAll');
+        un.textContent = `Unlink all ${links}`;
+        un.classList.toggle('hidden', links < 1);
+        un.disabled = D.busy;
     }
 
     function aisOptions(row, snap) {
@@ -220,6 +226,9 @@
         $('cycaLinkAll').addEventListener('click', () => {
             const puts = suggested().map((r) => ['setCycaLink', {name: r.name, mmsi: r.recommended}]);
             if (puts.length) write(...puts[0], puts.slice(1));
+        });
+        $('cycaUnlinkAll').addEventListener('click', () => {
+            if (confirm('Remove every CYCA link, from all races?')) write('unlinkAllCyca', true);
         });
         const list = $('cycalist');
         list.addEventListener('click', (e) => {

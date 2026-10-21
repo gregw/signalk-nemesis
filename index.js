@@ -49,7 +49,9 @@ const PUT_PATHS = {
     setCycaRace: 'navigation.racing.nemesis.setCycaRace',
     setCycaLink: 'navigation.racing.nemesis.setCycaLink',
     setCycaNoAis: 'navigation.racing.nemesis.setCycaNoAis',
-    setCourse: 'navigation.racing.nemesis.setCourse'
+    setCourse: 'navigation.racing.nemesis.setCourse',
+    clearHistory: 'navigation.racing.nemesis.clearHistory',
+    unlinkAllCyca: 'navigation.racing.nemesis.unlinkAllCyca'
 };
 const MAX_PERIOD_MS = 24 * 3600e3;
 // Backfill depth: the longest display period a webapp asked /tracks for lately.
@@ -431,6 +433,31 @@ module.exports = function (app, deps = {}) {
                 return state.cycaState.setNoAis(value.entryId, value.noAis).then(() => complete(200, 'OK'));
             })
         );
+        // value true: forget every boat's track and our own, in memory and in the journal.
+        // Names, nemeses, TCFs, links and the course are kept; boats reappear as they report.
+        app.registerPutHandler('vessels.self', PUT_PATHS.clearHistory, (ctx, path, value) =>
+            command(async () => {
+                if (value !== true) return complete(400, 'value must be true');
+                const s = state;
+                // After the journal has loaded, or its records would come back.
+                await s.ready.catch(() => {});
+                if (state !== s) return complete(503, 'plugin restarted');
+                s.store.clear();
+                s.own.clear();
+                s.ais.forgetNames(); // the store's names went with its boats
+                s.backfillPlanner.reset();
+                await s.journal.clear();
+                s.filled++; // the webapp refetches its tracks
+                return complete(200, 'OK');
+            })
+        );
+        // value true: remove every CYCA link (they are kept across races, by CYCA name).
+        app.registerPutHandler('vessels.self', PUT_PATHS.unlinkAllCyca, (ctx, path, value) =>
+            command(() => {
+                if (value !== true) return complete(400, 'value must be true');
+                return state.cycaState.unlinkAll().then(() => complete(200, 'OK'));
+            })
+        );
         // value {marks: [{name, waypointId?, lat?, lon?}]} replaces the course;
         // {routeId} replaces it with that route resource's points.
         app.registerPutHandler('vessels.self', PUT_PATHS.setCourse, (ctx, path, value) =>
@@ -694,6 +721,7 @@ module.exports = function (app, deps = {}) {
             ...s.cyca.toJSON(),
             raceId: s.cycaState.raceId,
             filled: s.filled,
+            links: s.cycaState.links.size,
             listing:
                 s.cycaRaces.byId(s.cycaState.raceId) ||
                 s.recorded.listings().find((r) => r.raceId === s.cycaState.raceId) ||
