@@ -132,8 +132,8 @@ const DRAW = (() => {
                 const [px, py] = [X(p.t).toFixed(2), Y(p.v).toFixed(2)];
                 const op = (0.35 + 0.65 * DERIVE.ageFrac(p.t, nowT, periodMs)).toFixed(2);
                 dots += isTracker(p)
-                    ? `<g class="fx trk">${cap(px, py, 4.5, color, op)}${cap(px, py, 2, '#fff', op)}</g>`
-                    : `<g class="fx ais">${cap(px, py, 3.5, color, op)}</g>`;
+                    ? `<g class="fx trk">${cap(px, py, 5.5, color, op)}${cap(px, py, 2.5, '#fff', op)}</g>`
+                    : `<g class="fx ais">${cap(px, py, 4.5, color, op)}</g>`;
             }
         const x = X(last.t).toFixed(2);
         const y = Y(last.v).toFixed(2);

@@ -100,6 +100,15 @@ test('every tab renders on phone and tablet, without errors or page scroll', asy
         await tab(page, 'tcf');
         assert.ok((await page.locator('#tcflist .tcfin').count()) > 10, 'TCF boxes');
         assert.ok((await page.locator('#tcflist .spk .dot').count()) > 10, 'Net strip charts');
+        assert.ok((await page.locator('#tcflist .spk .fx.ais').count()) > 50, 'a dot per AIS report');
+        const dtg = await page.locator('#tcflist .dtg').allTextContents();
+        assert.ok(dtg.length > 10 && dtg.every((d) => /^\d+(\.\d)?$/.test(d)), `DTG column: ${dtg.slice(0, 3)}`);
+        // The Net chart is not squeezed out on a phone.
+        const w = await page
+            .locator('#tcflist .chart.net')
+            .first()
+            .evaluate((e) => e.getBoundingClientRect().width);
+        assert.ok(w >= 70, `Net chart ${w} px wide`);
         assert.match(await page.locator('#startVal').textContent(), /signalk-racer/);
         assert.match(await page.locator('#tcfMethod').textContent(), /VMG to the waypoint over 10 min · elapsed 6h0\d/);
         await noPageScroll(page);
@@ -121,7 +130,7 @@ test('sign convention: Boats lead chart agrees with TCF Actual (+ = they are ahe
     );
     await tab(page, 'tcf');
     const actual = await page.$$eval('#tcflist .brow[data-id]:not(.us)', (rows) =>
-        Object.fromEntries(rows.map((r) => [r.dataset.id, r.querySelectorAll('.tn')[1].textContent]))
+        Object.fromEntries(rows.map((r) => [r.dataset.id, r.querySelectorAll('.tn:not(.dtg)')[1].textContent]))
     );
     let compared = 0;
     let ahead = 0;
@@ -140,8 +149,11 @@ test('sign convention: Boats lead chart agrees with TCF Actual (+ = they are ahe
     await page.locator(`#tcflist .brow[data-id="${id}"] .tcfin`).fill('1.05');
     await page.keyboard.press('Enter');
     const row = page.locator(`#tcflist .brow[data-id="${id}"]`);
-    await waitFor(async () => num(await row.locator('.tn').first().textContent()) > 1, 'Should after TCF set');
-    const [should, act] = (await row.locator('.tn').allTextContents()).map(num);
+    await waitFor(
+        async () => num(await row.locator('.tn:not(.dtg)').first().textContent()) > 1,
+        'Should after TCF set'
+    );
+    const [should, act] = (await row.locator('.tn:not(.dtg)').allTextContents()).map(num);
     const net = num(await row.locator('.chart.net .cv').textContent());
     assert.ok(Math.abs(net - (act - should)) <= 0.15, `net ${net} = actual ${act} - should ${should}`);
     await page.locator(`#tcflist .brow[data-id="${id}"] .tcfin`).fill('1');

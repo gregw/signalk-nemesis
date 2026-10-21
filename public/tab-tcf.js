@@ -85,7 +85,7 @@
             if (b.isUs) return {b, net: 0, series: []};
             const r = tcfAt(b, b.cur);
             if (r.reason && r.reason !== 'no data' && !reason) reason = r.reason;
-            const series = ND.inWindow(b.series, view).map((s) => ({t: s.t, v: nm(tcfAt(b, s).net)}));
+            const series = ND.inWindow(b.series, view).map((s) => ({t: s.t, v: nm(tcfAt(b, s).net), src: s.src}));
             return {b, ...r, series};
         });
         // Handicap standing: most ahead of us on corrected time first; us at 0; no data last.
@@ -110,6 +110,7 @@
         $('tcfhead').innerHTML =
             `<span class="sp" style="width:10px"></span><span class="th-name"><b>Boat</b></span>` +
             `<span class="th-tcf"><b>TCF</b></span>` +
+            `<span class="th-n"><b>DTG</b><span class="bh-sub">nm</span></span>` +
             `<span class="th-n"><b>Should</b><span class="bh-sub">nm</span></span>` +
             `<span class="th-n"><b>Actual</b><span class="bh-sub">nm</span></span>` +
             `<span class="th-chart"><b>Net</b><span class="bh-sub">+ beats us</span><span class="bh-sub">${DRAW.fmtSpan(span, 'nm')}</span></span>`;
@@ -121,11 +122,15 @@
                 const chart = r.b.isUs
                     ? ''
                     : DRAW.chip(p, fmtNet, p ? chipCls(p.v) : '') +
-                      `<span class="spkwrap">${DRAW.spark(r.series, r.b.color, lo, hi, view.now, view.periodMs, view.staleMs)}</span>`;
+                      `<span class="spkwrap">${DRAW.spark(r.series, r.b.color, lo, hi, view.now, view.periodMs, view.staleMs, true)}</span>`;
+                // Distance to go: to the waypoint, or along the course (as the Boats tab sorts).
+                const d = r.b.cur ? DERIVE.dtg(r.b.cur, view.wp) : null;
+                const dtg = d == null ? '&ndash;' : nm(d).toFixed(nm(d) < 100 ? 1 : 0);
                 return `<div class="brow trow2 ${r.b.isUs ? 'us' : ''} ${r.b.isUs || r.b.cur ? '' : 'gone'}${view.sel === r.b.id ? ' hi' : ''}" data-id="${DRAW.esc(r.b.id)}">
       <span class="sw" style="background:${r.b.color}"></span>
       <span class="bn ${r.b.isUs ? 'ref' : ''}" data-sel="${DRAW.esc(r.b.id)}" data-hit="1">${DRAW.esc(r.b.name)}</span>
       <input class="tcfin" type="number" inputmode="decimal" step="0.001" min="0.3" max="3" value="${r.b.tcf.toFixed(3)}" data-id="${DRAW.esc(r.b.id)}" aria-label="TCF ${DRAW.esc(r.b.name)}">
+      <span class="tn dtg">${dtg}</span>
       <span class="tn">${r.b.isUs ? '&ndash;' : fmt(r.should)}</span>
       <span class="tn">${r.b.isUs ? '&ndash;' : fmt(r.actual)}</span>
       <div class="chart net">${chart}</div>

@@ -646,6 +646,7 @@ svg .hi {
 .thead .th-n {
     flex: 0 1 64px;
     min-width: 44px;
+    padding-left: 4px;
     display: flex;
     flex-direction: column;
     align-items: flex-end;
@@ -785,6 +786,32 @@ svg .hi {
     }
     .tn {
         font-size: 13px;
+    }
+    /* TCF tab: room for DTG, Should and Actual and still the Net chart. */
+    .tcfin,
+    .thead .th-tcf {
+        flex: 0 0 56px;
+        width: 56px;
+        font-size: 13px;
+        padding: 3px 2px;
+    }
+    .tn,
+    .thead .th-n {
+        flex: 0 1 40px;
+        min-width: 34px;
+    }
+    .thead .th-chart,
+    .chart.net {
+        min-width: 72px;
+    }
+    .thead .th-n b,
+    .thead .th-tcf b {
+        font-size: 12px;
+    }
+    .trow2 .bn,
+    .thead .th-name {
+        flex-basis: 64px;
+        min-width: 44px;
     }
 }
 
