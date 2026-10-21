@@ -27,6 +27,7 @@
  + Geo wind ladder in any Up frame when our true wind is known, about 12 rungs across the
    view, with a Wind box to hide it.
  + Geo shows the course from the Course tab whatever Up is, with a Course box to hide it.
+ + The Course and CYCA tab pickers are only as wide as their names, with their buttons after.
  + Show = Nemesi is now spelt Nemeses. A screen that had it picked starts on Nemeses, the default.
  + Tests leave no temporary directories behind.
 

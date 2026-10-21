@@ -1,6 +1,6 @@
 {
     "name": "signalk-nemesis",
-    "version": "0.3.0-dev.0",
+    "version": "0.3.0",
     "description": "Signal K plugin and webapp that tracks how nearby competitors (your nemesis boats) are sailing relative to you during a race, from AIS and the CYCA race tracker.",
     "main": "index.js",
     "repository": {
