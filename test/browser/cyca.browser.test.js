@@ -73,6 +73,10 @@ test('pick the race, link from a suggestion, unlink, No AIS; state survives relo
     await badge.click();
     await page.locator('#cycaRace option', {hasText: 'we are entered'}).waitFor({state: 'attached'});
     assert.match(await page.textContent('#cycaStatus'), /Pick the race/);
+    // On a wide screen the race picker is as wide as its names, Refresh straight after.
+    const [s, b] = [await page.locator('#cycaRace').boundingBox(), await page.locator('#cycaRefresh').boundingBox()];
+    assert.ok(s.width < 500, `race picker not stretched: ${s.width}px`);
+    assert.ok(b.x - (s.x + s.width) < 12 && Math.abs(b.y - s.y) < 10, 'Refresh right after the picker');
     await page.selectOption('#cycaRace', '194');
     await page.locator('#cycaStatus', {hasText: 'last fetch'}).waitFor();
     // AIS names equal CYCA names in the replay: boats heard on AIS get a suggestion.

@@ -78,6 +78,16 @@ test('seeded, add, move, remove, import a route; Up = Course follows', async () 
     await page.locator('#courselist .mrow').first().waitFor();
     assert.deepEqual(await names(page), ['Coffs', 'Byron']);
     assert.match(await page.textContent('#courseStatus'), /from the plugin config/);
+    // On a wide screen the pickers are as wide as their names, the buttons straight after.
+    const box = (id) => page.locator('#' + id).boundingBox();
+    for (const [sel, btn] of [
+        ['courseAdd', 'courseAddBtn'],
+        ['courseRoute', 'courseImport']
+    ]) {
+        const [s, b] = [await box(sel), await box(btn)];
+        assert.ok(s.width < 300, `${sel} not stretched: ${s.width}px`);
+        assert.ok(b.x - (s.x + s.width) < 12 && Math.abs(b.y - s.y) < 10, `${btn} right after ${sel}`);
+    }
     assert.match(await page.textContent('#courselist'), /first mark/);
 
     await page.selectOption('#courseAdd', {label: 'Gold Coast'});

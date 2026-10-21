@@ -798,7 +798,7 @@ svg .hi {
     border-radius: 5px;
     min-width: 0;
     max-width: 100%;
-    flex: 1 1 200px;
+    flex: 0 1 auto; /* only as wide as the longest name, buttons straight after */
 }
 .crow {
     display: flex;
