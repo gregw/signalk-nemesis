@@ -26,7 +26,7 @@ const TYPES = {
 };
 
 async function startDevServer({port = 0, hoursIn = 6, replay, config, resources, replayOpts = {}} = {}) {
-    const r = replay || (await replayTo(hoursIn, {config, resources, ...replayOpts}));
+    const r = replay || (await replayTo(hoursIn, {config, resources, wind: true, ...replayOpts}));
     let failWith = null; // HTTP status every request fails with, or null
     // Keep the nav PC's RMB next point coming, as the live feed does, or it goes stale.
     const rmbTimer = setInterval(() => r.app.deliver(rmbDelta(r.app.selfContext, finishOf(data), Date.now())), 5000);

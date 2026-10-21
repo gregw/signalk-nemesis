@@ -15,11 +15,31 @@
         course: 'VMG&#8594;crs',
         cog: 'VMG COG',
         north: 'VMG N',
-        wind: 'VMG&#8594;wind'
+        upwind: 'VMG upwind',
+        downwind: 'VMG downwind'
     };
-    const LEAD_LABEL = {waypoint: 'Lead wpt', course: 'Lead crs', cog: 'Lead COG', north: 'Lead N', wind: 'Lead wind'};
+    const LEAD_LABEL = {
+        waypoint: 'Lead wpt',
+        course: 'Lead crs',
+        cog: 'Lead COG',
+        north: 'Lead N',
+        upwind: 'Lead upwind',
+        downwind: 'Lead downwind'
+    };
     // Frames that need a waypoint or a course, and what to say when there is none.
     const NO_TARGET = {waypoint: 'no waypoint', course: 'no course'};
+    const WIND_FRAMES = new Set(['upwind', 'downwind']);
+
+    /** What the frame lacks (no waypoint, course or wind), as an error span; or null. */
+    function missing(view) {
+        const why =
+            NO_TARGET[view.frame] && !view.wp
+                ? NO_TARGET[view.frame]
+                : WIND_FRAMES.has(view.frame) && view.up == null
+                  ? 'no wind'
+                  : null;
+        return why ? `<span class="err">${why}</span>` : null;
+    }
 
     /** Chart series in display units (kn, nm) plus the values used for sorting. */
     function rowData(b, view) {
@@ -62,7 +82,7 @@
     function render(view) {
         const list = $('blist');
         if (!view.snap) {
-            const noWp = NO_TARGET[view.frame] && !view.wp ? `<span class="err">${NO_TARGET[view.frame]}</span>` : null;
+            const noWp = missing(view);
             $('bhead').innerHTML = '';
             list.innerHTML = '<div class="empty">Waiting for data from the plugin.</div>';
             return;
@@ -128,7 +148,7 @@
         });
         if (rows.length <= 1) html.push('<div class="empty">No other boats to show. Try Show: All.</div>');
 
-        const noWp = NO_TARGET[view.frame] && !view.wp ? `<span class="err">${NO_TARGET[view.frame]}</span>` : null;
+        const noWp = missing(view);
         $('bhead').innerHTML =
             `<span class="sp" style="width:30px"></span>` +
             `<span class="bh-id"><b>Boat</b><span class="bh-sub">${view.mode === 'rel' ? '&Delta;SOG/COG' : 'SOG/COG'}</span></span>` +

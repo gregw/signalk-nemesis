@@ -130,6 +130,89 @@
         }
         return out;
     }
+    /*
+     * Wind ladder, when our smoothed TWD is known and the Wind box is ticked: rungs across
+     * the wind, one through us and then every step, about 12 across the view along the wind
+     * axis, the step rounded to 1, 2 or 5 x 10^n nm. Labels are nm from us toward the wind
+     * (+ = upwind), or downwind with Up = Downwind. With Up = Upwind or Downwind the map is
+     * turned so rungs are level; otherwise they lie at the wind's angle on screen. Screen
+     * space, outside the rotated group.
+     */
+    const LADDER_RUNGS = 12;
+    function ladder(view) {
+        if (!ND.prefs.ladder || view.twd == null) return '';
+        const ppn = pxPerNm();
+        if (!Number.isFinite(ppn) || ppn <= 0) return '';
+        const axis = view.frame === 'downwind' ? view.twd + Math.PI : view.twd; // + direction, rad true
+        const b = axis - d2r(rotDeg); // on screen, clockwise from up (the map is turned by -Up)
+        const ax = Math.sin(b); // unit vector along the axis (screen y down)
+        const ay = -Math.cos(b);
+        const px = -ay; // along a rung
+        const py = ax;
+        let x0 = W / 2;
+        let y0 = H / 2;
+        const us = view.usNow;
+        if (us) {
+            const [ox, oy] = rotXY(
+                (mercX(us.lon) - center.wx) * scale(),
+                (mercY(us.lat) - center.wy) * scale(),
+                -rotDeg
+            );
+            x0 = W / 2 + ox;
+            y0 = H / 2 + oy;
+        }
+        const extentPx = W * Math.abs(ax) + H * Math.abs(ay);
+        const stepNm = DERIVE.niceStep(extentPx / ppn, LADDER_RUNGS);
+        const stepPx = stepNm * ppn;
+        // Range of rungs crossing the view: the corners projected on the axis.
+        const proj = [
+            [0, 0],
+            [W, 0],
+            [0, H],
+            [W, H]
+        ].map(([x, y]) => (x - x0) * ax + (y - y0) * ay);
+        const dp = Math.max(0, -Math.floor(Math.log10(stepNm) + 1e-9));
+        let out = '';
+        for (let k = Math.ceil(Math.min(...proj) / stepPx); k <= Math.floor(Math.max(...proj) / stepPx); k++) {
+            const cx = x0 + k * stepPx * ax;
+            const cy = y0 + k * stepPx * ay;
+            const seg = clipLine(cx, cy, px, py);
+            if (!seg) continue;
+            const [[x1, y1], [x2, y2]] = seg;
+            const nm = k * stepNm;
+            out += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#8fb3d9" stroke-width="${k === 0 ? 1.4 : 0.8}"${k === 0 ? '' : ' stroke-dasharray="5 4"'}/>`;
+            // Label at the rung's left end (top end if the rung is near vertical), just inside.
+            const [lx, ly] = Math.abs(x1 - x2) > 1 ? (x1 < x2 ? [x1, y1] : [x2, y2]) : y1 < y2 ? [x1, y1] : [x2, y2];
+            const tx = Math.min(W - 30, Math.max(4, lx + 4));
+            const ty = Math.min(H - 4, Math.max(11, ly - 3));
+            out += `<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" font-family="${FONT}" font-size="9" fill="#6f8fb3">${k === 0 ? 'us' : (nm > 0 ? '+' : '') + nm.toFixed(dp)}</text>`;
+        }
+        return out;
+    }
+    /** The part of the line through (cx, cy) along unit (px, py) inside the view, or null. */
+    function clipLine(cx, cy, px, py) {
+        let lo = -Infinity;
+        let hi = Infinity;
+        for (const [c, d, max] of [
+            [cx, px, W],
+            [cy, py, H]
+        ]) {
+            if (Math.abs(d) < 1e-9) {
+                if (c < 0 || c > max) return null;
+                continue;
+            }
+            const a = (0 - c) / d;
+            const z = (max - c) / d;
+            lo = Math.max(lo, Math.min(a, z));
+            hi = Math.min(hi, Math.max(a, z));
+        }
+        if (!(hi > lo)) return null;
+        return [
+            [cx + lo * px, cy + lo * py],
+            [cx + hi * px, cy + hi * py]
+        ];
+    }
+
     function scaleBar() {
         const ppn = pxPerNm();
         if (!Number.isFinite(ppn) || ppn <= 0) return '';
@@ -256,9 +339,11 @@
                 `<text ${upright(wx, wy)} x="${(wx + 13).toFixed(1)}" y="${(wy + 4).toFixed(1)}" font-family="${FONT}" font-size="11" font-weight="700" fill="${col}" stroke="#fff" stroke-width="3" paint-order="stroke">${DRAW.esc(m.name || 'WPT')}</text>`
             );
         };
-        if (view.wp && view.wp.isCourse) {
-            // The course: a dashed line through the marks; our next mark is the strong one.
-            const ms = view.wp.marks;
+        const course = ND.prefs.courseLine ? view.course : null;
+        if (course) {
+            // The course, whatever Up is: a dashed line through the marks; our next mark is
+            // the strong one with Up = Course, else the waypoint Up points to.
+            const ms = course.marks;
             const pts = ms.map((m) =>
                 projPx(mercX(m.lon), mercY(m.lat))
                     .map((v) => v.toFixed(1))
@@ -266,8 +351,12 @@
             );
             if (ms.length > 1)
                 s += `<polyline points="${pts.join(' ')}" fill="none" stroke="#c77a85" stroke-width="1.5" stroke-dasharray="6 5"/>`;
-            const ours = view.usNow ? view.wp.mark(view.usNow) : -1;
+            const ours = view.frame === 'course' && view.usNow ? course.mark(view.usNow) : -1;
             ms.forEach((m, k) => (s += markAt(m, k === ours)));
+        }
+        if (view.wp && view.wp.isCourse) {
+            // Up = Course with the course hidden: just our next mark.
+            if (!course && view.usNow) s += markAt(view.wp.marks[view.wp.mark(view.usNow)], true);
         } else if (view.wp) s += markAt(view.wp, true);
         hits = [];
         const z = (x) => (x.b.id === view.sel ? 2 : x.b.isUs ? 1 : 0); // us, then the selection, on top
@@ -308,7 +397,13 @@
             }
         }
         $('mapcontent').innerHTML = s;
-        $('maprings').innerHTML = view.mode === 'rel' ? rangeRings() : '';
+        $('maprings').innerHTML = (view.mode === 'rel' ? rangeRings() : '') + ladder(view);
+        $('windChk').checked = !!ND.prefs.ladder;
+        $('windChk').disabled = view.twd == null;
+        $('windLbl').classList.toggle('off', view.twd == null);
+        $('courseChk').checked = !!ND.prefs.courseLine;
+        $('courseChk').disabled = !view.course;
+        $('courseLbl').classList.toggle('off', !view.course);
         let o = scaleBar() + northIndicator(rotDeg);
         if (ATTR[ND.prefs.base])
             o += `<text x="${W - 4}" y="${H - 5}" text-anchor="end" font-family="${FONT}" font-size="8" fill="#8090a0">${ATTR[ND.prefs.base]}</text>`;
@@ -493,6 +588,14 @@
             ND.setPrefs({base: v});
             syncBase();
             tileKey = '';
+            redraw();
+        });
+        $('courseChk').addEventListener('change', (e) => {
+            ND.setPrefs({courseLine: e.target.checked});
+            redraw();
+        });
+        $('windChk').addEventListener('change', (e) => {
+            ND.setPrefs({ladder: e.target.checked});
             redraw();
         });
         $('fitBtn').addEventListener('click', () => {

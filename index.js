@@ -5,7 +5,8 @@
  * Layers (keep them distinct):
  *  - Data model paths consumed: other vessels' navigation.position,
  *    courseOverGroundTrue, speedOverGround, name; our own position, COG, SOG,
- *    headingTrue; navigation.courseRhumbline|courseGreatCircle.nextPoint.* (raw NMEA
+ *    headingTrue, environment.wind.directionTrue (smoothed, lib/wind.js);
+ *    navigation.courseRhumbline|courseGreatCircle.nextPoint.* (raw NMEA
  *    next point); Course API getCourse() and waypoint/route resources (waypoint seam);
  *    navigation.racing.startTime from signalk-racer (start time seam).
  *  - Data model paths published: none yet (brief section 8, Greg's call).
@@ -22,6 +23,7 @@ const path = require('node:path');
 const {TrackStore} = require('./lib/track-store');
 const {OwnState} = require('./lib/own-state');
 const {AisSourceAdapter, OwnAdapter} = require('./lib/ais-adapter');
+const {TwdSmoother, WindAdapter} = require('./lib/wind');
 const {WaypointSource} = require('./lib/waypoint');
 const {UserState, validTcf} = require('./lib/user-state');
 const {buildSnapshot, buildTracks} = require('./lib/snapshot');
@@ -121,6 +123,13 @@ const schema = {
             default: 1,
             minimum: 0.1
         },
+        windSmoothSeconds: {
+            type: 'number',
+            title: 'True wind direction smoothed over (seconds)',
+            description: 'For Up = Upwind and Downwind: a circular mean of our TWD over this long.',
+            default: 120,
+            minimum: 1
+        },
         tcfVmgSeconds: {
             type: 'number',
             title: 'TCF: smooth VMG to the waypoint over this long (seconds)',
@@ -206,7 +215,9 @@ module.exports = function (app, deps = {}) {
             const us = own.at(r.t);
             const rep = {
                 ...r,
-                us: us ? {t: us.t, lat: us.lat, lon: us.lon, cogRad: us.cogRad, sogMs: us.sogMs} : null
+                us: us
+                    ? {t: us.t, lat: us.lat, lon: us.lon, cogRad: us.cogRad, sogMs: us.sogMs, twdRad: us.twdRad ?? null}
+                    : null
             };
             store.add(rep);
             journal.append({k: 'r', ...rep});
@@ -219,8 +230,12 @@ module.exports = function (app, deps = {}) {
             store.setShipType(id, shipType);
             journal.append({k: 'n', id, shipType});
         });
+        // Our smoothed true wind direction travels with each own sample (Up = Upwind, Downwind).
+        const twd = new TwdSmoother({windowMs: cfg.windSmoothSeconds * 1000});
+        const wind = new WindAdapter(app, twd);
         const ownAdapter = new OwnAdapter(app, (s) => {
-            if (own.add(s)) journal.append({k: 'o', ...s});
+            const o = {...s, twdRad: twd.at(s.t)};
+            if (own.add(o)) journal.append({k: 'o', ...o});
         });
         const startTime = new StartTime({
             dataDir: app.getDataDirPath(),
@@ -264,6 +279,7 @@ module.exports = function (app, deps = {}) {
             waypoints: new WaypointSource(app, cfg, {ownAt: (t) => own.at(t)}),
             ais,
             ownAdapter,
+            wind,
             startTime,
             racerStart,
             journal,
@@ -281,6 +297,7 @@ module.exports = function (app, deps = {}) {
         };
         ais.start();
         ownAdapter.start();
+        wind.start();
         racerStart.start();
         state.waypoints.start();
         cyca.setRace(cycaState.raceId);
@@ -335,7 +352,7 @@ module.exports = function (app, deps = {}) {
             app.debug(e);
         }
         if (state.thinTimer) clearInterval(state.thinTimer);
-        for (const a of [state.ownAdapter, state.racerStart, state.waypoints, state.cyca, state.journal]) {
+        for (const a of [state.ownAdapter, state.wind, state.racerStart, state.waypoints, state.cyca, state.journal]) {
             try {
                 a.stop();
             } catch (e) {
@@ -688,6 +705,7 @@ function withDefaults(options) {
         thinSeconds: d('thinSeconds'),
         maxRaceHours: d('maxRaceHours'),
         tcfVmgSeconds: d('tcfVmgSeconds'),
+        windSmoothSeconds: d('windSmoothSeconds'),
         waypointOrder: o.waypointOrder === 'nmea,course' ? 'nmea,course' : 'course,nmea',
         nmeaWaypointStaleSeconds: d('nmeaWaypointStaleSeconds'),
         waypointNames: waypointNames(o),

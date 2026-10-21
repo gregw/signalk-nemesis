@@ -357,6 +357,18 @@ select {
     color: var(--steel);
     cursor: pointer;
 }
+.mapbtn.chk {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.mapbtn.chk input {
+    margin: 0;
+}
+.mapbtn.chk.off {
+    opacity: 0.4;
+    cursor: default;
+}
 .mapbtn:disabled {
     opacity: 0.4;
     cursor: default;

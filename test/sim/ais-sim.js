@@ -164,4 +164,25 @@ function toDelta(context, r) {
     return {context, updates: [{timestamp: new Date(r.t).toISOString(), values}]};
 }
 
-module.exports = {rng, lerpDeg, perMinute, simulate, mmsiOf, toDelta, finishOf, rmbDelta, KN, NM};
+/*
+ * A made-up true wind direction for the replay (the recording has no wind): from about
+ * 160 deg (SSE), swinging +-15 deg over 40 minutes with a +-4 deg wobble every 7.
+ * recordedT is the race's own clock (before any shift to now), so it is repeatable.
+ */
+function simTwdRad(recordedT) {
+    const m = recordedT / 60e3;
+    const deg = 160 + 15 * Math.sin((2 * Math.PI * m) / 40) + 4 * Math.sin((2 * Math.PI * m) / 7);
+    return (((deg % 360) + 360) % 360) * (Math.PI / 180);
+}
+
+/** Our instruments' true wind direction as a delta. */
+function windDelta(context, t, twdRad) {
+    return {
+        context,
+        updates: [
+            {timestamp: new Date(t).toISOString(), values: [{path: 'environment.wind.directionTrue', value: twdRad}]}
+        ]
+    };
+}
+
+module.exports = {rng, lerpDeg, perMinute, simulate, mmsiOf, toDelta, finishOf, rmbDelta, simTwdRad, windDelta, KN, NM};

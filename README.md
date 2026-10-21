@@ -31,7 +31,9 @@ screen shares the same nemesis list, TCFs and course, kept on the server.
 Across the top:
 
 - **Up**: what the charts measure toward. **Waypoint** (the active waypoint from the chart
-  plotter or nav PC), **Course** (the marks set on the Course tab), **COG** or **North**.
+  plotter or nav PC), **Course** (the marks set on the Course tab), **COG**, **North**, or
+  **Upwind** / **Downwind** (into or away from our true wind direction, smoothed over 2
+  minutes).
 - **Mode**: **Absolute**, or **Relative** to us.
 - **Time**: live, or step back through the race, and the period the charts show.
 - **Show**: which boats appear: nemeses only, sailing boats, all, those in range, or none.
@@ -43,7 +45,9 @@ The tabs (each has an **i** button that explains it):
 - **TCF**: time-on-time handicap. Enter each boat's TCF and ours, and see who is beating us on
   corrected time. The race start comes from signalk-racer, or set it here.
 - **Vectors**: every boat's speed and direction, with Up at the top.
-- **Geo**: the boats on a map, with Up at the top. The OSM and Sea maps need internet.
+- **Geo**: the boats on a map, with Up at the top. The OSM and Sea maps need internet. The
+  **Course** box shows the course from the Course tab, and with true wind the **Wind** box
+  shows a wind ladder: lines across the wind, in nm upwind of us.
 - **Course**: the marks for Up = Course. Add waypoints made in your chart app, or import a
   route.
 - **CYCA**: pick a CYCA race to add tracker positions every 10 minutes (needs internet), and

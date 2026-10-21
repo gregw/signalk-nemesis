@@ -21,6 +21,12 @@
    leg from the previous mark heads within 100 degrees of its COG. A mark can be listed twice
    (out and back). Before this, boats heading out on an out-and-back course could pick a mark
    meant for the way back and skip the whole out-and-back in their DTF.
+ + Up = Upwind and Downwind: VMG and lead along our true wind direction
+   (environment.wind.directionTrue), smoothed over 2 minutes (`windSmoothSeconds`). Without
+   wind instruments these say 'no wind'.
+ + Geo wind ladder in any Up frame when our true wind is known, about 12 rungs across the
+   view, with a Wind box to hide it.
+ + Geo shows the course from the Course tab whatever Up is, with a Course box to hide it.
  + Show = Nemesi is now spelt Nemeses. A screen that had it picked starts on Nemeses, the default.
  + Tests leave no temporary directories behind.
 

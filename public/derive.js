@@ -139,13 +139,29 @@
     const toward = (frame) => frame === 'waypoint' || frame === 'course';
 
     /**
-     * Up direction (rad true): north 0, cog = our COG, waypoint = bearing from us to the
-     * waypoint, course = bearing from us to our next mark. Null when not known (wind: not yet).
+     * The direction of a frame set by our own state u (rad true): cog = our COG, upwind =
+     * our smoothed TWD (where the wind comes from), downwind = the opposite. Else null.
+     */
+    function frameDir(frame, u) {
+        if (!u) return null;
+        if (frame === 'cog') return fin(u.cogRad) ? u.cogRad : null;
+        if (frame === 'upwind' || frame === 'downwind') {
+            if (!fin(u.twdRad)) return null;
+            return frame === 'upwind' ? u.twdRad : (u.twdRad + Math.PI) % (2 * Math.PI);
+        }
+        return null;
+    }
+    const byDir = (frame) => frame === 'cog' || frame === 'upwind' || frame === 'downwind';
+
+    /**
+     * Up direction (rad true): north 0, cog = our COG, upwind / downwind = into / away from
+     * our smoothed TWD, waypoint = bearing from us to the waypoint, course = bearing from us
+     * to our next mark. Null when not known.
      */
     function upDir(frame, us, wp) {
         if (frame === 'north') return 0;
         if (!us) return null;
-        if (frame === 'cog') return fin(us.cogRad) ? us.cogRad : null;
+        if (byDir(frame)) return frameDir(frame, us);
         if (toward(frame)) {
             const T = target(wp);
             return T ? T.brg(us, T.mark(us)) : null;
@@ -203,10 +219,13 @@
             }
             case 'north':
                 return fin(s.sogMs) && fin(s.cogRad) ? s.sogMs * Math.cos(s.cogRad) : null;
-            case 'cog': {
-                const u = stateAt(ctx.us, s.t, ctx.usGapMs);
-                if (!u || !fin(u.cogRad) || !fin(s.sogMs) || !fin(s.cogRad)) return null;
-                return s.sogMs * Math.cos(s.cogRad - u.cogRad);
+            case 'cog':
+            case 'upwind':
+            case 'downwind': {
+                // Along our direction at their report time (our COG, or the wind then).
+                const dir = frameDir(ctx.frame, stateAt(ctx.us, s.t, ctx.usGapMs));
+                if (dir == null || !fin(s.sogMs) || !fin(s.cogRad)) return null;
+                return s.sogMs * Math.cos(s.cogRad - dir);
             }
         }
         return null;
@@ -233,9 +252,18 @@
             case 'north':
                 return fin(u.sogMs) && fin(u.cogRad) ? u.sogMs * Math.cos(u.cogRad) : null;
             case 'cog':
-                return fin(u.sogMs) ? u.sogMs : null;
+            case 'upwind':
+            case 'downwind':
+                return alongDir(u, ctx.frame);
         }
         return null;
+    }
+
+    /** Our speed along a direction frame's own direction (for COG, just our SOG). */
+    function alongDir(u, frame) {
+        const dir = frameDir(frame, u);
+        if (dir == null || !fin(u.sogMs) || !fin(u.cogRad)) return null;
+        return u.sogMs * Math.cos(u.cogRad - dir);
     }
 
     /** VMG for the strip chart: absolute, or theirs minus ours in Relative mode. */
@@ -261,7 +289,9 @@
             case 'north':
                 return fin(u.sogMs) && fin(u.cogRad) ? u.sogMs * Math.cos(u.cogRad) : null;
             case 'cog':
-                return fin(u.sogMs) ? u.sogMs : null;
+            case 'upwind':
+            case 'downwind':
+                return alongDir(u, ctx.frame);
         }
         return null;
     }
@@ -279,7 +309,10 @@
         }
         const d = G.displacement(u, s);
         if (frame === 'north') return d.n;
-        if (frame === 'cog') return fin(u.cogRad) ? d.e * Math.sin(u.cogRad) + d.n * Math.cos(u.cogRad) : null;
+        if (byDir(frame)) {
+            const dir = frameDir(frame, u);
+            return dir == null ? null : d.e * Math.sin(dir) + d.n * Math.cos(dir);
+        }
         return null;
     }
 
@@ -370,9 +403,9 @@
         return Math.max(0, Math.min(1, 1 - (nowMs - t) / Math.max(1, spanMs)));
     }
 
-    /** A round axis step giving about three rings or ticks up to max. */
-    function niceStep(max) {
-        const raw = max / 3 || 1;
+    /** A round step (1, 2 or 5 x 10^n) giving about count rings or ticks up to max. */
+    function niceStep(max, count = 3) {
+        const raw = max / count || 1;
         const pw = Math.pow(10, Math.floor(Math.log10(raw)));
         const n = raw / pw;
         return (n < 1.5 ? 1 : n < 3.5 ? 2 : n < 7.5 ? 5 : 10) * pw;
@@ -382,6 +415,7 @@
         OWN_VMC_MIN_MS,
         indexAtOrBefore,
         stateAt,
+        frameDir,
         upDir,
         dtg,
         vmc,

@@ -260,5 +260,45 @@ test('ageFrac and niceStep', () => {
     assert.equal(D.ageFrac(75, 100, 50), 0.5);
     assert.equal(D.niceStep(9), 2);
     assert.equal(D.niceStep(0.9), 0.2);
+    assert.equal(D.niceStep(1.4, 10), 0.1, 'about 10: 0.14 rounds to 0.1');
+    assert.equal(D.niceStep(3, 10), 0.2, 'about 10: 0.3 rounds to 0.2');
     assert.equal(D.niceStep(30), 10);
+});
+
+test('Upwind and Downwind: along our smoothed TWD at their report time (worked values)', () => {
+    // Wind from the north (TWD 0). We sail NE at 6 kn; they beat on port at 45 deg, then run.
+    const w = (u, twdDeg) => ({...u, twdRad: twdDeg == null ? null : twdDeg * DEG});
+    const us = [w(at(0, 0, 0, 45, 6), 0), w(at(60e3, north(0.1), 0, 45, 6), 0)];
+    const beat = at(60e3, 0, 0, 315, 8);
+    const run = at(60e3, 0, 0, 180, 8);
+    const ctx = (frame) => ctxOf(frame, us);
+    near(D.vmgAbs([beat], 0, ctx('upwind')) / KN, 8 * Math.cos(45 * DEG), 1e-9, 'beat: 8 kn x cos 45 upwind');
+    near(D.vmgAbs([run], 0, ctx('upwind')) / KN, -8, 1e-9, 'run: going away from the wind');
+    near(D.vmgAbs([run], 0, ctx('downwind')) / KN, 8, 1e-9, 'run: + downwind');
+    near(D.ourVmgFor([beat], 0, ctx('upwind')) / KN, 6 * Math.cos(45 * DEG), 1e-9, 'ours at their time');
+    near(D.ownVmgAbs(us, 1, ctx('downwind')) / KN, -6 * Math.cos(45 * DEG), 1e-9, 'our own, downwind');
+    near(D.upDir('upwind', us[1], WP), 0, 1e-12, 'Up = into the wind');
+    near(D.upDir('downwind', us[1], WP), Math.PI, 1e-12, 'Up = away from it');
+
+    // Lead: a boat 1 nm north (upwind) and a little east of us.
+    const u = us[1];
+    const ahead = at(60e3, north(1.1), 0.01);
+    const d = geo.displacement(u, ahead);
+    near(D.lead(ahead, u, 'upwind', WP), d.n, 1e-6, 'upwind: displacement into the wind');
+    near(D.lead(ahead, u, 'downwind', WP), -d.n, 1e-6, 'downwind: the same boat is behind');
+
+    // The wind at their report time, not now: a 90 deg shift since then does not count.
+    const shifted = [...us, w(at(120e3, north(0.2), 0, 45, 6), 90)];
+    near(D.vmgAbs([beat], 0, ctxOf('upwind', shifted)) / KN, 8 * Math.cos(45 * DEG), 1e-9, 'TWD at 60 s');
+});
+
+test('Upwind and Downwind without wind: nothing, never a guess', () => {
+    const us = [{...at(0, 0, 0, 45, 6), twdRad: null}];
+    const b = at(0, north(1), 0, 0, 6);
+    assert.equal(D.upDir('upwind', us[0], WP), null);
+    assert.equal(D.vmgAbs([b], 0, ctxOf('downwind', us)), null);
+    assert.equal(D.ourVmgFor([b], 0, ctxOf('upwind', us)), null);
+    assert.equal(D.ownVmgAbs(us, 0, ctxOf('upwind', us)), null);
+    assert.equal(D.lead(b, us[0], 'upwind', WP), null);
+    assert.equal(D.frameDir('upwind', null), null);
 });

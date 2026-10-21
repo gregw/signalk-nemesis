@@ -75,7 +75,7 @@ Implemented in `lib/waypoint.js` and checked on a real 2.30.0 server (NMEA RMB, 
 ## Phase 2: derivations (pure, unit tested)
 
 All in `public/derive.js`, pure and loaded by both the webapp and `test/derive.test.js`.
-- [x] Frame reference direction: Waypoint, Course, North; Wind disabled.
+- [x] Frame reference direction: Waypoint, Course, North; Upwind and Downwind (2026-10-21).
 - [x] DTG to waypoint for every report, and for us at their report time.
 - [x] VMC from the boat's own previous report, ignoring gaps over the stale threshold. Ours over at least 60 s of our own samples; in Relative mode ours is taken over the same interval as theirs.
 - [x] VMG toward Up for Course and North; relative mode (theirs minus ours at the same time).
@@ -117,7 +117,9 @@ All in `public/derive.js`, pure and loaded by both the webapp and `test/derive.t
 
 ## Phase 5: extras
 
-- [ ] Wind frame and VMG to wind (instrument TWD, or CYCA weather grid for replay).
+- [x] Upwind and Downwind frames (2026-10-21): our environment.wind.directionTrue, a circular mean over `windSmoothSeconds` (120), kept with own samples and each report; Geo wind ladder in any frame with TWD known, behind a Wind box (about 12 rungs, 1/2/5 step). The replay's wind is made up (ais-sim simTwdRad).
+- [ ] Wind source fallbacks: TWD from headingTrue + angleTrueWater when directionTrue is not sent; the CYCA weather grid for replay.
+- [ ] Check on the boat that the H5000 TWD arrives as environment.wind.directionTrue and is the 'from' direction (lib/wind.js TODO(verify)).
 - [ ] Tracker-feed adapter (CYCA), with a name-to-MMSI mapping table (plan below).
 
 ### CYCA tracker feed (decided 2026-10-20)

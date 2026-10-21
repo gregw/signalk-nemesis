@@ -28,7 +28,8 @@
                     <option value="course">Course</option>
                     <option value="cog">COG</option>
                     <option value="north">North</option>
-                    <option value="wind" disabled>Wind</option>
+                    <option value="upwind">Upwind</option>
+                    <option value="downwind">Downwind</option>
                 </select>
             </div>
             <button class="timebtn" id="timeBtn" title="race time and period">
@@ -140,6 +141,12 @@
                             <button data-base="white">White</button><button data-base="osm">OSM</button
                             ><button data-base="sea">Sea</button>
                         </div>
+                        <label class="mapbtn chk" id="courseLbl" title="the course from the Course tab"
+                            ><input type="checkbox" id="courseChk" />Course</label
+                        >
+                        <label class="mapbtn chk" id="windLbl" title="wind ladder (needs our true wind)"
+                            ><input type="checkbox" id="windChk" />Wind</label
+                        >
                         <button class="mapbtn" id="fitBtn">Fit</button>
                     </div>
                 </div>

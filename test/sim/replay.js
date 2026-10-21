@@ -5,7 +5,7 @@
  * Recorded times are shifted so that `hoursIn` after the start is wall-clock now.
  */
 const {setTimeout: sleep} = require('node:timers/promises');
-const {simulate, toDelta, finishOf, rmbDelta} = require('./ais-sim');
+const {simulate, toDelta, finishOf, rmbDelta, simTwdRad, windDelta} = require('./ais-sim');
 const {fakeApp} = require('./fake-app');
 const {tmpdir} = require('./tmpdir');
 const createPlugin = require('../../index');
@@ -49,8 +49,14 @@ async function replayTo(hoursIn, opts = {}) {
     }
 
     // Interleave own samples and competitor reports in time order, up to "now".
+    // opts.wind: our instruments' true wind with each own sample, made up (ais-sim simTwdRad).
     const events = [
         ...sim.own.filter((s) => s.t <= now).map((s) => ({t: s.t, d: toDelta(app.selfContext, s)})),
+        ...(opts.wind
+            ? sim.own
+                  .filter((s) => s.t <= now)
+                  .map((s) => ({t: s.t, d: windDelta(app.selfContext, s.t, simTwdRad(s.t - shiftMs))}))
+            : []),
         ...sim.reports
             .filter((r) => r.t <= now)
             .map((r) => ({t: r.t, d: toDelta('vessels.urn:mrn:imo:mmsi:' + r.boatId, r)}))

@@ -383,7 +383,7 @@ test('Up: a named waypoint picked by hand; one no longer found stays picked and 
 test('Up = Course: each boat toward its own next mark of the named waypoints; COG and North kept', async () => {
     const {ctx, page, errors} = await open(PHONE);
     const opts = await page.$$eval('#upSel option', (os) => os.map((o) => o.value));
-    assert.deepEqual(opts.slice(0, 5), ['waypoint', 'course', 'cog', 'north', 'wind']);
+    assert.deepEqual(opts.slice(0, 6), ['waypoint', 'course', 'cog', 'north', 'upwind', 'downwind']);
     await tab(page, 'boats');
     assert.equal(await page.locator('#blist .rd.nm').count(), 0, 'no next mark unless Up = Course');
     await page.selectOption('#upSel', 'course');
@@ -421,6 +421,35 @@ test('Up = Course: each boat toward its own next mark of the named waypoints; CO
     await page.reload();
     await page.locator('#conn', {hasText: 'live'}).waitFor();
     assert.equal(await page.locator('#upSel').inputValue(), 'cog');
+
+    // Geo shows the course whatever Up is, behind its Course box.
+    await tab(page, 'geo');
+    const courseLine = () => page.locator('#mapcontent polyline[stroke-dasharray]').count();
+    const markLabels = () => page.locator('#mapcontent text', {hasText: /Mark A|Cape Byron/}).count();
+    assert.equal(await page.locator('#courseChk').isChecked(), true, 'on by default');
+    assert.equal(await page.locator('#courseChk').isDisabled(), false);
+    assert.equal(await courseLine(), 1, 'course line with Up = COG');
+    assert.equal(await markLabels(), 2);
+    const fit = await page.evaluate(() => ({
+        vw: window.innerWidth,
+        right: document.getElementById('fitBtn').getBoundingClientRect().right,
+        sw: document.scrollingElement.scrollWidth
+    }));
+    assert.ok(fit.right <= fit.vw && fit.sw <= fit.vw, `Geo header fits: ${JSON.stringify(fit)}`);
+    await shot(page, 'phone-geo-cog-course');
+    await page.locator('#courseLbl').tap();
+    await page.waitForTimeout(POLL);
+    assert.equal(await courseLine(), 0, 'unticked: no course');
+    assert.equal(await markLabels(), 0);
+    // Up = Course with the course hidden: just our next mark, which Up points to.
+    await page.selectOption('#upSel', 'course');
+    await page.waitForTimeout(POLL * 2);
+    assert.equal(await courseLine(), 0);
+    assert.equal(await page.locator('#mapcontent text', {hasText: 'Mark A'}).count(), 1, 'our next mark');
+    assert.equal(await markLabels(), 1);
+    await page.locator('#courseLbl').tap();
+    await page.waitForTimeout(POLL);
+    assert.equal(await courseLine(), 1, 'ticked again');
     assert.deepEqual(errors, []);
     await ctx.close();
 });

@@ -22,7 +22,7 @@
  * Our boat is Kanreki (MMSI 503029690); its data goes to vessels.self, or --self.
  */
 
-const {simulate, toDelta, finishOf, rmbDelta} = require('./ais-sim');
+const {simulate, toDelta, finishOf, rmbDelta, simTwdRad, windDelta} = require('./ais-sim');
 const data = require('../data/gc2026-tracks.json');
 
 function parseArgs(argv) {
@@ -100,6 +100,8 @@ async function main() {
     const selfContext = args.selfContext || 'vessels.self';
     const events = [
         ...sim.own.map((s) => ({t: s.t, d: toDelta(selfContext, s)})),
+        // Our true wind with each own sample, made up (the recording has none).
+        ...sim.own.map((s) => ({t: s.t, d: windDelta(selfContext, s.t, simTwdRad(s.t - shiftMs))})),
         ...sim.reports.map((r) => ({t: r.t, d: toDelta('vessels.urn:mrn:imo:mmsi:' + r.boatId, r)}))
     ].sort((a, b) => a.t - b.t);
 

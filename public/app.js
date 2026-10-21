@@ -50,12 +50,16 @@ const ND = (() => {
             staleMin: 30,
             show: 'nemeses',
             sort: 'near',
-            base: 'white'
+            base: 'white',
+            ladder: true, // Geo wind ladder
+            courseLine: true // Geo course
         },
         loadPrefs()
     );
     // A stored Show value not offered (e.g. 'nemesi', the old misspelling) is ignored.
     if (!['nemeses', 'sailing', 'all', 'inrange', 'none'].includes(prefs.show)) prefs.show = 'nemeses';
+    if (typeof prefs.ladder !== 'boolean') prefs.ladder = true;
+    if (typeof prefs.courseLine !== 'boolean') prefs.courseLine = true;
     // Up 'course' used to mean our COG (now 'cog'); 'course' is now the course of marks.
     if (!prefs.upV) {
         if (prefs.up === 'course') prefs.up = 'cog';
@@ -379,6 +383,10 @@ const ND = (() => {
             // Up direction now (rad true); null when unknown (no waypoint, no own COG): north up.
             up,
             upRad: up == null ? 0 : up,
+            // Our smoothed TWD now (rad true, where the wind comes from); null without wind.
+            twd: DERIVE.frameDir('upwind', usNow),
+            // The course from the Course tab, whatever Up is; null with none.
+            course: courseOf(s),
             all,
             visible,
             sel,
@@ -399,20 +407,22 @@ const ND = (() => {
             const wp = pickable(s).find((w) => w.name === name) || null;
             return {frame: 'waypoint', wp, upName: name};
         }
-        if (prefs.up === 'course') {
-            // The course from the Course tab, its marks found (makeCourse skips the others).
-            const marks = ((s && s.course) || []).filter((m) => m.found);
-            const key = JSON.stringify(marks);
-            if (key !== courseKey) {
-                courseKey = key;
-                course = DERIVE.makeCourse(marks);
-            }
-            return {frame: 'course', wp: course, upName: 'course'};
-        }
-        return {frame: prefs.up, wp: s ? s.waypoint : null, upName: prefs.up === 'cog' ? 'COG' : prefs.up};
+        if (prefs.up === 'course') return {frame: 'course', wp: courseOf(s), upName: 'course'};
+        return {frame: prefs.up, wp: s ? s.waypoint : null, upName: UP_NAME[prefs.up] || prefs.up};
     }
+    const UP_NAME = {cog: 'COG', upwind: 'upwind', downwind: 'downwind'};
     let course = null; // rebuilt only when the marks change (it caches each report's mark)
     let courseKey = null;
+    /** The course from the Course tab, its marks found (makeCourse skips the others); null if none. */
+    function courseOf(s) {
+        const marks = ((s && s.course) || []).filter((m) => m.found);
+        const key = JSON.stringify(marks);
+        if (key !== courseKey) {
+            courseKey = key;
+            course = DERIVE.makeCourse(marks);
+        }
+        return course;
+    }
 
     /** Waypoints Up can be set to by hand: the course's marks, then the fallback waypoints; each name once. */
     function pickable(s) {
@@ -725,7 +735,7 @@ const ND = (() => {
         tcf: "Time-on-time handicap against us. Enter each boat's TCF (default 1.000; saved on the boat's server). Should = how far a boat must be ahead of us to be level on corrected time if the race ended at its report: the time owed over the elapsed time since the start (elapsed x the TCF ratio - 1), as a distance at the VMG to the waypoint of the boat that would be trailing. If it owes us time, at our VMG (Should +: it must be ahead); if we owe it time, at its VMG (Should -: it may be behind). VMGs are smoothed over the period set in the plugin config. Actual = how far it really is ahead toward Up. Net = Actual - Should, charted over the period (newest on the left) so an older report still shows the trend; + (orange) means it is beating us on handicap. Should is toward the waypoint, so it compares strictly with Actual only when Up = Waypoint.",
         course: "The course for Up = Course: its marks in order, the last being the finish. Add waypoints (made in Freeboard-SK or another chart app) and move them up and down, or import a route, which replaces the course. A mark passed twice, on the way out and again on the way back, is listed twice. Each boat's next mark is the closest one ahead of it whose leg (from the previous mark) points within 100 degrees of the way it is sailing, so the two passes are not confused. Waypoint marks follow the waypoint if it is moved; route points that are not waypoints stay where they were. The course is kept on the boat's server for every screen.",
         cyca: "The CYCA race tracker, for boats beyond AIS range (it needs internet). Pick the race at the top: races we are entered in say so. Positions come every 10 minutes. Below, link each CYCA boat to its AIS boat so the two show as one; the plugin suggests AIS boats that were in the same place at the same times over the last hour (a highlighted button is a clear match). Links are kept for the next race; Unlink if one is wrong. 'No AIS' quiets a boat for this race. The tab is highlighted while a CYCA boat has a likely AIS match not yet linked.",
-        geo: 'Boats on the water, rotated so Up is at the top; the ringed WPT is the waypoint. Drag to pan, pinch or wheel to zoom (in Relative mode this switches to Absolute). Relative centres on us and fits all shown boats. Fit reframes. OSM and Sea basemaps need internet; White works offline.'
+        geo: 'Boats on the water, rotated so Up is at the top; the ringed WPT is the waypoint. Drag to pan, pinch or wheel to zoom (in Relative mode this switches to Absolute). Relative centres on us and fits all shown boats. Fit reframes. The Course box shows the course from the Course tab, whatever Up is. When our true wind is known, the Wind box shows the wind ladder: rungs across the wind, one through us, labelled in nm toward the wind (+ = upwind; with Up = Downwind, + = downwind), about 12 across the view. With Up = Upwind or Downwind the rungs are level. OSM and Sea basemaps need internet; White works offline.'
     };
     function bindInfo() {
         const pop = $('infoPop');
