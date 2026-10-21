@@ -82,6 +82,15 @@ test('Geo and Vectors: tracker boats hollow with a key, AIS boats solid', async 
     assert.match(await page.textContent('#mapLine'), /tracker \(YB\)/);
     if (SHOT_DIR) await page.screenshot({path: path.join(SHOT_DIR, 'tracker-geo.png')});
 
+    // Boats strip charts: a small dot per report, solid for AIS, a ring for the tracker.
+    await page.selectOption('#upSel', 'upwind'); // the replay has our wind, and no waypoint
+    await page.click('#tabbar button[data-tab="boats"]');
+    await page.locator('#blist .spk .fx.trk').first().waitFor({state: 'attached'});
+    const ais = await page.locator('#blist .spk .fx.ais').count();
+    const trk = await page.locator('#blist .spk .fx.trk').count();
+    assert.ok(ais > 50 && trk >= 3, `strip chart dots: ${ais} AIS, ${trk} tracker`);
+    if (SHOT_DIR) await page.screenshot({path: path.join(SHOT_DIR, 'tracker-boats.png')});
+
     await page.click('#tabbar button[data-tab="vectors"]');
     await page.locator('#scaleLine .trkkey').waitFor();
     const [solidV, hollowV] = await kinds(page, '#polar polygon');

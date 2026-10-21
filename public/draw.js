@@ -98,9 +98,11 @@ const DRAW = (() => {
 
     /**
      * Strip chart, newest on the LEFT, comet taper (thick and solid recent, thin and faint
-     * old). pts = [{t, v}] oldest first (v may be null). Lines bridge gaps up to staleMs.
+     * old). pts = [{t, v, src?}] oldest first (v may be null). Lines bridge gaps up to
+     * staleMs. With fixDots, a small dot marks every report: solid for AIS, a ring for a
+     * tracker fix (as on Geo).
      */
-    function spark(pts, color, lo, hi, nowT, periodMs, staleMs) {
+    function spark(pts, color, lo, hi, nowT, periodMs, staleMs, fixDots = false) {
         const valid = pts.filter((p) => p.v != null && Number.isFinite(p.v));
         if (!valid.length || !(hi > lo))
             return `<svg class="spk" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"></svg>`;
@@ -119,11 +121,27 @@ const DRAW = (() => {
         }
         const lines = taper(segs, color, 0.6, 3.6, 0.18, 1, ' vector-effect="non-scaling-stroke"');
         const last = valid[valid.length - 1];
+        // Zero-length round-capped lines stay circular when the chart is stretched; a ring
+        // is a white one on a coloured one.
+        const cap = (x, y, w, c, op) =>
+            `<line x1="${x}" y1="${y}" x2="${x}" y2="${y}" stroke="${c}" stroke-width="${w}" stroke-linecap="round" opacity="${op}" vector-effect="non-scaling-stroke"/>`;
+        let dots = '';
+        if (fixDots)
+            for (const p of valid) {
+                if (p === last) continue;
+                const [px, py] = [X(p.t).toFixed(2), Y(p.v).toFixed(2)];
+                const op = (0.35 + 0.65 * DERIVE.ageFrac(p.t, nowT, periodMs)).toFixed(2);
+                dots += isTracker(p)
+                    ? `<g class="fx trk">${cap(px, py, 4.5, color, op)}${cap(px, py, 2, '#fff', op)}</g>`
+                    : `<g class="fx ais">${cap(px, py, 3.5, color, op)}</g>`;
+            }
         const x = X(last.t).toFixed(2);
         const y = Y(last.v).toFixed(2);
         // A zero-length round-capped line stays circular when the chart is stretched.
-        const dot = `<line class="dot" x1="${x}" y1="${y}" x2="${x}" y2="${y}" stroke="${color}" stroke-width="6" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`;
-        return `<svg class="spk" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${zero}${lines}${dot}</svg>`;
+        const dot = isTracker(last)
+            ? `<g class="dot">${cap(x, y, 7, color, 1)}${cap(x, y, 3.5, '#fff', 1)}</g>`
+            : `<line class="dot" x1="${x}" y1="${y}" x2="${x}" y2="${y}" stroke="${color}" stroke-width="6" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`;
+        return `<svg class="spk" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${zero}${lines}${dots}${dot}</svg>`;
     }
 
     /** The latest value and its position as fractions of the chart box (same mapping as spark). */

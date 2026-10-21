@@ -53,8 +53,9 @@
             let v;
             if (b.isUs) v = view.mode === 'rel' ? null : DERIVE.ownVmgAbs(b.series, i, view.ctx);
             else v = DERIVE.vmgToward(b.series, i, view.ctx, view.mode);
-            vmg.push({t: r.t, v: UNITS.kn(v)});
-            if (!b.isUs) lead.push({t: r.t, v: UNITS.nm(DERIVE.lead(r, view.usAt(r.t), view.frame, view.wp))});
+            vmg.push({t: r.t, v: UNITS.kn(v), src: r.src});
+            if (!b.isUs)
+                lead.push({t: r.t, v: UNITS.nm(DERIVE.lead(r, view.usAt(r.t), view.frame, view.wp)), src: r.src});
         }
         const s = b.cur;
         const ci = s ? b.series.indexOf(s) : -1;
@@ -129,8 +130,12 @@
                     : '';
             const [vLo, vHi] = centred(r.vExt, vSpan);
             const [dLo, dHi] = centred(r.dExt, dSpan);
-            const vChart = DRAW.spark(r.vmg, b.color, vLo, vHi, view.now, view.periodMs, view.staleMs);
-            const dChart = b.isUs ? '' : DRAW.spark(r.lead, b.color, dLo, dHi, view.now, view.periodMs, view.staleMs);
+            // A dot per report for other boats (ours is a dense 1 s track, not reports).
+            const fx = !b.isUs;
+            const vChart = DRAW.spark(r.vmg, b.color, vLo, vHi, view.now, view.periodMs, view.staleMs, fx);
+            const dChart = b.isUs
+                ? ''
+                : DRAW.spark(r.lead, b.color, dLo, dHi, view.now, view.periodMs, view.staleMs, fx);
             const vCv = chip(DRAW.latestPos(r.vmg, vLo, vHi, view.now, view.periodMs), fmtV);
             const dCv = b.isUs ? '' : chip(DRAW.latestPos(r.lead, dLo, dHi, view.now, view.periodMs), fmtD);
             const icon = b.isUs
