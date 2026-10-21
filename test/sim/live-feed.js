@@ -109,8 +109,9 @@ async function main() {
     const args = parseArgs(process.argv.slice(2));
     const now = Date.now();
     const rec = race(args.race);
-    // Whole seconds: the feed's times (a recorded race's start) carry no milliseconds.
-    const shiftMs = Math.round((now - (rec.start + args.hours * 3600e3)) / 1000) * 1000;
+    // Whole seconds, rounded down: the feed's times (a recorded race's start) carry no
+    // milliseconds, and no recorded time may land after now.
+    const shiftMs = Math.floor((now - (rec.start + args.hours * 3600e3)) / 1000) * 1000;
     const sim = rec.play(shiftMs);
     if (args.trackerFile) {
         writeAtomic(args.trackerFile, JSON.stringify(shiftTracker(rec.tracker, shiftMs)));

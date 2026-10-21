@@ -22,8 +22,9 @@ async function replayTo(hoursIn, opts = {}) {
     const now = Date.now();
     const rec = race(opts.race);
     const RACE_START = rec.start;
-    // Whole seconds: the feed's times (a recorded race's start) carry no milliseconds.
-    const shiftMs = Math.round((now - (RACE_START + hoursIn * 3600e3)) / 1000) * 1000;
+    // Whole seconds, rounded down: the feed's times (a recorded race's start) carry no
+    // milliseconds, and no recorded time may land after now.
+    const shiftMs = Math.floor((now - (RACE_START + hoursIn * 3600e3)) / 1000) * 1000;
     const sim = rec.play(shiftMs);
     const dataDir = opts.dataDir || tmpdir();
     // opts.recorded: a key; the race's tracker data is written as recorded-race-<key>.json,
