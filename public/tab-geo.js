@@ -235,7 +235,7 @@
         let lastT = Infinity;
         for (let j = win.length - 1; j >= 0; j--) {
             const s = win[j];
-            if (b.isUs && j !== win.length - 1 && lastT - s.t < OWN_STEP_MS) continue;
+            if (b.isUs && !b.atReports && j !== win.length - 1 && lastT - s.t < OWN_STEP_MS) continue;
             lastT = s.t;
             pts.unshift({wx: mercX(s.lon), wy: mercY(s.lat), t: s.t, cogRad: s.cogRad, src: s.src});
         }

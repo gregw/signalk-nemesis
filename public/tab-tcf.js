@@ -73,7 +73,7 @@
                 u: s ? view.usAt(s.t) : null,
                 frame: view.frame,
                 series: b.series,
-                usSeries: us.series,
+                usSeries: view.usSeries,
                 wp: view.wp,
                 startT,
                 tcfUs: us.tcf,

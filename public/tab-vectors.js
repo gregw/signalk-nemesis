@@ -29,7 +29,7 @@
                 let lastT = -Infinity;
                 for (let j = win.length - 1; j >= 0; j--) {
                     // newest first, so the latest sample is always kept
-                    if (lastT - win[j].t < OWN_STEP_MS && j !== win.length - 1) continue;
+                    if (!b.atReports && lastT - win[j].t < OWN_STEP_MS && j !== win.length - 1) continue;
                     lastT = win[j].t;
                     const p = kn(DERIVE.vectorPoint(win[j], null, 'abs', view.upRad));
                     if (p) out.unshift({t: win[j].t, p});

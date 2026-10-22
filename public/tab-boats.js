@@ -51,7 +51,11 @@
             const i = off + j;
             const r = win[j];
             let v;
-            if (b.isUs) v = view.mode === 'rel' ? null : DERIVE.ownVmgAbs(b.series, i, view.ctx);
+            if (b.isUs) {
+                // From our whole track, whatever samples of it Show draws.
+                const k = b.atReports ? DERIVE.indexAtOrBefore(view.usSeries, r.t) : i;
+                v = view.mode === 'rel' ? null : DERIVE.ownVmgAbs(b.atReports ? view.usSeries : b.series, k, view.ctx);
+            }
             else v = DERIVE.vmgToward(b.series, i, view.ctx, view.mode);
             vmg.push({t: r.t, v: UNITS.kn(v), src: r.src});
             if (!b.isUs)

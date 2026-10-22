@@ -117,6 +117,52 @@ test('Show AIS in range: boats with a recent AIS report, not tracker only boats'
     await ctx.close();
 });
 
+test('Show Nemeses: our track drawn only at the nemeses report times, the maths on the whole track', async () => {
+    const ctx = await browser.newContext(TABLET);
+    const page = await ctx.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(srv.url + '?poll=' + POLL);
+    await page.locator('#conn', {hasText: 'live'}).waitFor();
+    assert.equal((await srv.app.put(PUT_PATHS.setNemesis, {id: '503098600', nemesis: true})).status, 200);
+    await page.selectOption('#showSel', 'nemeses');
+    await page.click('#tabbar button[data-tab="vectors"]');
+    await page.waitForFunction(() => {
+        const v = ND.view;
+        const b = v && v.visible.find((x) => x.id === '503098600');
+        return b && b.series.length > 10;
+    });
+    const r = await page.evaluate(() => {
+        const v = ND.view;
+        const nem = new Set(v.visible.filter((b) => !b.isUs).flatMap((b) => b.series.map((x) => x.t)));
+        const us = v.all[0].series;
+        return {
+            drawn: us.length,
+            whole: v.usSeries.length,
+            extra: us.slice(0, -1).filter((u) => !nem.has(u.t)).length,
+            latest: us.at(-1).t === v.usSeries.at(-1).t,
+            // Our newest hull a polygon, the older ones subpaths of one path per age step.
+            hulls:
+                document.querySelectorAll('#polar polygon[fill="#1a2a3a"]').length +
+                [...document.querySelectorAll('#polar path[fill="#1a2a3a"]')].reduce(
+                    (n, e) => n + (e.getAttribute('d').match(/Z/g) || []).length,
+                    0
+                ),
+            inWin: ND.inWindow(us, v).length
+        };
+    });
+    assert.equal(r.extra, 0, 'no sample of ours away from a nemesis report');
+    assert.ok(r.drawn > 10 && r.drawn < r.whole / 2, `${r.drawn} of ${r.whole} drawn`);
+    assert.ok(r.latest, 'our latest kept');
+    // Every one drawn on Vectors, not thinned to one per 2 minutes.
+    assert.equal(r.hulls, r.inWin);
+    // Show All: our whole track again.
+    await page.selectOption('#showSel', 'all');
+    await page.waitForFunction(() => ND.view.all[0].series.length === ND.view.usSeries.length);
+    assert.deepEqual(errors, []);
+    await ctx.close();
+});
+
 test('Vectors, Up = COG, Absolute: our newest hull is on the vertical axis', async () => {
     const ctx = await browser.newContext(TABLET);
     const page = await ctx.newPage();

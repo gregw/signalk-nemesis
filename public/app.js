@@ -384,6 +384,15 @@ const ND = (() => {
                     return b.nemesis;
             }
         });
+        // Show = Nemeses: our drawn track only at the times of a shown nemesis's reports (and
+        // our latest), not at every other boat's; the full track still goes into the maths.
+        const usAll = all[0].series;
+        if (prefs.show === 'nemeses') {
+            const ts = new Set();
+            for (const b of visible) if (!b.isUs) for (const r of b.series) ts.add(r.t);
+            all[0].series = usAll.filter((u, j) => ts.has(u.t) || j === usAll.length - 1);
+            all[0].atReports = true;
+        }
         return {
             snap: s,
             now,
@@ -407,6 +416,7 @@ const ND = (() => {
             all,
             visible,
             sel,
+            usSeries: usAll, // our whole track to now, whatever Show draws of it
             usAt: (t) => DERIVE.stateAt(M.us, t, US_GAP_MS)
         };
     }
@@ -849,6 +859,9 @@ const ND = (() => {
         },
         get model() {
             return M;
+        },
+        get view() {
+            return lastView;
         }
     };
 })();
