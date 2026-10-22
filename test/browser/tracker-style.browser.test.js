@@ -100,6 +100,23 @@ test('Geo and Vectors: tracker boats hollow with a key, AIS boats solid', async 
     await ctx.close();
 });
 
+test('Show AIS in range: boats with a recent AIS report, not tracker only boats', async () => {
+    const ctx = await browser.newContext(TABLET);
+    const page = await ctx.newPage();
+    await page.goto(srv.url + '?poll=' + POLL);
+    await page.locator('#conn', {hasText: 'live'}).waitFor();
+    const ids = () => page.$$eval('#blist .brow[data-id]', (els) => els.map((e) => e.dataset.id));
+    await page.selectOption('#showSel', 'all');
+    await page.locator('#blist .brow[data-id^="cyca:"]').first().waitFor();
+    const all = await ids();
+    await page.selectOption('#showSel', 'inrange');
+    assert.equal(await page.locator('#showSel option:checked').textContent(), 'AIS in range');
+    const shown = await ids();
+    assert.deepEqual(shown.filter((id) => id.startsWith('cyca:')), [], 'no tracker only boat');
+    assert.ok(shown.length > 5 && shown.length < all.length, `${shown.length} of ${all.length}`);
+    await ctx.close();
+});
+
 test('Vectors, Up = COG, Absolute: our newest hull is on the vertical axis', async () => {
     const ctx = await browser.newContext(TABLET);
     const page = await ctx.newPage();
