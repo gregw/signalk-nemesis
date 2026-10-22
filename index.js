@@ -481,6 +481,10 @@ module.exports = function (app, deps = {}) {
                 s.backfillPlanner.reset();
                 await s.journal.clear();
                 s.filled++; // the webapp refetches its tracks
+                // The CYCA boats went too, and backfill fills only boats it knows as CYCA
+                // boats: have them reported again now, not at the next slot (up to 10
+                // minutes away, and then only boats with a new fix).
+                s.cyca.repoll();
                 return complete(200, 'OK');
             })
         );

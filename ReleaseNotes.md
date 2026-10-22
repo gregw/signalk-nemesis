@@ -13,8 +13,8 @@
  + Tracker fixes are drawn hollow and AIS fixes solid on Geo and Vectors, with a key. The
    Boats strip charts have a small dot per report: solid for AIS, a ring for the tracker.
  + 'Clear history' in the Time popup forgets every boat's track and ours (names, nemeses,
-   TCFs and links are kept). 'Unlink all' on the CYCA tab removes every CYCA link. Both ask
-   first.
+   TCFs and links are kept); the CYCA boats are read again at once, so nemeses can be
+   backfilled. 'Unlink all' on the CYCA tab removes every CYCA link. Both ask first.
  + A new nemesis's history is filled in from the CYCA tracker within seconds. CYCA fixes
    timed in the future are dropped.
  + Recorded races: a file named recorded-race-<key>.json in the plugin's data folder is

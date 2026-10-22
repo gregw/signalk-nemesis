@@ -39,7 +39,11 @@ test('clear history: tracks and journal emptied, names and links kept; unlink al
     assert.equal((await app.put(PUT_PATHS.clearHistory, {})).status, 400);
     assert.equal((await app.put(PUT_PATHS.clearHistory, true)).status, 200);
     const after = await snap();
-    assert.deepEqual(after.boats, []);
+    // No AIS boat is left; the CYCA boats come back with the poll a clear starts.
+    assert.deepEqual(
+        after.boats.filter((b) => !b.id.startsWith('cyca:')),
+        []
+    );
     assert.equal(after.own, null);
     assert.ok(after.cyca.filled > before.cyca.filled, 'the page is told to refetch');
     assert.deepEqual(segs(), []);
@@ -64,4 +68,30 @@ test('clear history: tracks and journal emptied, names and links kept; unlink al
 
     assert.equal((await app.put(PUT_PATHS.unlinkAllCyca, true)).status, 200);
     assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dataDir, 'cyca-state.json'), 'utf8')).links, {});
+});
+
+test('clear history: the CYCA boats are back at once, so a longer period backfills a nemesis', async (t) => {
+    const dataDir = tmpdir();
+    fs.writeFileSync(
+        path.join(dataDir, 'cyca-state.json'),
+        JSON.stringify({version: 1, raceId: recordedId('tollgate'), links: {ragtime: '503098600'}})
+    );
+    const {app, plugin} = await replayTo(3, {race: 'tollgate2026', recorded: 'tollgate', dataDir, selfName: 'Kanreki'});
+    t.after(() => plugin.stop());
+    const snap = async () => (await app.call('GET', API + '/snapshot')).body;
+    await until(async () => (await snap()).boats.some((b) => b.id.startsWith('cyca:')));
+    assert.equal((await app.put(PUT_PATHS.setNemesis, {id: '503098600', nemesis: true})).status, 200);
+    assert.equal((await app.put(PUT_PATHS.clearHistory, true)).status, 200);
+
+    // Ragtime reports again over AIS; the page then asks for two hours.
+    app.deliver(
+        toDelta('vessels.urn:mrn:imo:mmsi:503098600', {t: Date.now(), lat: -34.4, lon: 151.2, cogRad: 3, sogMs: 4})
+    );
+    const old = async () => {
+        const r = (await app.call('GET', API + '/tracks', {query: {periodS: '7200', ids: '503098600'}})).body;
+        return (r.boats['503098600'] || []).filter((x) => x.src === 'cyca' && x.t < Date.now() - 1800e3);
+    };
+    let filled = [];
+    await until(async () => (filled = await old()).length >= 6, 5000);
+    assert.ok(filled.length >= 6, `${filled.length} tracker fixes over the older part of the period`);
 });

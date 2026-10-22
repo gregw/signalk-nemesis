@@ -55,13 +55,28 @@ test('Clear history empties the boats after a confirm; Unlink all removes the ol
 
     await page.click('#timeBtn');
     await page.click('#clearHist');
-    // Only us left in the count.
-    await page.waitForFunction(() => /\/\s*1\b/.test(document.querySelector('#fleetCount').textContent));
+    // No AIS boat left; the CYCA boats are reported again at once, from the tracker.
+    await page.waitForFunction(() => {
+        const v = ND.view;
+        const others = v ? v.all.filter((b) => !b.isUs) : [];
+        return others.length > 0 && others.every((b) => b.series.every((r) => r.src === 'cyca'));
+    });
     assert.match(dialogs[0], /Clear all track history/);
+    const dir = path.join(dataDir, 'journal');
+    const recs = fs
+        .readdirSync(dir)
+        .filter((f) => /^seg-/.test(f))
+        .flatMap((f) =>
+            fs
+                .readFileSync(path.join(dir, f), 'utf8')
+                .split('\n')
+                .filter(Boolean)
+                .map((l) => JSON.parse(l))
+        );
     assert.deepEqual(
-        fs.readdirSync(path.join(dataDir, 'journal')).filter((f) => /^seg-/.test(f)),
+        recs.filter((r) => r.k === 'r' && r.src !== 'cyca'),
         [],
-        'journal cleared'
+        'journal cleared, then only the tracker fixes reported again'
     );
 
     await page.click('body', {position: {x: 5, y: 700}}); // close the popup
