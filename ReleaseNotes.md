@@ -1,3 +1,26 @@
+## 0.4.0 Handicaps from CYCA, tracker and AIS told apart
+ + TCF tab: 'IRC TCFs from CYCA' sets every boat's TCF from the selected CYCA race's IRC
+   results, after a confirm that says how many change and what ours becomes. Our own entry
+   goes on us, a linked boat on its AIS boat, any other on its CYCA boat and an AIS boat of
+   the same name. It needs internet.
+ + TCF tab: a DTF column, the distance to finish along the course from the Course tab to its
+   last mark, whatever Up is.
+ + TCF tab: 'Clear all TCFs', after a confirm. The Net charts have a dot per report.
+ + Show 'In range' is now 'AIS in range': a boat with an AIS report within the stale time. A
+   tracker fix alone no longer counts.
+ + Show = Nemeses draws our own track only at the times of the nemeses' reports (and our
+   latest), not at every other boat's. The TCF and VMG figures still use our whole track.
+ + Tracker fixes are drawn hollow and AIS fixes solid on Geo and Vectors, with a key. The
+   Boats strip charts have a small dot per report: solid for AIS, a ring for the tracker.
+ + 'Clear history' in the Time popup forgets every boat's track and ours (names, nemeses,
+   TCFs and links are kept). 'Unlink all' on the CYCA tab removes every CYCA link. Both ask
+   first.
+ + A new nemesis's history is filled in from the CYCA tracker within seconds. CYCA fixes
+   timed in the future are dropped.
+ + Recorded races: a file named recorded-race-<key>.json in the plugin's data folder is
+   offered on the CYCA tab and served as the feed would, up to now. For testing and replays.
+ + Fix: with Up = COG, our newest hull is always on the centre line.
+
 ## 0.3.0 CYCA race tracker
  + Optional second source: the CYCA race tracker (the YB units on the Sydney Gold Coast, the
    Hobart and the Blue Water Pointscore races), for boats beyond AIS range. It needs internet.
