@@ -787,7 +787,7 @@ svg .hi {
     .tn {
         font-size: 13px;
     }
-    /* TCF tab: room for DTG, Should and Actual and still the Net chart. */
+    /* TCF tab: room for DTF, Should and Actual and still the Net chart. */
     .tcfin,
     .thead .th-tcf {
         flex: 0 0 56px;

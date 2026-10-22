@@ -110,7 +110,7 @@
         $('tcfhead').innerHTML =
             `<span class="sp" style="width:10px"></span><span class="th-name"><b>Boat</b></span>` +
             `<span class="th-tcf"><b>TCF</b></span>` +
-            `<span class="th-n"><b>DTG</b><span class="bh-sub">nm</span></span>` +
+            `<span class="th-n"><b>DTF</b><span class="bh-sub">nm</span></span>` +
             `<span class="th-n"><b>Should</b><span class="bh-sub">nm</span></span>` +
             `<span class="th-n"><b>Actual</b><span class="bh-sub">nm</span></span>` +
             `<span class="th-chart"><b>Net</b><span class="bh-sub">+ beats us</span><span class="bh-sub">${DRAW.fmtSpan(span, 'nm')}</span></span>`;
@@ -123,8 +123,9 @@
                     ? ''
                     : DRAW.chip(p, fmtNet, p ? chipCls(p.v) : '') +
                       `<span class="spkwrap">${DRAW.spark(r.series, r.b.color, lo, hi, view.now, view.periodMs, view.staleMs, true)}</span>`;
-                // Distance to go: to the waypoint, or along the course (as the Boats tab sorts).
-                const d = r.b.cur ? DERIVE.dtg(r.b.cur, view.wp) : null;
+                // Distance to finish: along the course from the Course tab to its last mark,
+                // whatever Up is; none without a course.
+                const d = r.b.cur ? DERIVE.dtg(r.b.cur, view.course) : null;
                 const dtg = d == null ? '&ndash;' : nm(d).toFixed(nm(d) < 100 ? 1 : 0);
                 return `<div class="brow trow2 ${r.b.isUs ? 'us' : ''} ${r.b.isUs || r.b.cur ? '' : 'gone'}${view.sel === r.b.id ? ' hi' : ''}" data-id="${DRAW.esc(r.b.id)}">
       <span class="sw" style="background:${r.b.color}"></span>

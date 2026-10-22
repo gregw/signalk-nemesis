@@ -102,7 +102,7 @@ test('every tab renders on phone and tablet, without errors or page scroll', asy
         assert.ok((await page.locator('#tcflist .spk .dot').count()) > 10, 'Net strip charts');
         assert.ok((await page.locator('#tcflist .spk .fx.ais').count()) > 50, 'a dot per AIS report');
         const dtg = await page.locator('#tcflist .dtg').allTextContents();
-        assert.ok(dtg.length > 10 && dtg.every((d) => /^\d+(\.\d)?$/.test(d)), `DTG column: ${dtg.slice(0, 3)}`);
+        assert.ok(dtg.length > 10 && dtg.every((d) => /^\d+(\.\d)?$/.test(d)), `DTF column: ${dtg.slice(0, 3)}`);
         // The Net chart is not squeezed out on a phone.
         const w = await page
             .locator('#tcflist .chart.net')
@@ -423,6 +423,29 @@ test('Up = Course: each boat toward its own next mark of the named waypoints; CO
     await tab(page, 'tcf');
     assert.match(await page.locator('#tcfNote').textContent(), /toward course → Mark A/);
     assert.doesNotMatch(await page.locator('#tcfNote').textContent(), /compare with Up/);
+    // DTF: along the course to its last mark, not to the next mark, whatever Up is.
+    const dtf = () =>
+        page.evaluate(() => {
+            const v = ND.view;
+            return [...document.querySelectorAll('#tcflist .brow[data-id]')].map((row) => {
+                const b = v.all.find((x) => x.id === row.dataset.id);
+                const toEnd = b.cur ? UNITS.nm(DERIVE.dtg(b.cur, v.course)) : null;
+                const toNext = b.cur ? UNITS.nm(DERIVE.dtg(b.cur, v.course.marks[v.course.mark(b.cur)])) : null;
+                return [row.querySelector('.dtg').textContent, toEnd, toNext];
+            });
+        });
+    for (const up of ['course', 'north']) {
+        await page.selectOption('#upSel', up);
+        await page.waitForTimeout(POLL * 2);
+        const rows = await dtf();
+        assert.ok(rows.length > 10, up);
+        for (const [shown, toEnd] of rows) assert.equal(shown, toEnd.toFixed(toEnd < 100 ? 1 : 0), up);
+        assert.ok(
+            rows.some(([, toEnd, toNext]) => toEnd - toNext > 1),
+            `${up}: some boat short of the last leg, so past the next mark matters`
+        );
+    }
+    assert.match(await page.locator('#tcfhead').textContent(), /DTF/);
 
     // A stored Up of 'course' from before means COG.
     await page.evaluate(() => {
