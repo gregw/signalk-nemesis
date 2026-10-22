@@ -15,6 +15,8 @@
 const {simulate, finishOf, simTwdRad} = require('./ais-sim');
 const {simulateFleet, ownFromLog, trackerSlots} = require('./fleet-sim');
 
+const TOLLGATE_HDG_CORRECTION_DEG = 12.9;
+
 const RACES = {
     gc2026: () => {
         const data = require('../data/gc2026-tracks.json');
@@ -31,18 +33,28 @@ const RACES = {
             tracker: data
         };
     },
+    // Kanreki's (and Supernova's) logged HDG reads as magnetic: averaged over both tacks it
+    // sits about 12 deg left of COG, and the logged TWD (HDG + TWA) about 15 to 25 deg left
+    // of Sydney Airport's 090 true; 12.9 deg E is the variation there (NOAA WMM-2025, 34.1 S
+    // 151.3 E, 16 Oct 2026). Added to HDG and TWD; not confirmed from the boat's set-up.
     tollgate2026: () => {
         const fleet = require('../data/tollgate2026-yb.json');
         const log = require('../data/tollgate2026-kanreki.json');
         return {
             start: Date.parse(fleet.race.start),
             play(shiftMs) {
-                const {reports, names} = simulateFleet(fleet, ownFromLog(log), {
+                const {reports, names} = simulateFleet(fleet, ownFromLog(log, 0, TOLLGATE_HDG_CORRECTION_DEG), {
                     seed: 11,
                     ownMmsi: log.mmsi,
                     shiftMs
                 });
-                return {own: ownFromLog(log, shiftMs), reports, names, ownMmsi: log.mmsi, finish: null};
+                return {
+                    own: ownFromLog(log, shiftMs, TOLLGATE_HDG_CORRECTION_DEG),
+                    reports,
+                    names,
+                    ownMmsi: log.mmsi,
+                    finish: null
+                };
             },
             tracker: trackerSlots(fleet)
         };

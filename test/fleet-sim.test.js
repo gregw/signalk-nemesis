@@ -107,6 +107,13 @@ test('own log to SI, shifted', () => {
     assert.equal(s.hdgRad, null);
     near(s.twaRad, -Math.PI / 2, 1e-12, 'TWA port is negative');
     near(s.twsMs * 3600, 10 * NM, 1e-6, 'TWS');
+    // A heading logged as magnetic: the variation added to HDG and TWD, wrapped; TWA, COG as logged.
+    json.samples[0][5] = 355;
+    const [c] = ownFromLog(json, 0, 12.9);
+    near(c.hdgRad, 7.9 * (Math.PI / 180), 1e-9, 'HDG');
+    near(c.twdRad, 192.9 * (Math.PI / 180), 1e-9, 'TWD');
+    near(c.twaRad, -Math.PI / 2, 1e-12, 'TWA');
+    near(c.cogRad, Math.PI / 2, 1e-12, 'COG');
 });
 
 test('tracker slots: the first fix in the first 2 minutes of each slot, SOG and COG from the fix before', () => {

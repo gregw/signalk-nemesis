@@ -19,9 +19,11 @@
  *       [--hours 6] [--live] [--user name] [--tracker-file path]
  *
  * GC2026's finish is sent as an RMB-style next point, as the nav PC would (Tollgate's
- * course is out and back: none is sent). Tollgate's own heading is Kanreki's logged HDG,
- * sent as navigation.headingTrue: the log's TWD is its HDG + TWA (median difference 0.1
- * deg over 16 Oct), so HDG is referenced to true north like TWD.
+ * course is out and back: none is sent). Tollgate's own heading is Kanreki's logged HDG
+ * plus 12.9 deg, sent as navigation.headingTrue, and its TWD the same: the log's HDG
+ * reads as magnetic (test/sim/races.js), and its TWD is HDG + TWA, so carries the same
+ * offset. (An earlier note here took HDG as true because TWD = HDG + TWA; that only
+ * shows TWD was worked out from HDG.)
  *
  * --tracker-file writes the race's tracker data, shifted to the same clock, as a recorded
  * race file (lib/recorded-race.js) for the plugin to offer on the CYCA tab. Name it

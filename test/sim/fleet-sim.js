@@ -158,10 +158,15 @@ function simulateFleet(fleet, own, opts = {}) {
     return {reports, names};
 }
 
-/** Our own log file (tollgate2026-kanreki.json) as SI samples by time, shifted by shiftMs. */
-function ownFromLog(json, shiftMs = 0) {
+/**
+ * Our own log file (tollgate2026-kanreki.json) as SI samples by time, shifted by shiftMs.
+ * hdgCorrectionDeg is added to HDG and to TWD (logged as HDG + TWA): the variation, for a
+ * heading logged as magnetic.
+ */
+function ownFromLog(json, shiftMs = 0, hdgCorrectionDeg = 0) {
     const f = Object.fromEntries(json.sample_fields.map((k, i) => [k, i]));
     const rad = (v) => (v == null ? null : v * D2R);
+    const dir = (v) => (v == null ? null : ((((v + hdgCorrectionDeg) % 360) + 360) % 360) * D2R);
     const ms = (v) => (v == null ? null : v * KN);
     return json.samples.map((s) => ({
         t: s[f.t] + shiftMs,
@@ -169,9 +174,9 @@ function ownFromLog(json, shiftMs = 0) {
         lon: s[f.lon],
         cogRad: rad(s[f.cog_deg]),
         sogMs: ms(s[f.sog_kn]),
-        hdgRad: rad(s[f.hdg_deg]),
+        hdgRad: dir(s[f.hdg_deg]),
         stwMs: ms(s[f.bsp_kn]),
-        twdRad: rad(s[f.twd_deg]),
+        twdRad: dir(s[f.twd_deg]),
         twsMs: ms(s[f.tws_kn]),
         twaRad: rad(s[f.twa_deg]),
         awsMs: ms(s[f.aws_kn]),

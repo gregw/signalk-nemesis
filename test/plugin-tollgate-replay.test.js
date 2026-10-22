@@ -64,9 +64,10 @@ test('Tollgate 2026: AIS boats with their real MMSIs, the fleet from the recorde
     assert.ok(!byId.has('cyca:19073'), 'our own entry dropped');
     assert.ok(cyca.every((b) => b.latest.src === 'cyca' && b.latest.t <= Date.now()));
     assert.ok(!byId.has('503029690'), 'we are not a competitor');
-    // Our wind is the log's: Kanreki logged TWD 062 to 071 in the 2 minutes to 08:00Z.
+    // Our wind is the log's, corrected from magnetic: Kanreki logged TWD 062 to 071 in the
+    // 2 minutes to 08:00Z, so 075 to 084 true.
     const twdDeg = (snap.own.twdRad * 180) / Math.PI;
-    assert.ok(twdDeg > 60 && twdDeg < 73, `TWD ${twdDeg}`);
+    assert.ok(twdDeg > 73 && twdDeg < 86, `TWD ${twdDeg}`);
 
     // A new nemesis is filled in from the recorded track at its YB slot times and places.
     assert.equal((await app.put(PUT_PATHS.setNemesis, {id: 'cyca:19066', nemesis: true})).status, 200);
