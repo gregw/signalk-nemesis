@@ -56,3 +56,14 @@ test('clear TCFs: every TCF back to 1, ours too, saved; nemeses kept', async () 
     assert.equal(again.tcfOf('503073900'), 1, 'saved');
     assert.equal(again.isNemesis('503073900'), true);
 });
+
+test('set TCFs: several in one save; one bad value and none are set', async () => {
+    const dir = tmpdir();
+    const u = new UserState(dir);
+    await u.setTcf('503073900', 1.05);
+    await u.setTcfs({self: 1.107, 503073900: 1, 'cyca:19079': 1.369});
+    assert.deepEqual([u.tcfOf('self'), u.tcfOf('503073900'), u.tcfOf('cyca:19079')], [1.107, 1, 1.369]);
+    assert.deepEqual(new UserState(dir).toJSON().tcf, {self: 1.107, 'cyca:19079': 1.369}, 'saved; 1 is no entry');
+    assert.throws(() => u.setTcfs({self: 1.2, x: 9}), RangeError);
+    assert.equal(u.tcfOf('self'), 1.107, 'none set');
+});

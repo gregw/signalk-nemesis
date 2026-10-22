@@ -14,6 +14,7 @@ const {startDevServer} = require('../sim/dev-server');
 const {tmpdir} = require('../sim/tmpdir');
 const {PUT_PATHS} = require('../../index');
 const {recordedId} = require('../../lib/recorded-race');
+const {handicapFeed} = require('../sim/cyca-sim');
 
 const POLL = 300;
 const SHOT_DIR = process.env.SHOT_DIR;
@@ -36,7 +37,8 @@ test.before(async () => {
             recorded: 'tollgate',
             dataDir,
             selfName: 'Kanreki',
-            wind: true
+            wind: true,
+            fetch: handicapFeed() // the recorded race's real one (198): its IRC TCFs
         }
     });
 });
@@ -112,7 +114,11 @@ test('Show AIS in range: boats with a recent AIS report, not tracker only boats'
     await page.selectOption('#showSel', 'inrange');
     assert.equal(await page.locator('#showSel option:checked').textContent(), 'AIS in range');
     const shown = await ids();
-    assert.deepEqual(shown.filter((id) => id.startsWith('cyca:')), [], 'no tracker only boat');
+    assert.deepEqual(
+        shown.filter((id) => id.startsWith('cyca:')),
+        [],
+        'no tracker only boat'
+    );
     assert.ok(shown.length > 5 && shown.length < all.length, `${shown.length} of ${all.length}`);
     await ctx.close();
 });
@@ -197,4 +203,36 @@ test('Vectors, Up = COG, Absolute: our newest hull is on the vertical axis', asy
         clearInterval(feed);
         await ctx.close();
     }
+});
+
+test('TCF tab: IRC TCFs from CYCA, confirmed, set on our boat and the fleet', async () => {
+    const ctx = await browser.newContext(TABLET);
+    const page = await ctx.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(srv.url + '?poll=' + POLL);
+    await page.locator('#conn', {hasText: 'live'}).waitFor();
+    await page.selectOption('#showSel', 'all');
+    await page.click('#tabbar button[data-tab="tcf"]');
+    const btn = page.locator('#tcfCyca');
+    await btn.waitFor({state: 'visible'});
+    const asked = [];
+    page.once('dialog', (d) => {
+        asked.push(d.message());
+        d.accept();
+    });
+    await btn.click();
+    const tcf = (id) => page.locator(`#tcflist .tcfin[data-id="${id}"]`).inputValue();
+    await page.waitForFunction(() => document.querySelector('#tcflist .tcfin[data-id="self"]')?.value === '1.107');
+    assert.match(asked[0], /^Set 23 IRC TCFs from the CYCA results\? \d+ change\./);
+    assert.match(asked[0], /Ours \(Kanreki\): 1\.000 → 1\.107\./);
+    assert.equal(await tcf('cyca:19079'), '1.369', 'Smuggler, on its CYCA boat');
+    assert.equal(await tcf('500019102'), '1.264', 'BACK 2 BLACK, on its AIS boat of the same name');
+    assert.equal(await tcf('503098600'), '1.095', 'Ragtime, on its AIS boat (named Ragtime)');
+    if (SHOT_DIR) await page.screenshot({path: path.join(SHOT_DIR, 'tcf-cyca.png')});
+    // Off when no CYCA race is picked.
+    assert.equal((await srv.app.put(PUT_PATHS.setCycaRace, {raceId: null})).status, 200);
+    await btn.waitFor({state: 'hidden'});
+    assert.deepEqual(errors, []);
+    await ctx.close();
 });

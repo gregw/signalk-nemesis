@@ -7,6 +7,8 @@
  */
 
 const data = require('../data/gc2026-tracks.json');
+// Real IRC categories and results of races 194 (GC2026) and 198 (Tollgate 2026).
+const handicaps = require('../data/cyca/handicaps.json').races;
 
 const KN_STR = (v) => (v == null ? '' : String(v));
 const RACE_START = Date.parse(data.race.start);
@@ -54,6 +56,34 @@ function position(b, s) {
  * @param {number} [o.raceId]
  * @returns {typeof fetch & {calls: string[], down: boolean}}
  */
+/**
+ * The fixture's answers for another race (a recorded race's real one): its detail with
+ * categories, and a category's results at live or final. Else null.
+ */
+function handicapRoute(p) {
+    let m = /^\/races\/(\d+)$/.exec(p);
+    if (m && handicaps[m[1]])
+        return {
+            raceId: Number(m[1]),
+            status: 'Race completed',
+            timeZone: 'Australia/Sydney',
+            categories: handicaps[m[1]].categories
+        };
+    m = /^\/races\/(\d+)\/categories\/(\d+)\/results\/at\/(live|final)$/.exec(p);
+    return (m && handicaps[m[1]] && handicaps[m[1]].results[m[2]]) || null;
+}
+
+/** A feed of the handicap fixture only (no tracks); `.down = true` makes it fail as offline. */
+function handicapFeed() {
+    const f = async (url) => {
+        if (f.down) throw new TypeError('fetch failed');
+        const json = handicapRoute(String(url).replace('https://feeds.cycaracing.com/v2', ''));
+        return json ? {ok: true, json: async () => json} : {ok: false, status: 404};
+    };
+    f.down = false;
+    return f;
+}
+
 function cycaFeed({shiftMs, clock, raceId = 194}) {
     const startT = RACE_START + shiftMs;
     const samplesTo = (b, now) => b.samples.filter((s) => Date.parse(s[0]) + shiftMs <= now);
@@ -67,7 +97,8 @@ function cycaFeed({shiftMs, clock, raceId = 194}) {
             endDateUtc: null,
             isCurrent: true,
             isRunning: true,
-            timeZone: 'Australia/Sydney'
+            timeZone: 'Australia/Sydney',
+            categories: handicaps[raceId] ? handicaps[raceId].categories : []
         }),
         [`/races/${raceId}/entries`]: () =>
             data.boats.map((b) => ({
@@ -102,6 +133,7 @@ function cycaFeed({shiftMs, clock, raceId = 194}) {
         if (p === '/series/3/races') return {ok: true, json: async () => [routes[`/races/${raceId}`]()]};
         const m = new RegExp(`^/races/${raceId}/entries/(\\d+)/track/at/live$`).exec(p);
         let json;
+        let h;
         if (m) {
             const b = data.boats.find((x) => x.id === Number(m[1]));
             if (!b) return {ok: false, status: 404};
@@ -109,6 +141,8 @@ function cycaFeed({shiftMs, clock, raceId = 194}) {
             json = samplesTo(b, clock()).map((s) => position(b, s));
         } else if (routes[p]) {
             json = routes[p]();
+        } else if ((h = handicapRoute(p))) {
+            json = h;
         } else {
             return {ok: false, status: 404};
         }
@@ -119,4 +153,4 @@ function cycaFeed({shiftMs, clock, raceId = 194}) {
     return f;
 }
 
-module.exports = {cycaFeed, SLOT_MS};
+module.exports = {cycaFeed, handicapFeed, handicapRoute, SLOT_MS};

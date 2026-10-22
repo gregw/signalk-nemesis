@@ -11,7 +11,8 @@
  *    navigation.racing.startTime from signalk-racer (start time seam).
  *  - Data model paths published: none yet (brief section 8, Greg's call).
  *  - REST endpoints (read only): /plugins/<id>/* and /signalk/v1/api/nemesis/*.
- *  - PUT handlers (writes): navigation.racing.nemesis.setNemesis, .setTcf, .setStartTime.
+ *  - PUT handlers (writes): navigation.racing.nemesis.setNemesis, .setTcf, .setTcfs, .setStartTime
+ *    and the others in PUT_PATHS.
  *  - Internal plugin state: TrackStore, OwnState, UserState, StartTime; track history
  *    journaled to <data dir>/journal so it survives a restart (lib/journal.js).
  *
@@ -26,7 +27,8 @@ const {AisSourceAdapter, OwnAdapter} = require('./lib/ais-adapter');
 const {TwdSmoother, WindAdapter} = require('./lib/wind');
 const {WaypointSource} = require('./lib/waypoint');
 const {UserState, validTcf} = require('./lib/user-state');
-const {buildSnapshot, buildTracks} = require('./lib/snapshot');
+const {buildSnapshot, buildTracks, OWN_ID} = require('./lib/snapshot');
+const {fetchTcfs} = require('./lib/cyca-handicap');
 const {StartTime, RacerStartAdapter} = require('./lib/start-time');
 const {Journal} = require('./lib/journal');
 const {CycaState} = require('./lib/cyca-state');
@@ -45,6 +47,7 @@ const API_PREFIX = '/nemesis';
 const PUT_PATHS = {
     setNemesis: 'navigation.racing.nemesis.setNemesis',
     setTcf: 'navigation.racing.nemesis.setTcf',
+    setTcfs: 'navigation.racing.nemesis.setTcfs',
     setStartTime: 'navigation.racing.nemesis.setStartTime',
     setCycaRace: 'navigation.racing.nemesis.setCycaRace',
     setCycaLink: 'navigation.racing.nemesis.setCycaLink',
@@ -420,6 +423,15 @@ module.exports = function (app, deps = {}) {
                 return state.userState.setTcf(value.id, value.tcf).then(() => complete(200, 'OK'));
             })
         );
+        // value {tcfs: {boatId: tcf}} sets several at once (the IRC TCFs from CYCA); all or none.
+        app.registerPutHandler('vessels.self', PUT_PATHS.setTcfs, (ctx, path, value) =>
+            command(() => {
+                const t = value && value.tcfs;
+                if (!t || typeof t !== 'object' || Array.isArray(t) || !Object.values(t).every(validTcf))
+                    return complete(400, 'value must be {tcfs: {id: tcf in (0, 3]}}');
+                return state.userState.setTcfs(t).then(() => complete(200, 'OK'));
+            })
+        );
         // value {raceId: integer} selects the CYCA race to poll; {raceId: null} turns it off.
         app.registerPutHandler('vessels.self', PUT_PATHS.setCycaRace, (ctx, path, value) =>
             command(() => {
@@ -669,6 +681,17 @@ module.exports = function (app, deps = {}) {
             else send();
         });
 
+        // The selected race's IRC TCFs from the feed, each on the boat it applies to here
+        // (read only: the webapp confirms, then sets them with setTcfs).
+        router.get(prefix + '/cyca/tcfs', (req, res) => {
+            const s = running(res);
+            if (!s) return;
+            cycaTcfs(s).then(
+                (r) => (r.error ? res.status(r.status || 502).json({error: r.error}) : res.json(r)),
+                (e) => res.status(500).json({error: String((e && e.message) || e)})
+            );
+        });
+
         router.get(prefix + '/cyca/mapping', (req, res) => {
             const s = running(res);
             if (!s) return;
@@ -741,6 +764,41 @@ module.exports = function (app, deps = {}) {
     function cycaMapping(s, now) {
         if (s.cycaState.raceId === null) return {rows: [], needsAction: false};
         return mappingRows({entries: cycaEntries(s), store: s.store, cycaState: s.cycaState, now});
+    }
+
+    /**
+     * The IRC TCFs of the selected race (for a recorded race, of the feed race it was
+     * recorded from), each on the boats it applies to here: our own entry on us; a linked
+     * entry on its AIS boat; any other on its CYCA boat and on an AIS boat of the same
+     * name, if any. {category, rows: [{entryId, name, ids, tcf, current}]} (current: of
+     * ids[0]) or {error, status}.
+     */
+    async function cycaTcfs(s) {
+        const raceId = s.cycaState.raceId;
+        if (raceId === null) return {error: 'no CYCA race selected', status: 409};
+        const feedId = raceId < 0 ? s.recorded.feedRaceIdOf(raceId) : raceId;
+        if (feedId === null) return {error: 'the recorded race does not name its CYCA race', status: 409};
+        const r = await fetchTcfs({fetch: s.cyca.fetch, raceId: feedId});
+        if (!r.ok) return {error: r.error, status: 502};
+        const ours = nameKey(selfName(app) || '');
+        const aisByName = new Map();
+        for (const b of s.store.all()) if (!b.id.startsWith('cyca:') && b.name) aisByName.set(nameKey(b.name), b.id);
+        const rows = r.rows.map((x) => {
+            const e = s.cyca.entries.get(x.entryId);
+            const name = (e && e.name) || x.name;
+            const k = nameKey(name);
+            const linked = s.cycaState.linkOf(name);
+            let ids;
+            if (ours && k === ours) ids = [OWN_ID];
+            else if (linked) ids = [linked];
+            else
+                ids = [
+                    'cyca:' + x.entryId,
+                    ...(aisByName.has(k) && !s.cycaState.nameOf(aisByName.get(k)) ? [aisByName.get(k)] : [])
+                ];
+            return {entryId: x.entryId, name, ids, tcf: x.tcf, current: s.userState.tcfOf(ids[0])};
+        });
+        return {category: r.category, rows};
     }
 
     function cycaSummary(s, now) {

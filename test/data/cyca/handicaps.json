@@ -1,0 +1,614 @@
+{
+ "source": "feeds.cycaracing.com /v2/races/<id> and /v2/races/<id>/categories/<IRC>/results/at/live, fetched 2026-10-22; results trimmed to the fields used",
+ "races": {
+  "194": {
+   "categories": [
+    {
+     "id": 1120,
+     "name": "IRC",
+     "type": "Handicap",
+     "isDefault": true,
+     "decidesWinner": true,
+     "totalDivisionsText": "0,1,2,3",
+     "divisions": [
+      "0",
+      "1",
+      "2",
+      "3"
+     ]
+    },
+    {
+     "id": 1121,
+     "name": "PHS",
+     "type": "Handicap",
+     "isDefault": false,
+     "decidesWinner": false,
+     "totalDivisionsText": "",
+     "divisions": [
+      ""
+     ]
+    },
+    {
+     "id": 1122,
+     "name": "Corinthian - IRC",
+     "type": "Handicap",
+     "isDefault": false,
+     "decidesWinner": false,
+     "totalDivisionsText": "",
+     "divisions": [
+      ""
+     ]
+    },
+    {
+     "id": 1123,
+     "name": "Corinthian - PHS",
+     "type": "Handicap",
+     "isDefault": false,
+     "decidesWinner": false,
+     "totalDivisionsText": "",
+     "divisions": [
+      ""
+     ]
+    },
+    {
+     "id": 1124,
+     "name": "Double-Handed IRC",
+     "type": "Handicap",
+     "isDefault": false,
+     "decidesWinner": false,
+     "totalDivisionsText": "",
+     "divisions": [
+      ""
+     ]
+    },
+    {
+     "id": 1125,
+     "name": "Double-Handed PHS",
+     "type": "Handicap",
+     "isDefault": false,
+     "decidesWinner": false,
+     "totalDivisionsText": "",
+     "divisions": [
+      ""
+     ]
+    },
+    {
+     "id": 1119,
+     "name": "Line Honours",
+     "type": "Line Honours",
+     "isDefault": false,
+     "decidesWinner": false,
+     "totalDivisionsText": "",
+     "divisions": [
+      ""
+     ]
+    }
+   ],
+   "results": {
+    "1120": [
+     {
+      "raceEntryId": 18871,
+      "nameRace": "BACK 2 BLACK",
+      "tcf": 1.261,
+      "divisionName": "1",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18942,
+      "nameRace": "Disko Trooper (DH)",
+      "tcf": 0.996,
+      "divisionName": "3",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18921,
+      "nameRace": "Ambition",
+      "tcf": 1.251,
+      "divisionName": "1",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18873,
+      "nameRace": "Smuggler",
+      "tcf": 1.372,
+      "divisionName": "0",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18909,
+      "nameRace": "Minerva",
+      "tcf": 1.221,
+      "divisionName": "1",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18953,
+      "nameRace": "KD1",
+      "tcf": 1.155,
+      "divisionName": "2",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18892,
+      "nameRace": "Kanreki",
+      "tcf": 1.107,
+      "divisionName": "2",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18959,
+      "nameRace": "Mistral (DH)",
+      "tcf": 1.068,
+      "divisionName": "2",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18872,
+      "nameRace": "Koa",
+      "tcf": 1.349,
+      "divisionName": "0",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18957,
+      "nameRace": "Ariel",
+      "tcf": 1.073,
+      "divisionName": "2",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18864,
+      "nameRace": "GWM Pennant Hills",
+      "tcf": 1.059,
+      "divisionName": "2",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18891,
+      "nameRace": "Supernova",
+      "tcf": 1.039,
+      "divisionName": "3",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18981,
+      "nameRace": "Gusto",
+      "tcf": 1.351,
+      "divisionName": "0",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18943,
+      "nameRace": "Tenacity",
+      "tcf": 1.068,
+      "divisionName": "2",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18887,
+      "nameRace": "Saltwater Wine",
+      "tcf": 1.04,
+      "divisionName": "3",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18925,
+      "nameRace": "Pacific Road Xanthus",
+      "tcf": 1.17,
+      "divisionName": "1",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18863,
+      "nameRace": "Pretty Woman",
+      "tcf": 1.196,
+      "divisionName": "1",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18865,
+      "nameRace": "Ragtime",
+      "tcf": 1.095,
+      "divisionName": "2",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18878,
+      "nameRace": "Calibre 12",
+      "tcf": 1.132,
+      "divisionName": "2",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18886,
+      "nameRace": "V5",
+      "tcf": 1.384,
+      "divisionName": "0",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18866,
+      "nameRace": "Antipodes",
+      "tcf": 1.375,
+      "divisionName": "0",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18924,
+      "nameRace": "Frantic",
+      "tcf": 1.345,
+      "divisionName": "0",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18939,
+      "nameRace": "Blue Planet (DH)",
+      "tcf": 1.002,
+      "divisionName": "3",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18949,
+      "nameRace": "Veloce (DH)",
+      "tcf": 1.007,
+      "divisionName": "3",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18882,
+      "nameRace": "Obsession",
+      "tcf": 1.11,
+      "divisionName": "2",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18920,
+      "nameRace": "Jupiter (DH)",
+      "tcf": 1.005,
+      "divisionName": "3",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18958,
+      "nameRace": "Unicoin",
+      "tcf": 1.137,
+      "divisionName": "2",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18922,
+      "nameRace": "Caol Ila",
+      "tcf": 1.377,
+      "divisionName": "0",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18876,
+      "nameRace": "She's the Culprit",
+      "tcf": 1.136,
+      "divisionName": "2",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18960,
+      "nameRace": "Ataraxia",
+      "tcf": 1,
+      "divisionName": "3",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18889,
+      "nameRace": "Yeah Baby Boatec Australia (DH)",
+      "tcf": 1.227,
+      "divisionName": "1",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18868,
+      "nameRace": "Clockwork",
+      "tcf": 1.1,
+      "divisionName": "2",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18870,
+      "nameRace": "Vixen Racing",
+      "tcf": 1.259,
+      "divisionName": "1",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18879,
+      "nameRace": "Wots Next",
+      "tcf": 1.172,
+      "divisionName": "1",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18885,
+      "nameRace": "Employment Hero Alliance (DH)",
+      "tcf": 1.072,
+      "divisionName": "2",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18983,
+      "nameRace": "Marguerite",
+      "tcf": 1.063,
+      "divisionName": "2",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 18955,
+      "nameRace": "Bushranger",
+      "tcf": 1.209,
+      "divisionName": "1",
+      "status": "Retired - at Port"
+     },
+     {
+      "raceEntryId": 18890,
+      "nameRace": "Challenge",
+      "tcf": 1.1,
+      "divisionName": "2",
+      "status": "Retired - at Port"
+     },
+     {
+      "raceEntryId": 18941,
+      "nameRace": "First Light (DH)",
+      "tcf": 1.199,
+      "divisionName": "1",
+      "status": "Did Not Finish"
+     }
+    ]
+   }
+  },
+  "198": {
+   "categories": [
+    {
+     "id": 1148,
+     "name": "IRC",
+     "type": "Handicap",
+     "isDefault": true,
+     "decidesWinner": true,
+     "totalDivisionsText": "1,2",
+     "divisions": [
+      "1",
+      "2"
+     ]
+    },
+    {
+     "id": 1149,
+     "name": "PHS",
+     "type": "Handicap",
+     "isDefault": false,
+     "decidesWinner": false,
+     "totalDivisionsText": "1,2",
+     "divisions": [
+      "1",
+      "2"
+     ]
+    },
+    {
+     "id": 1152,
+     "name": "IRC Corinthian",
+     "type": "Handicap",
+     "isDefault": false,
+     "decidesWinner": false,
+     "totalDivisionsText": "",
+     "divisions": [
+      ""
+     ]
+    },
+    {
+     "id": 1153,
+     "name": "Wild Rose IRC",
+     "type": "Handicap",
+     "isDefault": false,
+     "decidesWinner": false,
+     "totalDivisionsText": "",
+     "divisions": [
+      ""
+     ]
+    },
+    {
+     "id": 1150,
+     "name": "Double-Handed IRC",
+     "type": "Handicap",
+     "isDefault": false,
+     "decidesWinner": false,
+     "totalDivisionsText": "",
+     "divisions": [
+      ""
+     ]
+    },
+    {
+     "id": 1151,
+     "name": "Double-Handed PHS",
+     "type": "Handicap",
+     "isDefault": false,
+     "decidesWinner": false,
+     "totalDivisionsText": "",
+     "divisions": [
+      ""
+     ]
+    },
+    {
+     "id": 1147,
+     "name": "Line Honours",
+     "type": "Line Honours",
+     "isDefault": false,
+     "decidesWinner": false,
+     "totalDivisionsText": "",
+     "divisions": [
+      ""
+     ]
+    }
+   ],
+   "results": {
+    "1148": [
+     {
+      "raceEntryId": 19079,
+      "nameRace": "Smuggler",
+      "tcf": 1.369,
+      "divisionName": "1",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 19077,
+      "nameRace": "Moneypenny",
+      "tcf": 1.56,
+      "divisionName": "1",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 19102,
+      "nameRace": "BACK 2 BLACK",
+      "tcf": 1.264,
+      "divisionName": "1",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 19276,
+      "nameRace": "Porco Rosso",
+      "tcf": 1.385,
+      "divisionName": "1",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 19128,
+      "nameRace": "Caol Ila",
+      "tcf": 1.377,
+      "divisionName": "1",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 19064,
+      "nameRace": "Disko Trooper (DH)",
+      "tcf": 0.996,
+      "divisionName": "2",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 19073,
+      "nameRace": "Kanreki",
+      "tcf": 1.107,
+      "divisionName": "2",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 19072,
+      "nameRace": "Verite (DH)",
+      "tcf": 1.007,
+      "divisionName": "2",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 19068,
+      "nameRace": "Jupiter (DH)",
+      "tcf": 1.007,
+      "divisionName": "2",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 19065,
+      "nameRace": "Supernova",
+      "tcf": 1.04,
+      "divisionName": "2",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 19238,
+      "nameRace": "Origami",
+      "tcf": 1.024,
+      "divisionName": "2",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 19245,
+      "nameRace": "Llama II",
+      "tcf": 1.136,
+      "divisionName": "2",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 19078,
+      "nameRace": "Minerva",
+      "tcf": 1.219,
+      "divisionName": "1",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 19103,
+      "nameRace": "Vixen Racing",
+      "tcf": 1.259,
+      "divisionName": "1",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 19076,
+      "nameRace": "PRCM Employment Hero",
+      "tcf": 1.17,
+      "divisionName": "1",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 19127,
+      "nameRace": "Akonga",
+      "tcf": 1.088,
+      "divisionName": "2",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 19104,
+      "nameRace": "Challenge",
+      "tcf": 1.1,
+      "divisionName": "2",
+      "status": "Finished"
+     },
+     {
+      "raceEntryId": 19246,
+      "nameRace": "Ataraxia (DH)",
+      "tcf": 1,
+      "divisionName": "2",
+      "status": "Retired - at Port"
+     },
+     {
+      "raceEntryId": 19247,
+      "nameRace": "Inner Circle",
+      "tcf": 1.034,
+      "divisionName": "2",
+      "status": "Retired - at Port"
+     },
+     {
+      "raceEntryId": 19130,
+      "nameRace": "Magic (DH)",
+      "tcf": 1.073,
+      "divisionName": "2",
+      "status": "Retired - at Port"
+     },
+     {
+      "raceEntryId": 19066,
+      "nameRace": "Ragtime",
+      "tcf": 1.095,
+      "divisionName": "2",
+      "status": "Retired - at Port"
+     },
+     {
+      "raceEntryId": 19241,
+      "nameRace": "Toucan (DH)",
+      "tcf": 1.012,
+      "divisionName": "2",
+      "status": "Retired - at Port"
+     },
+     {
+      "raceEntryId": 19080,
+      "nameRace": "Wots Next",
+      "tcf": 1.172,
+      "divisionName": "1",
+      "status": "Retired - at Port"
+     }
+    ]
+   }
+  }
+ }
+}

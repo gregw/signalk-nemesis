@@ -58,6 +58,9 @@
         // Clear all, shown while any TCF (ours included) is not 1.
         const anyTcf = !!view.snap && (view.snap.tcfUs !== 1 || view.snap.boats.some((b) => b.tcf !== 1));
         $('tcfClearAll').classList.toggle('hidden', !anyTcf);
+        // IRC TCFs from CYCA, offered while a CYCA race (or a recording of one) is selected.
+        const cyca = view.snap && view.snap.cyca;
+        $('tcfCyca').classList.toggle('hidden', !(cyca && cyca.raceId != null));
         const list = $('tcflist');
         if (!view.snap) {
             $('tcfhead').innerHTML = '';
@@ -146,6 +149,45 @@
         ND.render(true);
     }
 
+    /** The confirm text for TCFs from CYCA: how many, how many change, ours, and the unlinked. */
+    function cycaPrompt(r) {
+        const f = (v) => v.toFixed(3);
+        const changes = r.rows.filter((x) => x.tcf !== x.current);
+        const us = r.rows.find((x) => x.ids[0] === ND.OWN_ID);
+        const unlinked = r.rows.filter((x) => x.ids.length === 1 && x.ids[0].startsWith('cyca:')).length;
+        return (
+            `Set ${r.rows.length} ${r.category.name} TCFs from the CYCA results? ${changes.length} change.` +
+            (us ? `\nOurs (${us.name}): ${f(us.current)} \u2192 ${f(us.tcf)}.` : '\nOurs is not in it.') +
+            (unlinked
+                ? `\n${unlinked} with no AIS boat linked or of the same name get it on their CYCA boat only (link them on the CYCA tab to have it on the AIS boat).`
+                : '')
+        );
+    }
+
+    async function loadCyca() {
+        const btn = $('tcfCyca');
+        btn.disabled = true;
+        try {
+            let r;
+            try {
+                r = await ND.api.get('/cyca/tcfs');
+            } catch (e) {
+                return alert('IRC TCFs from CYCA: ' + (e.status === 502 ? 'the CYCA feed did not answer' : e.message));
+            }
+            if (!r.rows.length) return alert(`No ${r.category.name} TCFs in the CYCA results yet.`);
+            if (!confirm(cycaPrompt(r))) return;
+            const res = await ND.api.put('setTcfs', {
+                tcfs: Object.fromEntries(r.rows.flatMap((x) => x.ids.map((id) => [id, x.tcf])))
+            });
+            if (res && res.statusCode && res.statusCode !== 200) throw new Error(res.message || 'refused');
+        } catch (e) {
+            alert('Set TCFs failed: ' + (e.status === 401 || e.status === 403 ? 'login needed' : e.message));
+        } finally {
+            btn.disabled = false;
+            ND.refresh();
+        }
+    }
+
     function init() {
         const list = $('tcflist');
         list.addEventListener('change', (e) => {
@@ -181,6 +223,7 @@
             }
             ND.refresh();
         });
+        $('tcfCyca').addEventListener('click', loadCyca);
         $('startNow').addEventListener('click', () => setStart(new Date().toISOString()));
         $('startClear').addEventListener('click', () => setStart(null));
         $('startIn').addEventListener('input', () => {
