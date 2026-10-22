@@ -12,6 +12,8 @@ out of AIS range.
 
 Six hours into the 2026 Sydney Gold Coast race, from recorded AIS data.
 
+Demo video: [Nemesis Delta on YouTube](https://youtu.be/OIuWYOKStu0).
+
 ## Install
 
 In the Signal K admin UI: **Appstore > Available**, find **Nemesis Delta**, **Install**, then
