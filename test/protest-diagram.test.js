@@ -105,3 +105,17 @@ test('lateral gap: sideways across a heading, ignoring how far ahead, never more
     assert.equal(D.lateralGap(a, 0, c).sgn, -1);
     near(D.lateralGap(a, 0, c).d, -(2 + 1.5 - 1), 1e-9, 'overlap is negative');
 });
+
+test('heading correction: added to HDG and TWD, wrapped; TWA, COG and missing headings left alone', () => {
+    const d = (x) => (x * Math.PI) / 180;
+    const rows = [
+        {hdgRad: d(355), twdRad: d(64), twaRad: d(-97.8), cogRad: d(10)},
+        {hdgRad: null, twdRad: null, twaRad: null, cogRad: d(20)}
+    ];
+    const [a, b] = D.correctHeadings(rows, 12.9);
+    const deg = (r) => +((r * 180) / Math.PI).toFixed(6);
+    assert.deepEqual([deg(a.hdgRad), deg(a.twdRad), deg(a.twaRad), deg(a.cogRad)], [7.9, 76.9, -97.8, 10]);
+    assert.deepEqual([b.hdgRad, b.twdRad, deg(b.cogRad)], [null, null, 20]);
+    assert.equal(D.correctHeadings(rows, 0), rows);
+    assert.equal(D.correctHeadings(rows, undefined), rows);
+});

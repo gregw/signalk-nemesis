@@ -12,7 +12,8 @@
  * Config (times ISO UTC; lengths in metres):
  *   {title, tzHours: 11, tzName: 'AEDT',
  *    boats: [{key, name, log, lengthM, beamM?, colour,
- *             antenna: {fromSternM, stbdM} | null}],   // null: unknown, assumed at the centre
+ *             antenna: {fromSternM, stbdM} | null,     // null: unknown, assumed at the centre
+ *             headingCorrection?: {deg, source}}],     // added to the logged HDG (and TWD)
  *    panels: [{from, to, intervalS, title?}]}
  *
  * Boats are placed at their GPS fix times (the logs' "GPS time"), not the logging PC
@@ -30,6 +31,18 @@ const D2R = Math.PI / 180;
 const KN = 1852 / 3600;
 const HDG_MAX_GAP_MS = 2000;
 const POS_MAX_GAP_MS = 3000;
+
+/**
+ * Rows with deg added to the logged heading, and to the TWD, which Expedition logs as
+ * HDG + TWA (so it carries the same offset). For a heading logged as magnetic: deg is the
+ * variation, east positive. TWA, COG and SOG are left as logged.
+ */
+function correctHeadings(rows, deg) {
+    if (!deg) return rows;
+    const d = deg * D2R;
+    const add = (v) => (v == null ? v : (((v + d) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI));
+    return rows.map((r) => ({...r, hdgRad: add(r.hdgRad), twdRad: add(r.twdRad)}));
+}
 
 /** Tangent-plane projection about (lat0, lon0): [x east, y north] in metres. */
 function projector(lat0, lon0) {
@@ -389,7 +402,7 @@ function panelData(boats, panel, proj, up = 0, witnesses = []) {
     const times = [];
     // steps: [[iso, seconds], ...]: from each time on, outlines that many seconds apart.
     const steps = (panel.steps || [[panel.from, panel.intervalS]]).map(([t, sec]) => [Date.parse(t), sec * 1000]);
-    for (let T = from; T <= to + 1;) {
+    for (let T = from; T <= to + 1; ) {
         times.push(T);
         T += steps.filter(([t]) => t <= T).at(-1)[1];
     }
@@ -836,7 +849,8 @@ function renderPage(cfg, boats, panel, data, pageNo, pages, proj, up = 0) {
     const per = (b) => ['COG', 'SOG', 'HDG', ...(b.tableTwa ? ['TWA'] : [])];
     const head = ['#', 'time', ...boats.flatMap(per), 'GAP'];
     const cols = [0, 6];
-    for (const b of boats) for (let k = 0; k < per(b).length; k++) cols.push(cols.at(-1) + (k ? 9.5 : cols.length > 2 ? 13 : 16));
+    for (const b of boats)
+        for (let k = 0; k < per(b).length; k++) cols.push(cols.at(-1) + (k ? 9.5 : cols.length > 2 ? 13 : 16));
     cols.push(cols.at(-1) + 13);
     for (const [i, b] of boats.entries())
         side += `<text x="${tx + cols[2 + boats.slice(0, i).reduce((n, o) => n + per(o).length, 0)]}" y="${y.toFixed(2)}" class="th" fill="${b.colour}">${esc(b.name.split(' (')[0])}</text>`;
@@ -849,7 +863,17 @@ function renderPage(cfg, boats, panel, data, pageNo, pages, proj, up = 0) {
     // TWA as logged: positive is wind on the starboard side.
     const twa = (r) => (r == null ? '---' : `${Math.round(Math.abs(r / D2R))}${r < 0 ? 'P' : 'S'}`);
     const vals = (m, b) =>
-        per(b).map((h) => (!m ? '-' : h === 'COG' ? deg3(m.s.cogRad) : h === 'SOG' ? kn1(m.s.sogMs) : h === 'HDG' ? deg3(m.s.hdgRad) : twa(m.s.twaRad)));
+        per(b).map((h) =>
+            !m
+                ? '-'
+                : h === 'COG'
+                  ? deg3(m.s.cogRad)
+                  : h === 'SOG'
+                    ? kn1(m.s.sogMs)
+                    : h === 'HDG'
+                      ? deg3(m.s.hdgRad)
+                      : twa(m.s.twaRad)
+        );
     for (const [n, T] of data.times.entries()) {
         const [a, c] = data.per.map((p) => p.marks[n]);
         const gg = gapOf(a, c) == null ? '-' : gapOf(a, c).toFixed(1);
@@ -881,7 +905,10 @@ function renderPage(cfg, boats, panel, data, pageNo, pages, proj, up = 0) {
     }
     y += 1;
     for (const t of wrap(
-        `${spans.map(({dsp, d}) => `At ${mmss(Date.parse(dsp.at))} ${dsp.from.key}'s ${dsp.from.part} was ${d.toFixed(1)} m from ${dsp.to.key}'s ${dsp.to.part} (${dsp.from.key} reconstructed). `).join('')}${measured.map(({b, ms, along, across, side, hdg}) => `Between ${mmss(Date.parse(ms.from))} and ${mmss(Date.parse(ms.to))} ${b.name.split(' (')[0]}'s bow moved ${Math.abs(across).toFixed(1)} m to ${side}, across her ${mmss(Date.parse(ms.to))} heading of ${deg3(hdg)}° (and ${Math.abs(along).toFixed(1)} m ${along >= 0 ? 'forward' : 'back'}). `).join('')}${laterals.map(({lt, d, hdg}) => `At ${mmss(Date.parse(lt.at))} the ${lt.of} and ${lt.to} outlines were ${d.toFixed(1)} m apart sideways, across ${lt.of}'s heading of ${deg3(hdg)}° (lateral). `).join('')}GAP: the shortest distance between the ${boats[0].name.split(' (')[0]} and ${boats[1].name.split(' (')[0]} outlines, m; smallest ${data.close.d.toFixed(1)} m at ${new Date(data.close.T + cfg.tzHours * 3600e3).toISOString().slice(11, 21)}. COG and SOG as each boat logged them (degrees true, kn); HDG compass heading, --- where none was logged.${boats.filter((b) => b.tableTwa).map((b) => ` TWA as ${b.name.split(' (')[0]} logged it, S or P the side the wind is on.`).join('')} Times ${cfg.tzName} from each boat's GPS fix time.`,
+        `${spans.map(({dsp, d}) => `At ${mmss(Date.parse(dsp.at))} ${dsp.from.key}'s ${dsp.from.part} was ${d.toFixed(1)} m from ${dsp.to.key}'s ${dsp.to.part} (${dsp.from.key} reconstructed). `).join('')}${measured.map(({b, ms, along, across, side, hdg}) => `Between ${mmss(Date.parse(ms.from))} and ${mmss(Date.parse(ms.to))} ${b.name.split(' (')[0]}'s bow moved ${Math.abs(across).toFixed(1)} m to ${side}, across her ${mmss(Date.parse(ms.to))} heading of ${deg3(hdg)}° (and ${Math.abs(along).toFixed(1)} m ${along >= 0 ? 'forward' : 'back'}). `).join('')}${laterals.map(({lt, d, hdg}) => `At ${mmss(Date.parse(lt.at))} the ${lt.of} and ${lt.to} outlines were ${d.toFixed(1)} m apart sideways, across ${lt.of}'s heading of ${deg3(hdg)}° (lateral). `).join('')}GAP: the shortest distance between the ${boats[0].name.split(' (')[0]} and ${boats[1].name.split(' (')[0]} outlines, m; smallest ${data.close.d.toFixed(1)} m at ${new Date(data.close.T + cfg.tzHours * 3600e3).toISOString().slice(11, 21)}. COG and SOG as each boat logged them (degrees true, kn); HDG compass heading${corrText(boats)}, --- where none was logged.${boats
+            .filter((b) => b.tableTwa)
+            .map((b) => ` TWA as ${b.name.split(' (')[0]} logged it, S or P the side the wind is on.`)
+            .join('')} Times ${cfg.tzName} from each boat's GPS fix time.`,
         WRAP
     ))
         line(esc(t), 'tiny', 3);
@@ -918,6 +945,14 @@ function renderPage(cfg, boats, panel, data, pageNo, pages, proj, up = 0) {
                 (b) =>
                     `${b.key}: GPS position on board about ${b.antenna.fromSternM} m from the stern, ${b.antenna.stbdM} m to starboard (${b.antenna.source || "owner's figure"}).`
             ),
+        // One note per distinct correction, naming the boats it applies to.
+        ...[...new Set(boats.filter((b) => b.headingCorrection).map((b) => JSON.stringify(b.headingCorrection)))].map(
+            (k) => {
+                const c = JSON.parse(k);
+                const keys = boats.filter((b) => JSON.stringify(b.headingCorrection) === k).map((b) => b.key);
+                return `${keys.join(', ')}: logged heading${keys.length > 1 ? 's' : ''} taken as magnetic: ${c.deg}° added to HDG, and so to TWD (logged as HDG + TWA), for the outline${keys.length > 1 ? 's' : ''}, the HDG column and the wind (${c.source}).`;
+            }
+        ),
         'GPS receiver error is not recorded in either log and is not in these margins.',
         `Fixes about 1 per second, interpolated; each boat's clock aligned to its own GPS. Outlines are schematic (beam ${boats.map((b) => `${b.key} ${b.B} m${b.beamAssumed ? ' assumed' : ''}`).join(', ')}), turned to the compass heading; dashed where none was logged within 2 s (COG used). Compass calibration unknown.`
     ].filter(Boolean);
@@ -932,9 +967,10 @@ function renderPage(cfg, boats, panel, data, pageNo, pages, proj, up = 0) {
 function render(cfg) {
     const boats = cfg.boats.map((b) => {
         const g = boatGeom(b);
-        const rows = parseExpedition(fs.readFileSync(b.log, 'utf8')).rows.filter((r) => r.gpsT != null);
+        const logged = parseExpedition(fs.readFileSync(b.log, 'utf8')).rows.filter((r) => r.gpsT != null);
+        const rows = correctHeadings(logged, b.headingCorrection && b.headingCorrection.deg);
         rows.sort((x, y) => x.gpsT - y.gpsT);
-        return {...g, rows};
+        return {...g, rows, headingCorrection: b.headingCorrection || null};
     });
     const first = boats[0].rows.find((r) => r.gpsT >= Date.parse(cfg.panels[0].from) && r.lat != null);
     const proj = projector(first.lat, first.lon);
@@ -982,6 +1018,16 @@ ${pages.join('\n')}
 `;
 }
 
+/** ' (K, S: logged + 12.9°)' for the boats whose heading was corrected, or ''. */
+function corrText(boats) {
+    const c = boats.filter((b) => b.headingCorrection);
+    if (!c.length) return '';
+    const degs = [...new Set(c.map((b) => b.headingCorrection.deg))];
+    return degs.length === 1
+        ? ` (${c.map((b) => b.key).join(', ')}: logged + ${degs[0]}°)`
+        : ` (${c.map((b) => `${b.key}: logged + ${b.headingCorrection.deg}°`).join('; ')})`;
+}
+
 async function main() {
     const [cfgPath, outBase] = process.argv.slice(2);
     if (!cfgPath || !outBase) {
@@ -1012,6 +1058,7 @@ if (require.main === module) main();
 
 module.exports = {
     boatsWind,
+    correctHeadings,
     lateralGap,
     witnessPose,
     hullPoint,

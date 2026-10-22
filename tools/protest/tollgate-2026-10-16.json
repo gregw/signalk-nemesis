@@ -5,6 +5,7 @@
   "boats": [
     {
       "key": "K",
+      "headingCorrection": {"deg": 12.9, "source": "magnetic variation 12.9° E, NOAA WMM-2025 at 34.1° S 151.3° E on 16 Oct 2026; not confirmed from the boat's instrument set-up"},
       "name": "Kanreki (Cookson 12)",
       "log": "/tmp/K-log-2026Oct16.csv",
       "lengthM": 12,
@@ -20,6 +21,7 @@
     },
     {
       "key": "S",
+      "headingCorrection": {"deg": 12.9, "source": "magnetic variation 12.9° E, NOAA WMM-2025 at 34.1° S 151.3° E on 16 Oct 2026; not confirmed from the boat's instrument set-up"},
       "name": "Supernova (Sydney 36)",
       "log": "/tmp/S-log-2026Oct16.csv",
       "lengthM": 10,
